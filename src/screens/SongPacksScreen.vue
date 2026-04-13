@@ -41,11 +41,11 @@ function hasDuplicateSongNameInPack(packName: string, songName: string): boolean
 // packs from library store (cached)
 const packs = computed(() => library.packs);
 
-async function loadPacks() {
+async function loadPacks(force = false) {
   loading.value = true;
   try {
-    // Only fetch if cache is empty
-    if (library.packs.length === 0) {
+    // 默认优先使用缓存；需要时可强制刷新（例如导入曲包成功后）。
+    if (force || library.packs.length === 0) {
       await library.loadPacks();
     }
   } catch (e: unknown) {
@@ -83,9 +83,7 @@ async function refreshSongs(opts?: { preserveCurrentPlayback?: boolean; removedS
 
     const currentStillExists = !!oldCurrentPath && game.songs.some((song) => song.path === oldCurrentPath);
     if (currentStillExists) {
-      const nowIndex = game.songs.findIndex((song) => song.path === oldCurrentPath);
-      player.queue = game.songs;
-      player.queueIndex = nowIndex >= 0 ? nowIndex : player.queueIndex;
+      player.syncQueuePreserveCurrent(game.songs, oldCurrentPath, player.queueIndex);
       return;
     }
 
@@ -158,7 +156,7 @@ async function importPack() {
           .replace("{1}", String(result.skippedCount))
       );
       await refreshSongs();
-      await loadPacks();
+      await loadPacks(true);
     } else if (result.skippedCount > 0) {
       showStatus(t("songPacks.allExist").replace("{0}", String(result.skippedCount)), true);
     } else {

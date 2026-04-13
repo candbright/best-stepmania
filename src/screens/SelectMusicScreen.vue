@@ -47,11 +47,23 @@ const DIFF_COLORS: Record<string, string> = {
   Hard: "#ff6d00", Challenge: "#e040fb", Edit: "#78909c",
 };
 
-// 筛选状态
-const diffMin = ref<number | null>(null);
-const diffMax = ref<number | null>(null);
-const filterSearch = ref("");
-const filterPack = ref("");
+// 筛选状态（持久到 session，返回选歌页时保留）
+const diffMin = computed({
+  get: () => game.selectFilterDiffMin,
+  set: (v: number | null) => { game.selectFilterDiffMin = v; },
+});
+const diffMax = computed({
+  get: () => game.selectFilterDiffMax,
+  set: (v: number | null) => { game.selectFilterDiffMax = v; },
+});
+const filterSearch = computed({
+  get: () => game.selectFilterSearch,
+  set: (v: string) => { game.selectFilterSearch = v; },
+});
+const filterPack = computed({
+  get: () => game.selectFilterPack,
+  set: (v: string) => { game.selectFilterPack = v; },
+});
 
 const hasActiveFilter = computed(() =>
   diffMin.value !== null || diffMax.value !== null ||
@@ -121,10 +133,13 @@ const ROOT_PACK_KEY = "__ROOT__";
 const PHYSICAL_ROOT_PACK = ".root";
 
 const groupedSongs = computed(() => {
+  const indexByPath = new Map<string, number>();
+  game.songs.forEach((s, i) => indexByPath.set(s.path, i));
   const groups: { packKey: string; packLabel: string; songs: { song: typeof game.songs[0]; idx: number }[] }[] = [];
   const packMap = new Map<string, typeof groups[0]>();
   filteredSongs.value.forEach(song => {
-    const idx = game.songs.indexOf(song);
+    const idx = indexByPath.get(song.path) ?? -1;
+    if (idx < 0) return;
     const pack = (song.pack ?? "").trim();
     const isRootPack = pack === "" || pack === PHYSICAL_ROOT_PACK;
     const packKey = isRootPack ? ROOT_PACK_KEY : pack;
@@ -182,8 +197,15 @@ function ensureCurrentSongVisible() {
 
 function selectSong(idx: number) {
   game.selectSong(idx); playMenuMove();
-  // 通知 player store 切换歌曲（player store 负责所有音频逻辑）
-  player.playSongAt(idx);
+  // Ensure queue order matches current song list before switching by index.
+  const queueSynced =
+    player.queue.length === game.songs.length &&
+    player.queue.every((s, i) => s.path === game.songs[i]?.path);
+  if (!queueSynced) {
+    player.setQueue(game.songs, idx);
+  } else {
+    player.playSongAt(idx);
+  }
   loadBannerLazy(idx);
 }
 
@@ -776,8 +798,10 @@ watch(() => game.currentSongIndex, () => ensureCurrentSongVisible());
 .song-row:hover { background: var(--section-bg); }
 .song-row.selected {
   background: linear-gradient(90deg, var(--primary-color-bg), color-mix(in srgb, var(--primary-color-bg) 40%, transparent));
-  border-left: 2px solid var(--primary-color);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 18%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--primary-color) 82%, white);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 34%, transparent),
+    inset 0 0 16px color-mix(in srgb, var(--primary-color) 20%, transparent);
 }
 .song-row:focus-visible {
   outline: none;

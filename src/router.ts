@@ -1,5 +1,7 @@
 import { createRouter, createWebHashHistory, createWebHistory } from "vue-router";
 import { isTauri } from "@/utils/platform";
+import { usePlayerStore } from "@/stores/player";
+import { useSessionStore } from "@/stores/session";
 
 const router = createRouter({
   history: isTauri() ? createWebHashHistory() : createWebHistory(),
@@ -54,6 +56,26 @@ const router = createRouter({
       redirect: "/",
     },
   ],
+});
+
+router.beforeEach((to, from) => {
+  if (from.path === "/" && to.path === "/options") {
+    const player = usePlayerStore();
+    const session = useSessionStore();
+    session.resumeTitleMusicAfterOptions =
+      player.status === "playing" || player.status === "loading";
+    void player.stopForGame();
+    return;
+  }
+  if (from.path === "/options" && to.path === "/") {
+    const player = usePlayerStore();
+    const session = useSessionStore();
+    const shouldResume = session.resumeTitleMusicAfterOptions;
+    session.resumeTitleMusicAfterOptions = false;
+    if (shouldResume) {
+      void player.resumeAfterGame();
+    }
+  }
 });
 
 router.onError((error) => {

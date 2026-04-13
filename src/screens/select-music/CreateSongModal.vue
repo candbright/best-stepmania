@@ -170,293 +170,171 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
 </script>
 
 <template>
-  <div v-if="show" ref="modalMaskRef" class="modal-mask">
-    <div class="modal-mask-fill" @click.self="close">
-    <div ref="modalCardRef" class="create-modal">
-      <h3 class="modal-title">{{ t('select.createSong') }}</h3>
+  <Teleport v-if="show" to="body">
+    <div ref="modalMaskRef" class="form-modal-mask">
+      <div class="form-modal-mask-fill" @click.self="close">
+        <div
+          ref="modalCardRef"
+          class="form-modal-shell form-modal-card--wide form-modal--scrollable"
+        >
+          <header class="form-modal-header">
+            <span class="form-modal-title">{{ t('select.createSong') }}</span>
+            <button type="button" class="form-modal-close" @click="close">×</button>
+          </header>
 
-      <label class="modal-label">{{ t('select.targetPack') }}</label>
-      <select v-model="createPack" class="modal-input">
-        <option :value="ROOT_PACK_KEY">{{ t('select.rootPack') }}</option>
-        <option v-for="p in existingPacks" :key="p" :value="p">{{ p }}</option>
-        <option value="__CUSTOM__">{{ t('select.newPack') }}</option>
-      </select>
-      <input v-if="createPack === '__CUSTOM__'" v-model="createPackCustom" class="modal-input" :placeholder="t('select.newPackPlaceholder')" />
+          <div class="form-modal-body">
+            <div class="form-modal-fields">
+            <label class="form-modal-label">{{ t('select.targetPack') }}</label>
+            <select v-model="createPack" class="form-modal-input">
+              <option :value="ROOT_PACK_KEY">{{ t('select.rootPack') }}</option>
+              <option v-for="p in existingPacks" :key="p" :value="p">{{ p }}</option>
+              <option value="__CUSTOM__">{{ t('select.newPack') }}</option>
+            </select>
+            <input
+              v-if="createPack === '__CUSTOM__'"
+              v-model="createPackCustom"
+              class="form-modal-input"
+              :placeholder="t('select.newPackPlaceholder')"
+            />
 
-      <label class="modal-label">{{ t('editor.metaTitle') }}</label>
-      <input v-model="createTitle" class="modal-input" :placeholder="t('select.defaultTitleHint')" />
+            <label class="form-modal-label">{{ t('editor.metaTitle') }}</label>
+            <input v-model="createTitle" class="form-modal-input" :placeholder="t('select.defaultTitleHint')" />
 
-      <label class="modal-label">{{ t('editor.metaArtist') }}</label>
-      <input v-model="createArtist" class="modal-input" :placeholder="t('select.defaultArtistHint')" />
+            <label class="form-modal-label">{{ t('editor.metaArtist') }}</label>
+            <input v-model="createArtist" class="form-modal-input" :placeholder="t('select.defaultArtistHint')" />
 
-      <label class="modal-label">{{ t('editor.metaSubtitle') }}</label>
-      <input v-model="createSubtitle" class="modal-input" />
+            <label class="form-modal-label">{{ t('editor.metaSubtitle') }}</label>
+            <input v-model="createSubtitle" class="form-modal-input" />
 
-      <label class="modal-label">{{ t('editor.metaGenre') }}</label>
-      <input v-model="createGenre" class="modal-input" />
+            <label class="form-modal-label">{{ t('editor.metaGenre') }}</label>
+            <input v-model="createGenre" class="form-modal-input" />
 
-      <label class="modal-label">{{ t('select.musicSource') }}</label>
-      <div class="path-row">
-        <input v-model="createMusicSourcePath" class="modal-input path-input" :placeholder="t('select.defaultMusicHint')" />
-        <button class="path-btn" @click="pickCreateMusic">{{ t('common.browse') }}</button>
-        <button class="path-btn" @click="clearCreateMusic">{{ t('common.clear') }}</button>
+            <label class="form-modal-label">{{ t('select.musicSource') }}</label>
+            <div class="form-modal-path-row">
+              <input
+                v-model="createMusicSourcePath"
+                class="form-modal-input form-modal-path-input"
+                :placeholder="t('select.defaultMusicHint')"
+              />
+              <button type="button" class="form-modal-path-btn" @click="pickCreateMusic">{{ t('common.browse') }}</button>
+              <button type="button" class="form-modal-path-btn" @click="clearCreateMusic">{{ t('common.clear') }}</button>
+            </div>
+
+            <label class="form-modal-label">{{ t('select.coverSource') }}</label>
+            <div class="form-modal-path-row">
+              <input
+                v-model="createCoverSourcePath"
+                class="form-modal-input form-modal-path-input"
+                :placeholder="t('select.defaultCoverHint')"
+              />
+              <button type="button" class="form-modal-path-btn" @click="pickCreateCover">{{ t('common.browse') }}</button>
+              <button type="button" class="form-modal-path-btn" @click="clearCreateCover">{{ t('common.clear') }}</button>
+            </div>
+
+            <label class="form-modal-label">{{ t('select.backgroundSource') }}</label>
+            <div class="form-modal-path-row">
+              <input
+                v-model="createBackgroundSourcePath"
+                class="form-modal-input form-modal-path-input"
+                :placeholder="t('select.defaultBackgroundHint')"
+              />
+              <button type="button" class="form-modal-path-btn" @click="pickCreateBackground">{{ t('common.browse') }}</button>
+              <button type="button" class="form-modal-path-btn" @click="clearCreateBackground">{{ t('common.clear') }}</button>
+            </div>
+
+            <p class="form-modal-hint">{{ t('select.timingDefaultsHint') }}</p>
+            <label class="form-modal-label">{{ t('select.createInitialBpm') }}</label>
+            <input
+              v-model.number="createBpm"
+              class="form-modal-input"
+              type="number"
+              min="20"
+              max="999"
+              step="0.001"
+              :placeholder="String(DEFAULT_CREATE_BPM)"
+            />
+
+            <label class="form-modal-label">{{ t('editor.metaOffset') }}</label>
+            <input
+              v-model.number="createOffset"
+              class="form-modal-input"
+              type="number"
+              step="0.001"
+              :placeholder="String(DEFAULT_CREATE_OFFSET)"
+            />
+
+            <label class="form-modal-label">{{ t('editor.metaSampleStart') }}</label>
+            <input
+              v-model.number="createSampleStart"
+              class="form-modal-input"
+              type="number"
+              min="0"
+              step="0.001"
+              :placeholder="String(DEFAULT_CREATE_SAMPLE_START)"
+            />
+
+            <label class="form-modal-label">{{ t('editor.metaSampleLength') }}</label>
+            <input
+              v-model.number="createSampleLength"
+              class="form-modal-input"
+              type="number"
+              min="0.01"
+              step="0.001"
+              :placeholder="String(DEFAULT_CREATE_SAMPLE_LENGTH)"
+            />
+
+            <label class="form-modal-check">
+              <input type="checkbox" v-model="createChart" />
+              {{ t('songPacks.createInitialChart') }}
+            </label>
+
+            <template v-if="createChart">
+              <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
+              <select v-model="createStepsType" class="form-modal-input">
+                <option value="pump-single">{{ t('editor.stepsTypeOption.pump-single') }}</option>
+                <option value="pump-double">{{ t('editor.stepsTypeOption.pump-double') }}</option>
+                <option value="pump-couple">{{ t('editor.stepsTypeOption.pump-couple') }}</option>
+                <option value="pump-routine">{{ t('editor.stepsTypeOption.pump-routine') }}</option>
+              </select>
+
+              <label class="form-modal-label">{{ t('editor.difficulty') }}</label>
+              <select v-model="createDifficulty" class="form-modal-input">
+                <option value="Beginner">Beginner</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+                <option value="Expert">Expert</option>
+                <option value="Edit">Edit</option>
+              </select>
+
+              <label class="form-modal-label">{{ t('editor.meter') }}</label>
+              <input
+                v-model.number="createMeter"
+                class="form-modal-input"
+                type="number"
+                min="1"
+                max="20"
+              />
+            </template>
+            </div>
+          </div>
+
+          <footer class="form-modal-footer">
+            <div class="form-modal-footer-inner">
+              <button type="button" class="form-modal-btn" @click="close">{{ t('cancel') }}</button>
+              <button
+                type="button"
+                class="form-modal-btn form-modal-btn--primary"
+                :disabled="creatingSong"
+                @click="createSong"
+              >
+                {{ t('confirm') }}
+              </button>
+            </div>
+          </footer>
+        </div>
       </div>
-
-      <label class="modal-label">{{ t('select.coverSource') }}</label>
-      <div class="path-row">
-        <input v-model="createCoverSourcePath" class="modal-input path-input" :placeholder="t('select.defaultCoverHint')" />
-        <button class="path-btn" @click="pickCreateCover">{{ t('common.browse') }}</button>
-        <button class="path-btn" @click="clearCreateCover">{{ t('common.clear') }}</button>
-      </div>
-
-      <label class="modal-label">{{ t('select.backgroundSource') }}</label>
-      <div class="path-row">
-        <input v-model="createBackgroundSourcePath" class="modal-input path-input" :placeholder="t('select.defaultBackgroundHint')" />
-        <button class="path-btn" @click="pickCreateBackground">{{ t('common.browse') }}</button>
-        <button class="path-btn" @click="clearCreateBackground">{{ t('common.clear') }}</button>
-      </div>
-
-      <p class="modal-section-hint">{{ t('select.timingDefaultsHint') }}</p>
-      <label class="modal-label">{{ t('select.createInitialBpm') }}</label>
-      <input
-        v-model.number="createBpm"
-        class="modal-input"
-        type="number"
-        min="20"
-        max="999"
-        step="0.001"
-        :placeholder="String(DEFAULT_CREATE_BPM)"
-      />
-
-      <label class="modal-label">{{ t('editor.metaOffset') }}</label>
-      <input
-        v-model.number="createOffset"
-        class="modal-input"
-        type="number"
-        step="0.001"
-        :placeholder="String(DEFAULT_CREATE_OFFSET)"
-      />
-
-      <label class="modal-label">{{ t('editor.metaSampleStart') }}</label>
-      <input
-        v-model.number="createSampleStart"
-        class="modal-input"
-        type="number"
-        min="0"
-        step="0.001"
-        :placeholder="String(DEFAULT_CREATE_SAMPLE_START)"
-      />
-
-      <label class="modal-label">{{ t('editor.metaSampleLength') }}</label>
-      <input
-        v-model.number="createSampleLength"
-        class="modal-input"
-        type="number"
-        min="0.01"
-        step="0.001"
-        :placeholder="String(DEFAULT_CREATE_SAMPLE_LENGTH)"
-      />
-
-      <label class="modal-label">
-        <input type="checkbox" v-model="createChart" class="modal-checkbox" />
-        {{ t('songPacks.createInitialChart') }}
-      </label>
-
-      <template v-if="createChart">
-        <label class="modal-label">{{ t('editor.stepsType') }}</label>
-        <select v-model="createStepsType" class="modal-input">
-          <option value="pump-single">{{ t('editor.stepsTypeOption.pump-single') }}</option>
-          <option value="pump-double">{{ t('editor.stepsTypeOption.pump-double') }}</option>
-          <option value="pump-couple">{{ t('editor.stepsTypeOption.pump-couple') }}</option>
-          <option value="pump-routine">{{ t('editor.stepsTypeOption.pump-routine') }}</option>
-        </select>
-
-        <label class="modal-label">{{ t('editor.difficulty') }}</label>
-        <select v-model="createDifficulty" class="modal-input">
-          <option value="Beginner">Beginner</option>
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-          <option value="Hard">Hard</option>
-          <option value="Expert">Expert</option>
-          <option value="Edit">Edit</option>
-        </select>
-
-        <label class="modal-label">{{ t('editor.meter') }}</label>
-        <input
-          v-model.number="createMeter"
-          class="modal-input"
-          type="number"
-          min="1"
-          max="20"
-        />
-      </template>
-
-      <div class="modal-actions">
-        <button class="modal-btn" @click="close">{{ t('cancel') }}</button>
-        <button class="modal-btn primary" :disabled="creatingSong" @click="createSong">{{ t('confirm') }}</button>
-      </div>
+      <p v-if="hintVisible" class="form-modal-mask-hint">{{ bottomHint }}</p>
     </div>
-    </div>
-    <p v-if="hintVisible" class="modal-mask-hint">{{ bottomHint }}</p>
-  </div>
+  </Teleport>
 </template>
-
-<style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700;900&display=swap');
-
-.modal-mask {
-  position: fixed; /* fix absolute position bug when scrolling */
-  inset: 0;
-  z-index: 200;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  flex-direction: column;
-}
-.modal-mask-fill {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  box-sizing: border-box;
-}
-.modal-mask-hint {
-  flex-shrink: 0;
-  margin: 0;
-  padding: 0.35rem 1.25rem max(0.85rem, env(safe-area-inset-bottom, 0px));
-  text-align: center;
-  font-size: 0.68rem;
-  font-family: 'Rajdhani', sans-serif;
-  letter-spacing: 0.04em;
-  color: color-mix(in srgb, var(--text-subtle) 90%, transparent);
-  pointer-events: none;
-  line-height: 1.35;
-}
-
-.create-modal {
-  width: min(520px, calc(100vw - 2rem));
-  max-height: 80vh;
-  overflow-y: auto;
-  border-radius: 12px;
-  padding: 1rem;
-  background: var(--bg-color, #08080f);
-  border: 1px solid color-mix(in srgb, var(--primary-color) 35%, transparent);
-  font-family: 'Rajdhani', sans-serif;
-  color: var(--text-color);
-}
-
-.modal-title {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 0.9rem;
-  margin-bottom: 0.75rem;
-  letter-spacing: 0.08em;
-  color: var(--text-color);
-}
-
-.modal-section-hint {
-  margin: 0.65rem 0 0.15rem;
-  font-size: 0.68rem;
-  color: color-mix(in srgb, var(--primary-color) 35%, var(--text-muted));
-  line-height: 1.35;
-}
-
-.modal-label {
-  display: block;
-  margin-top: 0.55rem;
-  margin-bottom: 0.25rem;
-  font-size: 0.72rem;
-  color: color-mix(in srgb, var(--primary-color) 28%, var(--text-color));
-}
-
-.modal-input {
-  width: 100%;
-  padding: 0.42rem 0.55rem;
-  border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
-  color: var(--text-color);
-  font-family: 'Rajdhani', sans-serif;
-  box-sizing: border-box;
-}
-
-.modal-input:focus {
-  outline: none;
-  border-color: var(--primary-color); 
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary-color) 20%, transparent);
-}
-
-.path-row {
-  display: flex;
-  gap: 0.35rem;
-}
-
-.path-input {
-  flex: 1;
-}
-
-.path-btn {
-  min-width: 2rem;
-  padding: 0 0.5rem;
-  border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.16);
-  background: rgba(255,255,255,0.08);
-  color: var(--text-color);
-  cursor: pointer;
-}
-.path-btn:hover {
-  background: rgba(255,255,255,0.15);
-}
-
-.modal-actions {
-  margin-top: 0.95rem;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-}
-
-.modal-btn {
-  padding: 0.45rem 0.9rem;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
-  color: var(--text-color);
-  cursor: pointer;
-  font-family: 'Rajdhani', sans-serif;
-}
-.modal-btn:hover {
-  background: rgba(255,255,255,0.12);
-}
-
-.modal-btn.primary {
-  border: none;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-secondary) 100%);
-  color: var(--text-on-primary);
-}
-.modal-btn.primary:hover {
-  filter: brightness(1.15);
-}
-
-.modal-checkbox {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--primary-color);
-  vertical-align: middle;
-  margin-right: 0.4rem;
-  cursor: pointer;
-}
-
-.modal-label:has(.modal-checkbox) {
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  margin-top: 0.65rem;
-  font-size: 0.8rem;
-  color: color-mix(in srgb, var(--primary-color) 28%, var(--text-color));
-}
-
-.modal-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-</style>

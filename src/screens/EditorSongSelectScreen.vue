@@ -411,6 +411,7 @@ onMounted(async () => {
     if (game.currentSongIndex >= 0) {
       player.cleanup();
       player.setQueue(game.songs, game.currentSongIndex);
+      player.playSongAt(game.currentSongIndex, true);
     }
     ensureCurrentSongVisible();
     preloadAllBanners();
@@ -838,8 +839,10 @@ onUnmounted(() => {
 .song-row:hover { background: var(--section-bg); }
 .song-row.selected {
   background: linear-gradient(90deg, var(--primary-color-bg), color-mix(in srgb, var(--primary-color-bg) 40%, transparent));
-  border-left: 2px solid var(--primary-color);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 18%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--primary-color) 82%, white);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 34%, transparent),
+    inset 0 0 16px color-mix(in srgb, var(--primary-color) 20%, transparent);
 }
 .song-row:focus-visible {
   outline: none;

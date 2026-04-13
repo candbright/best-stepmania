@@ -21,10 +21,8 @@ const RATE_OPTIONS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3];
 const NOTE_SCALE_OPTIONS = [0.5, 0.75, 1, 1.25, 1.5];
 const NOTE_STYLES = ["default", "neon", "retro", "tetris", "cyberpunk", "mechanical", "musical"] as const;
 
-// Computed available colors for P2 (exclude P1's selected color)
-const availableP2Colors = computed(() =>
-  ROUTINE_PLAYER_COLORS.filter((c) => c.id !== game.routineP1ColorId),
-);
+// P2 can choose from all routine colors (including blue).
+const availableP2Colors = computed(() => ROUTINE_PLAYER_COLORS);
 
 function routineColorTitle(colorId: RoutinePlayerColorId): string {
   const key = `playerOpt.routineColor.${colorId}`;
@@ -32,21 +30,12 @@ function routineColorTitle(colorId: RoutinePlayerColorId): string {
   return translated === key ? colorId : translated;
 }
 
-// When P2 selects a color, ensure it's different from P1
 function selectP2Color(colorId: RoutinePlayerColorId) {
-  if (colorId === game.routineP1ColorId) return;
   game.routineP2ColorId = colorId;
 }
 
-// When P1 selects a color, automatically switch P2 to a different one
 function selectP1Color(colorId: RoutinePlayerColorId) {
   game.routineP1ColorId = colorId;
-  if (game.routineP2ColorId === colorId) {
-    const firstAvailable = availableP2Colors.value[0];
-    if (firstAvailable) {
-      game.routineP2ColorId = firstAvailable.id;
-    }
-  }
 }
 
 const availableSkins = ref<string[]>([]);
@@ -286,7 +275,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Note Style -->
-            <div class="setting-row">
+            <div class="setting-row stacked">
               <span class="setting-label">{{ t('playerOpt.noteStyle') }}</span>
               <div class="chip-grid-inline">
                 <button v-for="st in NOTE_STYLES" :key="st"
@@ -296,13 +285,13 @@ onUnmounted(() => {
             </div>
 
             <!-- Note colors by chart layer: Routine only -->
-            <div class="setting-row" v-if="isRoutineMode">
+            <div class="setting-row stacked" v-if="isRoutineMode">
               <span class="setting-label">{{ t('playerOpt.routineP1Color') }} <HelpTooltip helpKey="routineLayerP1" /></span>
               <div class="color-picker">
                 <button v-for="color in ROUTINE_PLAYER_COLORS" :key="color.id"
-                  class="color-btn" :class="{ active: game.routineP1ColorId === color.id, 'color-unavailable': game.routineP2ColorId === color.id }"
+                  class="color-btn" :class="{ active: game.routineP1ColorId === color.id }"
                   :style="{ backgroundColor: color.hex }"
-                  :title="game.routineP2ColorId === color.id ? t('playerOpt.colorTakenByP2') : routineColorTitle(color.id)"
+                  :title="routineColorTitle(color.id)"
                   @click="selectP1Color(color.id)" />
               </div>
             </div>
@@ -385,7 +374,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Note Style (read-only) -->
-            <div class="setting-row">
+            <div class="setting-row stacked">
               <span class="setting-label">{{ t('playerOpt.noteStyle') }}</span>
               <div class="chip-grid-inline locked">
                 <button v-for="st in NOTE_STYLES" :key="st"
@@ -394,7 +383,7 @@ onUnmounted(() => {
             </div>
 
             <!-- P2 note color (layer 2) -->
-            <div class="setting-row">
+            <div class="setting-row stacked">
               <span class="setting-label">{{ t('playerOpt.routineP2Color') }} <HelpTooltip helpKey="routineLayerP2" /></span>
               <div class="color-picker">
                 <button v-for="color in availableP2Colors" :key="color.id"
@@ -475,7 +464,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Note Style (read-only) -->
-            <div class="setting-row">
+            <div class="setting-row stacked">
               <span class="setting-label">{{ t('playerOpt.noteStyle') }}</span>
               <div class="chip-grid-inline locked">
                 <button v-for="st in NOTE_STYLES" :key="st"
@@ -557,7 +546,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Note Style -->
-            <div class="setting-row">
+            <div class="setting-row stacked">
               <span class="setting-label">{{ t('playerOpt.noteStyle') }}</span>
               <div class="chip-grid-inline">
                 <button v-for="st in NOTE_STYLES" :key="st"
@@ -732,6 +721,7 @@ onUnmounted(() => {
 .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
 .setting-row:last-child { border-bottom: none; }
 .setting-label { font-size: 0.78rem; color: rgba(255,255,255,0.7); display: flex; align-items: center; gap: 0.3rem; }
+.setting-row.stacked { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
 
 .toggle-switch { position: relative; width: 42px; height: 22px; cursor: pointer; flex-shrink: 0; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; }

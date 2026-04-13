@@ -15,37 +15,74 @@ export const useLibraryStore = defineStore("library", () => {
   const sortMode = ref<SortMode>("title");
   const searchQuery = ref("");
   const songsLoadedOnce = ref(false);
+  let songsRequestId = 0;
+  let packsRequestId = 0;
+
+  function nextSongsRequestId() {
+    songsRequestId += 1;
+    return songsRequestId;
+  }
+
+  function isLatestSongsRequest(requestId: number) {
+    return requestId === songsRequestId;
+  }
+
+  function nextPacksRequestId() {
+    packsRequestId += 1;
+    return packsRequestId;
+  }
+
+  function isLatestPacksRequest(requestId: number) {
+    return requestId === packsRequestId;
+  }
 
   async function loadSongs(dirs: string[], options?: { force?: boolean }) {
     const force = options?.force === true;
     if (!force && songsLoadedOnce.value && songs.value.length > 0) {
       return;
     }
+    const requestId = nextSongsRequestId();
     await api.scanSongs(dirs);
-    songs.value = await api.getSongList(sortMode.value);
+    const nextSongs = await api.getSongList(sortMode.value);
+    if (!isLatestSongsRequest(requestId)) return;
+    songs.value = nextSongs;
     songsLoadedOnce.value = true;
   }
 
   async function refreshSongsList() {
-    songs.value = await api.getSongList(sortMode.value);
+    const requestId = nextSongsRequestId();
+    const nextSongs = await api.getSongList(sortMode.value);
+    if (!isLatestSongsRequest(requestId)) return;
+    songs.value = nextSongs;
     songsLoadedOnce.value = true;
   }
 
   async function loadPacks() {
-    packs.value = await api.listSongPacks();
+    const requestId = nextPacksRequestId();
+    const nextPacks = await api.listSongPacks();
+    if (!isLatestPacksRequest(requestId)) return;
+    packs.value = nextPacks;
   }
 
   async function setSortMode(mode: SortMode) {
     sortMode.value = mode;
-    songs.value = await api.getSongList(mode);
+    const requestId = nextSongsRequestId();
+    const nextSongs = await api.getSongList(mode);
+    if (!isLatestSongsRequest(requestId)) return;
+    songs.value = nextSongs;
   }
 
   async function search(query: string) {
     searchQuery.value = query;
+    const requestId = nextSongsRequestId();
     if (query.trim()) {
-      songs.value = await api.searchSongs(query);
+      const nextSongs = await api.searchSongs(query);
+      if (!isLatestSongsRequest(requestId)) return;
+      songs.value = nextSongs;
     } else {
-      songs.value = await api.getSongList(sortMode.value);
+      const nextSongs = await api.getSongList(sortMode.value);
+      if (!isLatestSongsRequest(requestId)) return;
+      songs.value = nextSongs;
     }
   }
 

@@ -22,6 +22,7 @@ import { setGameplaySfxEnabled } from "@/utils/sfx";
 import { routineColorHex } from "@/constants/routinePlayerColors";
 import { logOptionalRejection } from "@/utils/devLog";
 import TwoStepDangerModal from "@/components/TwoStepDangerModal.vue";
+import BaseModal from "@/components/BaseModal.vue";
 import type { EditorChartBackupStored } from "@/utils/editorChartBackup";
 import {
   applyEditorChartBackupToState,
@@ -790,32 +791,30 @@ onUnmounted(() => {
       @confirm="onDeleteChartConfirmed"
     />
 
-    <!-- New Chart Modal -->
-    <div v-if="showNewChartModal" class="modal-overlay" @click.self="showNewChartModal = false">
-      <div class="modal-content">
-        <h3>{{ t('editor.newChart') }}</h3>
-        <label class="modal-field">
-          <span>{{ t('editor.stepsType') }}</span>
-          <select v-model="newChartStepsType">
-            <option v-for="st in STEPS_TYPES" :key="st.value" :value="st.value">{{ t(st.labelKey) }}</option>
-          </select>
-        </label>
-        <label class="modal-field">
-          <span>{{ t('editor.difficulty') }}</span>
-          <select v-model="newChartDifficulty">
-            <option v-for="d in DIFFICULTIES" :key="d" :value="d">{{ translateChartDifficulty(d) }}</option>
-          </select>
-        </label>
-        <label class="modal-field">
-          <span>{{ t('editor.meter') }}</span>
-          <input v-model.number="newChartMeter" type="number" min="1" max="99" />
-        </label>
-        <div class="modal-actions">
-          <button class="tool-btn" @click="showNewChartModal = false">{{ t('cancel') }}</button>
-          <button class="tool-btn accent" @click="createNewChart">{{ t('confirm') }}</button>
-        </div>
+    <BaseModal
+      v-model="showNewChartModal"
+      :title="t('editor.newChart')"
+      width="min(400px, 92vw)"
+    >
+      <div class="form-modal-fields">
+        <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
+        <select v-model="newChartStepsType" class="form-modal-input">
+          <option v-for="st in STEPS_TYPES" :key="st.value" :value="st.value">{{ t(st.labelKey) }}</option>
+        </select>
+        <label class="form-modal-label">{{ t('editor.difficulty') }}</label>
+        <select v-model="newChartDifficulty" class="form-modal-input">
+          <option v-for="d in DIFFICULTIES" :key="d" :value="d">{{ translateChartDifficulty(d) }}</option>
+        </select>
+        <label class="form-modal-label">{{ t('editor.meter') }}</label>
+        <input v-model.number="newChartMeter" class="form-modal-input" type="number" min="1" max="99" />
       </div>
-    </div>
+      <template #footer>
+        <div class="form-modal-footer-inner">
+          <button type="button" class="form-modal-btn" @click="showNewChartModal = false">{{ t('cancel') }}</button>
+          <button type="button" class="form-modal-btn form-modal-btn--primary" @click="createNewChart">{{ t('confirm') }}</button>
+        </div>
+      </template>
+    </BaseModal>
 
     <EditorStatusBar
       ref="editorStatusBarRef"
@@ -1014,16 +1013,6 @@ onUnmounted(() => {
   padding: 0.5rem 1rem;
   font-size: 0.9rem;
 }
-.modal-field { display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.75rem; }
-.modal-field span { font-size: 0.7rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.08em; }
-.modal-field select, .modal-field input {
-  padding: 0.45rem 0.6rem; border-radius: 5px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.05);
-  color: var(--text-color); font-size: 0.85rem; outline: none;
-}
-.modal-field select option { background: var(--bg-color); color: var(--text-color); }
-.modal-field select:focus, .modal-field input:focus { border-color: color-mix(in srgb, var(--primary-color) 50%, transparent); }
 .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; flex-wrap: wrap; }
 .modal-actions--exit-choice { justify-content: flex-end; gap: 0.4rem; }
 .modal-desc { margin: 0 0 0.75rem; font-size: 0.85rem; line-height: 1.45; color: rgba(255, 255, 255, 0.72); }

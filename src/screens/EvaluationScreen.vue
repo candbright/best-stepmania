@@ -15,6 +15,8 @@ const results = computed(() => game.lastResults ?? {
   w1: 0, w2: 0, w3: 0, w4: 0, w5: 0, miss: 0,
   held: 0, letGo: 0, minesHit: 0, fullCombo: false, offsets: [],
 });
+const results2 = computed(() => game.lastResults2);
+const showDualResults = computed(() => !!(game.hasPlayer1 && game.hasPlayer2 && results2.value));
 
 const totalNotes = computed(() =>
   results.value.w1 + results.value.w2 + results.value.w3 +
@@ -46,6 +48,27 @@ const offsetBins = computed(() => {
 });
 
 const maxBin = computed(() => Math.max(1, ...offsetBins.value));
+const offsetBins2 = computed(() => {
+  const offsets = results2.value?.offsets ?? [];
+  if (!Array.isArray(offsets) || offsets.length === 0) return new Array(40).fill(0);
+  const bins = new Array(40).fill(0);
+  const range = 0.18;
+  const half = range / 2;
+  for (const o of offsets) {
+    if (!isFinite(o)) continue;
+    const norm = (o + half) / range;
+    if (!isFinite(norm)) continue;
+    const idx = Math.min(39, Math.max(0, Math.floor(norm * 40)));
+    bins[idx]++;
+  }
+  return bins;
+});
+const maxBin2 = computed(() => Math.max(1, ...offsetBins2.value));
+const meanOffset2 = computed(() => {
+  const offsets = results2.value?.offsets ?? [];
+  if (offsets.length === 0) return 0;
+  return offsets.reduce((a, b) => a + b, 0) / offsets.length;
+});
 
 function difficultyLabel(diff?: string) {
   if (!diff) return "—";
@@ -109,6 +132,7 @@ function retry() { router.push("/gameplay"); }
 
     <div class="right-panel">
       <div class="judgment-table">
+        <h4 class="player-result-title">{{ t('playerOpt.player1') }}</h4>
         <div class="j-row"><span class="j-label marvelous">{{ t('judgment.marvelous') }}</span><span class="j-val">{{ results.w1 }}</span></div>
         <div class="j-row"><span class="j-label perfect">{{ t('judgment.perfect') }}</span><span class="j-val">{{ results.w2 }}</span></div>
         <div class="j-row"><span class="j-label great">{{ t('judgment.great') }}</span><span class="j-val">{{ results.w3 }}</span></div>
@@ -121,6 +145,22 @@ function retry() { router.push("/gameplay"); }
         <div class="j-row"><span class="j-label">{{ t('eval.minesHit') }}</span><span class="j-val">{{ results.minesHit }}</span></div>
       </div>
 
+      <template v-if="showDualResults && results2">
+        <div class="judgment-table">
+          <h4 class="player-result-title">{{ t('playerOpt.player2') }}</h4>
+          <div class="j-row"><span class="j-label marvelous">{{ t('judgment.marvelous') }}</span><span class="j-val">{{ results2.w1 }}</span></div>
+          <div class="j-row"><span class="j-label perfect">{{ t('judgment.perfect') }}</span><span class="j-val">{{ results2.w2 }}</span></div>
+          <div class="j-row"><span class="j-label great">{{ t('judgment.great') }}</span><span class="j-val">{{ results2.w3 }}</span></div>
+          <div class="j-row"><span class="j-label good">{{ t('judgment.good') }}</span><span class="j-val">{{ results2.w4 }}</span></div>
+          <div class="j-row"><span class="j-label boo">{{ t('judgment.boo') }}</span><span class="j-val">{{ results2.w5 }}</span></div>
+          <div class="j-row"><span class="j-label miss">{{ t('judgment.miss') }}</span><span class="j-val">{{ results2.miss }}</span></div>
+          <div class="j-divider" />
+          <div class="j-row"><span class="j-label">{{ t('eval.holdsHeld') }}</span><span class="j-val">{{ results2.held }}</span></div>
+          <div class="j-row"><span class="j-label">{{ t('eval.holdsDropped') }}</span><span class="j-val">{{ results2.letGo }}</span></div>
+          <div class="j-row"><span class="j-label">{{ t('eval.minesHit') }}</span><span class="j-val">{{ results2.minesHit }}</span></div>
+        </div>
+      </template>
+
       <div class="offset-chart">
         <h4>{{ t('eval.timingOffset') }}</h4>
         <div class="chart-bars">
@@ -132,6 +172,20 @@ function retry() { router.push("/gameplay"); }
         <div class="chart-labels">
           <span>{{ t('eval.early') }}</span>
           <span class="mean-offset">{{ meanOffset >= 0 ? '+' : '' }}{{ (meanOffset * 1000).toFixed(1) }}ms</span>
+          <span>{{ t('eval.late') }}</span>
+        </div>
+      </div>
+      <div v-if="showDualResults && results2" class="offset-chart">
+        <h4>{{ t('playerOpt.player2') }} · {{ t('eval.timingOffset') }}</h4>
+        <div class="chart-bars">
+          <div v-for="(count, i) in offsetBins2" :key="'p2-' + i"
+               class="bar"
+               :class="{ center: i === 20, filled: i !== 20 && count > 0, empty: i !== 20 && count === 0 }"
+               :style="{ height: (count / maxBin2 * 60 + 2) + 'px' }" />
+        </div>
+        <div class="chart-labels">
+          <span>{{ t('eval.early') }}</span>
+          <span class="mean-offset">{{ meanOffset2 >= 0 ? '+' : '' }}{{ (meanOffset2 * 1000).toFixed(1) }}ms</span>
           <span>{{ t('eval.late') }}</span>
         </div>
       </div>
@@ -168,6 +222,12 @@ function retry() { router.push("/gameplay"); }
 .combo-lbl { font-size: 0.65rem; letter-spacing: 0.15em; color: rgba(255,255,255,0.3); }
 .right-panel { width: 380px; display: flex; flex-direction: column; justify-content: center; padding: 2rem; gap: 1.5rem; border-left: 1px solid var(--border-color); background: rgba(0,0,0,0.12); }
 .judgment-table { display: flex; flex-direction: column; gap: 4px; }
+.player-result-title {
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  color: rgba(255,255,255,0.4);
+  margin: 0 0 0.2rem;
+}
 .j-row { display: flex; justify-content: space-between; padding: 0.35rem 0.75rem; border-radius: 4px; background: var(--section-bg); }
 .j-label { font-size: 0.85rem; }
 .j-val { font-size: 0.85rem; font-weight: 700; font-variant-numeric: tabular-nums; }

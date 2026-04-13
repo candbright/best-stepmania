@@ -230,13 +230,18 @@ function handleGlobalEsc(e: KeyboardEvent) {
     }
   }
 
+  // 谱面编辑器：由 EditorScreen 的 window keydown 处理（goBack → goBackNow 含 cleanup / resumeFromEditor），
+  // 勿在此仅 router.push，否则会与工具栏返回不一致且 ESC 表现为无效或状态错乱。
+  if (route.path === "/editor") {
+    return;
+  }
+
   const backMap: Record<string, string> = {
     "/select-music": "/",
     "/player-options": "/select-music",
     "/options": "/",
     "/song-packs": "/options",
     "/editor-select": "/",
-    "/editor": "/editor-select",
     "/evaluation": "/select-music",
   };
 
@@ -245,12 +250,6 @@ function handleGlobalEsc(e: KeyboardEvent) {
 
   e.preventDefault();
   playMenuBack();
-  if (route.path === "/editor") {
-    void game.runEditorBackGuard().then((ok) => {
-      if (ok) router.push("/editor-select");
-    });
-    return;
-  }
   router.push(targetPath);
 }
 
@@ -323,6 +322,8 @@ onUnmounted(() => {
     />
     <MusicPlayer />
 
+  </div>
+  <Teleport to="body">
     <div v-if="shouldRenderCursorLayer" class="cursor-layer" aria-hidden="true">
       <div
         v-show="isCursorVisible"
@@ -343,7 +344,6 @@ onUnmounted(() => {
         >
           <path d="M4 2L4 21L9.3 15.8L12.7 22L15 20.9L11.6 14.7H19.5L4 2Z" />
         </svg>
-
         <svg
           v-else-if="(cursorVisualState === 'default' || cursorVisualState === 'pointer') && game.cursorStylePreset === 'b'"
           viewBox="0 0 24 24"
@@ -352,31 +352,24 @@ onUnmounted(() => {
           <path d="M4 2.6L4.2 20.8L9.1 16.1L12.2 21.4L14.7 20.2L11.6 14.8H18.4L4 2.6Z" />
           <path d="M8.1 5.8L14 10.7" class="preset-b-cut" />
         </svg>
-
         <svg v-else-if="cursorVisualState === 'text'" viewBox="0 0 24 24" class="cursor-icon state-glyph">
           <path d="M7 4H17V6H13V18H17V20H7V18H11V6H7V4Z" />
         </svg>
-
         <svg v-else-if="cursorVisualState === 'not-allowed'" viewBox="0 0 24 24" class="cursor-icon state-glyph">
           <path d="M12 3C7.03 3 3 7.03 3 12C3 16.97 7.03 21 12 21C16.97 21 21 16.97 21 12C21 7.03 16.97 3 12 3ZM6.8 12C6.8 10.95 7.16 9.98 7.76 9.2L14.8 16.24C14.02 16.84 13.05 17.2 12 17.2C9.13 17.2 6.8 14.87 6.8 12ZM16.24 14.8L9.2 7.76C9.98 7.16 10.95 6.8 12 6.8C14.87 6.8 17.2 9.13 17.2 12C17.2 13.05 16.84 14.02 16.24 14.8Z" />
         </svg>
-
         <svg v-else-if="cursorVisualState === 'move'" viewBox="0 0 24 24" class="cursor-icon state-glyph">
           <path d="M12 3L15.5 6.5H13.5V10.5H17.5V8.5L21 12L17.5 15.5V13.5H13.5V17.5H15.5L12 21L8.5 17.5H10.5V13.5H6.5V15.5L3 12L6.5 8.5V10.5H10.5V6.5H8.5L12 3Z" />
         </svg>
-
         <svg v-else-if="cursorVisualState === 'crosshair'" viewBox="0 0 24 24" class="cursor-icon state-glyph">
           <path d="M11 3H13V8H16V10H13V14H11V10H8V8H11V3ZM11 16H13V21H11V16ZM3 11H8V13H3V11ZM16 11H21V13H16V11Z" />
         </svg>
-
         <svg v-else-if="cursorVisualState === 'wait' || cursorVisualState === 'progress'" viewBox="0 0 24 24" class="cursor-icon state-glyph spin-glyph">
           <path d="M12 4C7.58 4 4 7.58 4 12H6.2C6.2 8.8 8.8 6.2 12 6.2V4ZM12 19.8V22C16.42 22 20 18.42 20 14H17.8C17.8 17.2 15.2 19.8 12 19.8ZM4 14C4 18.42 7.58 22 12 22V19.8C8.8 19.8 6.2 17.2 6.2 14H4ZM20 12C20 7.58 16.42 4 12 4V6.2C15.2 6.2 17.8 8.8 17.8 12H20Z" />
         </svg>
-
         <svg v-else-if="cursorVisualState === 'help'" viewBox="0 0 24 24" class="cursor-icon state-glyph">
           <path d="M12 3C7.03 3 3 7.03 3 12C3 16.97 7.03 21 12 21C16.97 21 21 16.97 21 12C21 7.03 16.97 3 12 3ZM12 17.2C11.23 17.2 10.6 16.57 10.6 15.8C10.6 15.03 11.23 14.4 12 14.4C12.77 14.4 13.4 15.03 13.4 15.8C13.4 16.57 12.77 17.2 12 17.2ZM13.56 11.86C13.02 12.21 12.8 12.43 12.8 13.1V13.4H11.2V12.95C11.2 12.02 11.6 11.47 12.34 10.98C12.95 10.58 13.4 10.28 13.4 9.62C13.4 8.78 12.76 8.2 11.86 8.2C10.99 8.2 10.33 8.77 10.2 9.64H8.6C8.74 7.93 10.08 6.8 11.9 6.8C13.81 6.8 15 8.02 15 9.56C15 10.72 14.28 11.39 13.56 11.86Z" />
         </svg>
-
         <svg
           v-else-if="cursorVisualState === 'resize-x' || cursorVisualState === 'resize-y' || cursorVisualState === 'resize-nesw' || cursorVisualState === 'resize-nwse'"
           viewBox="0 0 24 24"
@@ -389,12 +382,10 @@ onUnmounted(() => {
         >
           <path d="M3 12L7 8V10.7H17V8L21 12L17 16V13.3H7V16L3 12Z" />
         </svg>
-
         <svg v-else viewBox="0 0 24 24" class="cursor-icon">
           <path d="M4 2L4 21L9.3 15.8L12.7 22L15 20.9L11.6 14.7H19.5L4 2Z" />
         </svg>
       </div>
-
       <div
         v-for="ripple in cursorRipples"
         :key="ripple.id"
@@ -411,7 +402,7 @@ onUnmounted(() => {
         }"
       />
     </div>
-  </div>
+  </Teleport>
 </template>
 
 <style>
@@ -435,7 +426,7 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 2147483647;
+  z-index: var(--z-cursor, 2147483647);
 }
 
 .custom-cursor {

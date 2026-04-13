@@ -68,6 +68,10 @@ export const useGameStore = defineStore("game", () => {
     get: () => session.lastResults,
     set: (v) => { session.lastResults = v; },
   });
+  const lastResults2 = computed({
+    get: () => session.lastResults2,
+    set: (v) => { session.lastResults2 = v; },
+  });
   const lastScoreSaved = computed({
     get: () => session.lastScoreSaved,
     set: (v: boolean | null) => { session.lastScoreSaved = v; },
@@ -176,6 +180,22 @@ export const useGameStore = defineStore("game", () => {
     get: () => session.resumeFromEditor,
     set: (v: boolean) => { session.resumeFromEditor = v; },
   });
+  const selectFilterDiffMin = computed({
+    get: () => session.selectFilterDiffMin,
+    set: (v: number | null) => { session.selectFilterDiffMin = v; },
+  });
+  const selectFilterDiffMax = computed({
+    get: () => session.selectFilterDiffMax,
+    set: (v: number | null) => { session.selectFilterDiffMax = v; },
+  });
+  const selectFilterSearch = computed({
+    get: () => session.selectFilterSearch,
+    set: (v: string) => { session.selectFilterSearch = v; },
+  });
+  const selectFilterPack = computed({
+    get: () => session.selectFilterPack,
+    set: (v: string) => { session.selectFilterPack = v; },
+  });
   const routineP1ColorId = computed({
     get: () => session.routineP1ColorId,
     set: (v: RoutinePlayerColorId) => { session.routineP1ColorId = v; },
@@ -234,7 +254,8 @@ export const useGameStore = defineStore("game", () => {
 
   return {
     songs, currentSongIndex, currentChartIndex, charts,
-    sortMode, searchQuery, profileId, profileName, topScores, lastResults, lastScoreSaved, previewFromSecond, previewReturnToEditor, editorWarmResume, needsSongRefresh, resumePlaybackOnReturn, resumeFromEditor,
+    sortMode, searchQuery, profileId, profileName, topScores, lastResults, lastResults2, lastScoreSaved, previewFromSecond, previewReturnToEditor, editorWarmResume, needsSongRefresh, resumePlaybackOnReturn, resumeFromEditor,
+    selectFilterDiffMin, selectFilterDiffMax, selectFilterSearch, selectFilterPack,
     configLoaded,
     masterVolume, musicVolume, effectVolume,
     rhythmSfxEnabled, rhythmSfxVolume, rhythmSfxStyle,

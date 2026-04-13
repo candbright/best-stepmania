@@ -34,6 +34,7 @@ export const useSessionStore = defineStore("session", () => {
   const topScores = ref<HighScoreInfo[]>([]);
 
   const lastResults = ref<LastResults | null>(null);
+  const lastResults2 = ref<LastResults | null>(null);
   /** Tracks whether the last score-save IPC call succeeded (null = no save attempted yet). */
   const lastScoreSaved = ref<boolean | null>(null);
   /** When set, gameplay starts from this audio-second with a lead-in instead of from the beginning. */
@@ -55,8 +56,15 @@ export const useSessionStore = defineStore("session", () => {
   const needsSongRefresh = ref(false);
   /** Flag: when returning from player options, resume song playback */
   const resumePlaybackOnReturn = ref(false);
+  /** Title → 设置：若进入设置前正在播预览，回主界面时恢复播放（与 stopForGame / resumeAfterGame 配套） */
+  const resumeTitleMusicAfterOptions = ref(false);
   /** Flag: when returning from editor, play from beginning */
   const resumeFromEditor = ref(false);
+  /** SelectMusic filter state should survive gameplay round trips. */
+  const selectFilterDiffMin = ref<number | null>(null);
+  const selectFilterDiffMax = ref<number | null>(null);
+  const selectFilterSearch = ref("");
+  const selectFilterPack = ref("");
 
   /** Pump Routine: per-layer note display colors (chart '&' layers; default note shape only). */
   const routineP1ColorId = ref<RoutinePlayerColorId>("blue");
@@ -175,9 +183,10 @@ export const useSessionStore = defineStore("session", () => {
     songs, currentSongIndex, currentChartIndex, charts,
     playMode, hasPlayer1, hasPlayer2, p1ChartIndex, p2ChartIndex,
     routineP1ColorId, routineP2ColorId,
-    profileId, profileName, topScores, lastResults, lastScoreSaved, previewFromSecond, previewReturnToEditor, editorWarmResume,
+    profileId, profileName, topScores, lastResults, lastResults2, lastScoreSaved, previewFromSecond, previewReturnToEditor, editorWarmResume,
     editorPrimedCharts, editorEntryAudioPrimed, clearEditorEntryPrime,
-    needsSongRefresh, resumePlaybackOnReturn, resumeFromEditor,
+    needsSongRefresh, resumePlaybackOnReturn, resumeTitleMusicAfterOptions, resumeFromEditor,
+    selectFilterDiffMin, selectFilterDiffMax, selectFilterSearch, selectFilterPack,
     currentSong, currentChart, currentDifficulty,
     selectSong, selectChart, initProfile,
     setCurrentSongIndexFromPlayer,

@@ -499,9 +499,11 @@ const activeCategory = ref<SettingsCategoryId>("general");
 <template>
   <div class="options-screen">
     <header class="top-bar">
-      <button class="back-btn" @click="goBack">&larr; {{ t('back') }}</button>
-      <h2>{{ t('settings.title') }}</h2>
-      <div style="width:80px" />
+      <div class="top-bar-lead">
+        <button type="button" class="tb-btn" @click="goBack">←</button>
+      </div>
+      <h2 class="top-bar-title">{{ t('settings.title') }}</h2>
+      <div class="top-bar-trail" aria-hidden="true" />
     </header>
 
     <div class="settings-body">
@@ -872,10 +874,53 @@ const activeCategory = ref<SettingsCategoryId>("general");
 
 <style scoped>
 .options-screen { width:100%;height:100%;display:flex;flex-direction:column;background:linear-gradient(180deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%); }
-.top-bar { display:flex;align-items:center;padding:0.85rem 1rem;border-bottom:1px solid var(--border-color);background:rgba(8,8,18,0.72);backdrop-filter:blur(14px); }
-.top-bar h2 { flex:1;text-align:center;font-size:0.85rem;letter-spacing:0.3em;color:rgba(255,255,255,0.4); }
-.back-btn { background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:0.9rem; }
-.back-btn:hover { color: var(--text-color); }
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-color) 82%, transparent);
+  backdrop-filter: blur(12px);
+}
+.top-bar-lead,
+.top-bar-trail {
+  flex: 0 0 5rem;
+  display: flex;
+  align-items: center;
+}
+.top-bar-lead { justify-content: flex-start; }
+.top-bar-trail { justify-content: flex-end; }
+.top-bar-title {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-family: "Orbitron", sans-serif;
+}
+.tb-btn {
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  background: var(--section-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: "Rajdhani", sans-serif;
+  transition: all 0.15s;
+}
+.tb-btn:hover {
+  background: var(--primary-color-bg);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
+  color: var(--text-color);
+}
+.tb-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
 .settings-body {
   flex: 1;
   display: flex;
