@@ -9,16 +9,16 @@ export async function audioLoad(musicPath: string): Promise<AudioInfo> {
   return invokeWithRetry<AudioInfo>("audio_load", { musicPath });
 }
 
-export async function audioPlay(): Promise<void> {
-  return invoke("audio_play");
+export async function audioPlay(requestToken?: number): Promise<void> {
+  return invoke("audio_play", { requestToken });
 }
 
-export async function audioPause(): Promise<void> {
-  return invoke("audio_pause");
+export async function audioPause(requestToken?: number): Promise<void> {
+  return invoke("audio_pause", { requestToken });
 }
 
-export async function audioSeek(seconds: number): Promise<void> {
-  return invoke("audio_seek", { seconds });
+export async function audioSeek(seconds: number, requestToken?: number): Promise<void> {
+  return invoke("audio_seek", { seconds, requestToken });
 }
 
 export async function audioGetTime(): Promise<number> {
@@ -44,8 +44,8 @@ export async function audioSetRate(rate: number): Promise<void> {
   return invoke("audio_set_rate", { rate });
 }
 
-export async function audioStop(): Promise<void> {
-  return invoke("audio_stop");
+export async function audioStop(requestToken?: number): Promise<void> {
+  return invoke("audio_stop", { requestToken });
 }
 
 export async function audioClearCache(): Promise<void> {
@@ -56,8 +56,9 @@ export async function audioPreview(
   musicPath: string,
   start: number,
   length: number,
+  requestToken?: number,
 ): Promise<void> {
-  return invoke("audio_preview", { musicPath, start, length });
+  return invoke("audio_preview", { musicPath, start, length, requestToken });
 }
 
 export async function audioPreload(musicPath: string): Promise<void> {

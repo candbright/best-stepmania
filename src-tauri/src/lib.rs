@@ -36,6 +36,7 @@ pub struct AppState {
     pub audio_engine: Mutex<AudioEngine>,
     pub noteskin_manager: Mutex<NoteSkinManager>,
     pub songs_base_dir: Mutex<String>,
+    pub latest_audio_request_token: Mutex<u64>,
     pub data_dir: PathBuf,
     pub scan_state: Arc<Mutex<ScanState>>,
     /// LRU-style cache for parsed chart files to avoid re-parsing on repeated access.
@@ -206,6 +207,7 @@ pub fn run() {
                 audio_engine: Mutex::new(AudioEngine::new()),
                 noteskin_manager: Mutex::new(NoteSkinManager::new()),
                 songs_base_dir: Mutex::new(songs_dir_str.clone()),
+                latest_audio_request_token: Mutex::new(0),
                 data_dir,
                 scan_state: Arc::clone(&scan_state),
                 chart_cache: Mutex::new(ChartCache::new(DEFAULT_CHART_CACHE_SIZE)),

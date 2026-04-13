@@ -24,6 +24,32 @@ fn resolve_path(music_path: &str, base_dir: &str) -> Option<PathBuf> {
     None
 }
 
+fn claim_or_reject_request_token(
+    latest_token: &std::sync::Mutex<u64>,
+    request_token: Option<u64>,
+) -> Result<bool, String> {
+    let Some(token) = request_token else {
+        return Ok(true);
+    };
+    let mut latest = latest_token.lock().map_err(|e| e.to_string())?;
+    if token < *latest {
+        return Ok(false);
+    }
+    *latest = token;
+    Ok(true)
+}
+
+fn is_current_request_token(
+    latest_token: &std::sync::Mutex<u64>,
+    request_token: Option<u64>,
+) -> Result<bool, String> {
+    let Some(token) = request_token else {
+        return Ok(true);
+    };
+    let latest = latest_token.lock().map_err(|e| e.to_string())?;
+    Ok(token == *latest)
+}
+
 /// Ensure an audio file is decoded and loaded into the engine's active stream.
 /// Fast path: if the file is already in cache, just rebuilds the stream.
 /// Slow path: decodes the file off-thread, stores in cache, then loads.
@@ -78,21 +104,34 @@ pub async fn audio_load(
 }
 
 #[tauri::command]
-pub fn audio_play(state: State<AppState>) -> Result<(), String> {
+pub fn audio_play(state: State<AppState>, request_token: Option<u64>) -> Result<(), String> {
+    if !claim_or_reject_request_token(&state.latest_audio_request_token, request_token)? {
+        return Ok(());
+    }
     let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
     engine.play();
     Ok(())
 }
 
 #[tauri::command]
-pub fn audio_pause(state: State<AppState>) -> Result<(), String> {
+pub fn audio_pause(state: State<AppState>, request_token: Option<u64>) -> Result<(), String> {
+    if !claim_or_reject_request_token(&state.latest_audio_request_token, request_token)? {
+        return Ok(());
+    }
     let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
     engine.pause();
     Ok(())
 }
 
 #[tauri::command]
-pub fn audio_seek(state: State<AppState>, seconds: f64) -> Result<(), String> {
+pub fn audio_seek(
+    state: State<AppState>,
+    seconds: f64,
+    request_token: Option<u64>,
+) -> Result<(), String> {
+    if !claim_or_reject_request_token(&state.latest_audio_request_token, request_token)? {
+        return Ok(());
+    }
     let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
     engine.seek(seconds);
     Ok(())
@@ -140,7 +179,10 @@ pub fn audio_set_rate(state: State<AppState>, rate: f64) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn audio_stop(state: State<AppState>) -> Result<(), String> {
+pub fn audio_stop(state: State<AppState>, request_token: Option<u64>) -> Result<(), String> {
+    if !claim_or_reject_request_token(&state.latest_audio_request_token, request_token)? {
+        return Ok(());
+    }
     let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
     engine.stop();
     Ok(())
@@ -162,7 +204,12 @@ pub async fn audio_preview(
     music_path: String,
     start: f64,
     length: f64,
+    request_token: Option<u64>,
 ) -> Result<(), String> {
+    if !claim_or_reject_request_token(&state.latest_audio_request_token, request_token)? {
+        return Ok(());
+    }
+
     let base_dir = {
         state
             .songs_base_dir
@@ -190,6 +237,9 @@ pub async fn audio_preview(
 
     // Slow path: decode if not cached, then load stream
     ensure_audio_ready(&state.audio_engine, &resolved).await?;
+    if !is_current_request_token(&state.latest_audio_request_token, request_token)? {
+        return Ok(());
+    }
 
     let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
     let duration = engine.duration();

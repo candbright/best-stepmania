@@ -35,6 +35,7 @@ export const usePlayerStore = defineStore("player", () => {
 
   // 防竞态：每次 loadAndPlay 递增，旧请求检测到 id 不匹配则丢弃
   let loadAbortId = 0;
+  let activeAudioRequestToken: number | null = null;
   // 进度轮询句柄
   let progressTimer: ReturnType<typeof setInterval> | null = null;
   // 防止 playNext 在歌曲结束时被多次调用
@@ -228,6 +229,7 @@ export const usePlayerStore = defineStore("player", () => {
   async function loadAndPlay(idx: number, autoplay = true) {
     if (idx < 0 || idx >= queue.value.length) return;
     const myId = ++loadAbortId;
+    activeAudioRequestToken = myId;
     const song = queue.value[idx];
 
     // 立即更新 UI 状态
@@ -240,7 +242,7 @@ export const usePlayerStore = defineStore("player", () => {
     stopProgressPoll();
 
     // 切歌后立即停止旧预览，避免新歌加载/缓冲期间旧歌继续播放
-    await api.audioStop().catch((e) => logOptionalRejection("player.loadAndPlay.audioStop", e));
+    await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlay.audioStop", e));
 
     try {
       const musicPath = await resolveMusicPath(song.path);
@@ -250,11 +252,11 @@ export const usePlayerStore = defineStore("player", () => {
 
       if (autoplay) {
         const length = song.sampleLength > 0 ? song.sampleLength : 120;
-        await api.audioPreview(musicPath, 0, length);
+        await api.audioPreview(musicPath, 0, length, myId);
         if (myId !== loadAbortId) {
           // 旧请求可能已经触发了播放，若当前已切到别的歌则立刻停止
           if (queueIndex.value !== idx) {
-            await api.audioStop().catch((e) => logOptionalRejection("player.loadAndPlay.raceStop1", e));
+            await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlay.raceStop1", e));
           }
           return;
         }
@@ -262,7 +264,7 @@ export const usePlayerStore = defineStore("player", () => {
         duration.value = await api.audioGetDuration();
         if (myId !== loadAbortId) {
           if (queueIndex.value !== idx) {
-            await api.audioStop().catch((e) => logOptionalRejection("player.loadAndPlay.raceStop2", e));
+            await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlay.raceStop2", e));
           }
           return;
         }
@@ -276,6 +278,78 @@ export const usePlayerStore = defineStore("player", () => {
       preloadNeighbors(idx);
     } catch (e: unknown) {
       logOptionalRejection("player.loadAndPlay", e);
+      if (myId === loadAbortId) status.value = "idle";
+    }
+  }
+
+  /**
+   * 加载并播放整首曲目（非菜单预览）。使用 `audio_load` + 从头 `play`，
+   * 供从编辑器等场景返回列表时需要完整背景音乐时使用。
+   */
+  async function loadAndPlayFull(idx: number, autoplay = true) {
+    if (idx < 0 || idx >= queue.value.length) return;
+    const myId = ++loadAbortId;
+    activeAudioRequestToken = myId;
+    const song = queue.value[idx];
+
+    queueIndex.value = idx;
+    status.value = "loading";
+    currentTime.value = 0;
+    progress.value = 0;
+    duration.value = 0;
+    songEndTriggered = false;
+    stopProgressPoll();
+
+    if (isDefaultMusic.value) {
+      stopDefaultMusic();
+      isDefaultMusic.value = false;
+    }
+
+    await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlayFull.audioStop", e));
+
+    try {
+      const musicPath = await resolveMusicPath(song.path);
+      if (myId !== loadAbortId) return;
+
+      currentMusicPath.value = musicPath;
+
+      const info = await api.audioLoad(musicPath);
+      if (myId !== loadAbortId) {
+        if (queueIndex.value !== idx) {
+          await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlayFull.raceStop1", e));
+        }
+        return;
+      }
+
+      duration.value = info.duration > 0 ? info.duration : await api.audioGetDuration();
+      if (currentMusicPath.value && duration.value > 0) {
+        durationCache.set(currentMusicPath.value, duration.value);
+      }
+
+      if (autoplay) {
+        await api.audioSeek(0, myId);
+        if (myId !== loadAbortId) {
+          if (queueIndex.value !== idx) {
+            await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlayFull.raceStop2", e));
+          }
+          return;
+        }
+        await api.audioPlay(myId);
+        if (myId !== loadAbortId) {
+          if (queueIndex.value !== idx) {
+            await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlayFull.raceStop3", e));
+          }
+          return;
+        }
+        status.value = "playing";
+        startProgressPoll();
+      } else {
+        status.value = "paused";
+      }
+
+      preloadNeighbors(idx);
+    } catch (e: unknown) {
+      logOptionalRejection("player.loadAndPlayFull", e);
       if (myId === loadAbortId) status.value = "idle";
     }
   }
@@ -299,7 +373,9 @@ export const usePlayerStore = defineStore("player", () => {
    * 队列曲目自然结束：多首时无缝切到下一首（末首回到第一首），单曲则暂停在结尾。
    */
   async function advanceAfterQueueTrackEnd() {
-    await api.audioPause().catch((e) => logOptionalRejection("player.advanceAfterQueueTrackEnd.pause", e));
+    await api.audioPause(activeAudioRequestToken ?? undefined).catch((e) =>
+      logOptionalRejection("player.advanceAfterQueueTrackEnd.pause", e),
+    );
     stopProgressPoll();
     const n = queue.value.length;
     if (queueIndex.value < 0 || n === 0) {
@@ -321,6 +397,8 @@ export const usePlayerStore = defineStore("player", () => {
   /** 设置播放队列并从指定索引开始播放 */
   function setQueue(songs: SongListItem[], startIndex = 0) {
     if (songs.length === 0) {
+      ++loadAbortId;
+      activeAudioRequestToken = null;
       queue.value = [];
       queueIndex.value = -1;
       status.value = "idle";
@@ -342,17 +420,46 @@ export const usePlayerStore = defineStore("player", () => {
     loadAndPlay(clampedIndex);
   }
 
-  /** 切换到指定索引的歌曲，立即取消旧加载，只加载最新选中的 */
-  function playSongAt(idx: number) {
+  /**
+   * 仅同步队列与索引，不触发重新播放。
+   * 用于曲库刷新时保持当前播放曲目，避免界面层直接写 store 内部字段。
+   */
+  function syncQueuePreserveCurrent(songs: SongListItem[], desiredSongPath: string | null, fallbackIndex = queueIndex.value) {
+    if (songs.length === 0) {
+      queue.value = [];
+      queueIndex.value = -1;
+      return;
+    }
+    queue.value = songs;
+    if (desiredSongPath) {
+      const idx = songs.findIndex((song) => song.path === desiredSongPath);
+      if (idx >= 0) {
+        queueIndex.value = idx;
+        return;
+      }
+    }
+    const clamped = Math.max(0, Math.min(fallbackIndex, songs.length - 1));
+    queueIndex.value = clamped;
+  }
+
+  /**
+   * 切换到指定索引的歌曲，立即取消旧加载，只加载最新选中的。
+   * `fullTrack` 为 true 时使用整轨 `audio_load` + 从头播放（非菜单预览时长截断）。
+   */
+  function playSongAt(idx: number, fullTrack = false) {
     if (idx < 0 || idx >= queue.value.length) return;
-    // loadAndPlay increments loadAbortId and resets status synchronously before
-    // any await, providing the same race protection as the old loadAndPlayDirect path.
-    void loadAndPlay(idx);
+    if (fullTrack) {
+      void loadAndPlayFull(idx, true);
+    } else {
+      void loadAndPlay(idx);
+    }
   }
 
   async function playNext() {
     // 暂停当前歌曲
-    await api.audioPause().catch((e) => logOptionalRejection("player.playNext.pause", e));
+    await api.audioPause(activeAudioRequestToken ?? undefined).catch((e) =>
+      logOptionalRejection("player.playNext.pause", e),
+    );
     stopProgressPoll();
     const n = queue.value.length;
     if (queueIndex.value < 0 || n === 0) return;
@@ -370,7 +477,7 @@ export const usePlayerStore = defineStore("player", () => {
     if (queueIndex.value < 0 || n === 0) return;
     // 如果已播放超过 3 秒，回到当前歌曲开头（参考网易云）
     if (currentTime.value > 3) {
-      await api.audioSeek(0);
+      await api.audioSeek(0, activeAudioRequestToken ?? undefined);
       currentTime.value = 0;
       progress.value = 0;
       songEndTriggered = false;
@@ -387,7 +494,7 @@ export const usePlayerStore = defineStore("player", () => {
       if (isDefaultMusic.value) {
         await pauseDefaultMusic();
       } else {
-        await api.audioPause();
+        await api.audioPause(activeAudioRequestToken ?? undefined);
       }
       status.value = "paused";
       stopProgressPoll();
@@ -396,7 +503,7 @@ export const usePlayerStore = defineStore("player", () => {
       if (isDefaultMusic.value) {
         await resumeDefaultMusic();
       } else {
-        await api.audioPlay();
+        await api.audioPlay(activeAudioRequestToken ?? undefined);
       }
       status.value = "playing";
       songEndTriggered = false;
@@ -429,7 +536,7 @@ export const usePlayerStore = defineStore("player", () => {
       seekThrottleTimer = setTimeout(async () => {
         seekThrottleTimer = null;
         try {
-          await api.audioSeek(targetSec);
+          await api.audioSeek(targetSec, activeAudioRequestToken ?? undefined);
         } catch (e: unknown) {
           logOptionalRejection("player.seekTo.audioSeek", e);
         }
@@ -439,12 +546,13 @@ export const usePlayerStore = defineStore("player", () => {
 
   /** 进入游戏前：暂停预览，递增 abortId 使所有挂起请求失效 */
   async function stopForGame() {
-    ++loadAbortId;
+    const token = ++loadAbortId;
+    activeAudioRequestToken = token;
     stopProgressPoll();
     if (isDefaultMusic.value) {
       await pauseDefaultMusic();
     } else {
-      await api.audioStop().catch((e) => logOptionalRejection("player.stopForGame.audioStop", e));
+      await api.audioStop(token).catch((e) => logOptionalRejection("player.stopForGame.audioStop", e));
     }
     status.value = "paused";
   }
@@ -486,13 +594,14 @@ export const usePlayerStore = defineStore("player", () => {
   }
 
   function cleanup() {
-    ++loadAbortId;
+    const token = ++loadAbortId;
+    activeAudioRequestToken = token;
     stopProgressPoll();
     if (isDefaultMusic.value) {
       stopDefaultMusic();
       isDefaultMusic.value = false;
     } else {
-      api.audioStop().catch((e) => logOptionalRejection("player.cleanup.audioStop", e));
+      api.audioStop(token).catch((e) => logOptionalRejection("player.cleanup.audioStop", e));
     }
     status.value = "idle";
   }
@@ -519,6 +628,7 @@ export const usePlayerStore = defineStore("player", () => {
     isDefaultMusic,
     hasPrev, hasNext,
     setQueue, playSongAt, playNext, playPrev,
+    syncQueuePreserveCurrent,
     togglePlayPause, seekTo, stopForGame, resumeAfterGame, cleanup,
     syncWithBackend, preloadAll, playDefaultMusic,
     waitForLoadComplete,
