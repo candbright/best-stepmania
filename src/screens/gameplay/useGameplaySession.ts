@@ -3,7 +3,7 @@ import { useRouter } from "vue-router";
 import { useGameStore } from "@/stores/game";
 import { GameEngine } from "@/engine/GameEngine";
 import { createTauriAudioPort } from "@/engine";
-import { resolveGameplayKeyMap10 } from "@/engine/keyBindings";
+import { keyMapLookupTrack, resolveGameplayKeyMap10 } from "@/engine/keyBindings";
 import { JUDGMENT_COLORS, getJudgmentName } from "@/engine/judgmentDisplay";
 import type { JudgmentEvent, GameConfig, ChartNoteRow, NoteFieldExposed } from "@/engine/types";
 import * as api from "@/utils/api";
@@ -585,7 +585,7 @@ function handleKeyDown(e: KeyboardEvent) {
   }
 
   const keyMap = resolveGameplayKeyMap10(game.gameplayPumpDoubleLanes);
-  const col = keyMap[e.code] ?? keyMap[e.key];
+  const col = keyMapLookupTrack(keyMap, e.code, e.key);
   if (col !== undefined) {
     engine.pressKey(col);
     e.preventDefault();
@@ -594,7 +594,7 @@ function handleKeyDown(e: KeyboardEvent) {
 
 function handleKeyUp(e: KeyboardEvent) {
   const keyMap = resolveGameplayKeyMap10(game.gameplayPumpDoubleLanes);
-  const col = keyMap[e.code] ?? keyMap[e.key];
+  const col = keyMapLookupTrack(keyMap, e.code, e.key);
   if (col !== undefined) {
     engine.releaseKey(col);
   }

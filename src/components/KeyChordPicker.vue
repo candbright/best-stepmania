@@ -33,6 +33,17 @@ function normalizeCapturedChord(chord: KeyChord): KeyChord {
   if (chord.code === "Equal" && !!chord.shift) {
     return { ...chord, code: "NumpadAdd" };
   }
+  // 主键盘数字与小键盘数字统一存为 Digit*。
+  const numpadDigit = /^Numpad([0-9])$/.exec(chord.code);
+  if (numpadDigit) {
+    return { ...chord, code: `Digit${numpadDigit[1]}` };
+  }
+  if (chord.code === "NumpadEnter") {
+    return { ...chord, code: "Enter" };
+  }
+  if (chord.code === "NumpadDecimal") {
+    return { ...chord, code: "Period" };
+  }
   return chord;
 }
 

@@ -177,7 +177,7 @@ watch(
 );
 
 function onKeyDown(e: KeyboardEvent) {
-  if (game.shortcutMatches(e, "playerOptions.back")) {
+  if (game.shortcutMatches(e, "global.back")) {
     e.preventDefault();
     goBack();
   }

@@ -210,7 +210,19 @@ export const useSettingsStore = defineStore("settings", () => {
       const nextOverrides: Partial<Record<ShortcutId, KeyChord[]>> = {};
       const rawSc = kb?.shortcuts;
       if (rawSc && typeof rawSc === "object") {
+        const legacyPo = (rawSc as Record<string, unknown>)["playerOptions.back"];
+        let legacyPlayerOptionsBack: KeyChord[] | undefined;
+        if (Array.isArray(legacyPo) && legacyPo.length > 0) {
+          const normalized: KeyChord[] = [];
+          for (const c of legacyPo) {
+            if (!c || typeof c !== "object" || typeof (c as KeyChord).code !== "string") continue;
+            const x = c as KeyChord;
+            normalized.push({ code: x.code, ctrl: !!x.ctrl, shift: !!x.shift, alt: !!x.alt });
+          }
+          if (normalized.length > 0) legacyPlayerOptionsBack = normalized;
+        }
         for (const [id, chords] of Object.entries(rawSc)) {
+          if (id === "playerOptions.back") continue;
           if (!normalizeShortcutId(id)) continue;
           if (!Array.isArray(chords) || chords.length === 0) continue;
           const normalized: KeyChord[] = chords.map((c) => ({
@@ -219,7 +231,10 @@ export const useSettingsStore = defineStore("settings", () => {
             shift: !!c.shift,
             alt: !!c.alt,
           }));
-          nextOverrides[id] = normalized;
+          nextOverrides[id as ShortcutId] = normalized;
+        }
+        if (legacyPlayerOptionsBack && !nextOverrides["global.back"]) {
+          nextOverrides["global.back"] = legacyPlayerOptionsBack;
         }
       }
       shortcutOverrides.value = nextOverrides;

@@ -10,6 +10,7 @@ import type { RhythmSfxStyle } from "@/api/config";
 import { previewRhythmSfx, previewUiSfx, setUiSfxEnabled, setUiSfxStyle, setUiSfxVolume } from "@/utils/sfx";
 import HelpTooltip from "@/components/HelpTooltip.vue";
 import CustomSelect from "@/components/CustomSelect.vue";
+import AppNumberField from "@/components/AppNumberField.vue";
 import { APP_THEME_IDS } from "@/constants/appThemes";
 import KeyChordPicker from "@/components/KeyChordPicker.vue";
 import type { KeyChord, ShortcutId } from "@/engine/keyBindings";
@@ -47,10 +48,6 @@ const SHORTCUT_SECTIONS: {
       { id: "gameplay.devPanel", labelKey: "settings.keybindings.gameplayDevPanel" },
       { id: "gameplay.pause", labelKey: "settings.keybindings.gameplayPause" },
     ],
-  },
-  {
-    titleKey: "settings.keybindings.sectionPlayerOpt",
-    rows: [{ id: "playerOptions.back", labelKey: "settings.keybindings.playerOptionsBack" }],
   },
   {
     titleKey: "settings.keybindings.sectionEditor",
@@ -612,7 +609,12 @@ const activeCategory = ref<SettingsCategoryId>("general");
         </div>
         <div class="setting-row">
           <label>{{ t('settings.audioOffset') }} <HelpTooltip helpKey="audioOffset" /></label>
-          <input type="number" class="num-input" v-model.number="game.audioOffsetMs" step="1" />
+          <AppNumberField
+            v-model="game.audioOffsetMs"
+            input-class="audio-offset-ms-input"
+            :step="1"
+            hide-steppers
+          />
         </div>
       </section>
 
@@ -1009,7 +1011,8 @@ const activeCategory = ref<SettingsCategoryId>("general");
 .setting-row input[type=range] { width:120px;accent-color:var(--primary-color); }
 .setting-row input[type=checkbox] { accent-color:var(--primary-color);width:18px;height:18px; }
 .value { font-size:0.8rem;color:rgba(255,255,255,0.4);min-width:40px;text-align:right;font-variant-numeric:tabular-nums; }
-.num-input { width:80px;padding:0.3rem 0.5rem;border-radius:4px;border:1px solid var(--border-color);background:rgba(255,255,255,0.04);color:var(--text-color);font-size:0.85rem;text-align:center; }
+:deep(.audio-offset-ms-input) { width:80px;min-width:80px;padding:0.3rem 0.45rem;border-radius:4px;border:1px solid var(--border-color);background:rgba(255,255,255,0.04);color:var(--text-color);font-size:0.85rem; }
+:deep(.audio-offset-ms-input .app-number-field-native) { text-align: center; }
 .sel { padding:0.3rem 0.5rem;border-radius:4px;border:1px solid var(--border-color);background:rgba(255,255,255,0.04);color:var(--text-color);font-size:0.8rem; }
 .theme-sel { min-width: 12rem; max-width: 100%; }
 .keybindings-hint { font-size: 0.72rem; color: rgba(255,255,255,0.38); margin: -0.25rem 0 0.75rem; line-height: 1.45; }

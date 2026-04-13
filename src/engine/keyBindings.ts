@@ -15,7 +15,6 @@ export type ShortcutId =
   | "title.confirm"
   | "gameplay.devPanel"
   | "gameplay.pause"
-  | "playerOptions.back"
   | "editor.undo"
   | "editor.redo"
   | "editor.save"
@@ -52,14 +51,14 @@ export type ShortcutId =
 export const GAMEPLAY_10_LANE_DEFAULT_CODES: readonly string[] = [
   "KeyQ",
   "KeyE",
-  "Space",
-  "KeyI",
-  "KeyO",
-  "Numpad7",
-  "Numpad8",
-  "Numpad5",
-  "Numpad9",
-  "Numpad0",
+  "KeyS",
+  "KeyZ",
+  "KeyC",
+  "Digit7",
+  "Digit9",
+  "Digit5",
+  "Digit1",
+  "Digit3",
 ];
 
 export const SHORTCUT_DEFAULTS: Readonly<Record<ShortcutId, KeyBinding>> = {
@@ -67,7 +66,6 @@ export const SHORTCUT_DEFAULTS: Readonly<Record<ShortcutId, KeyBinding>> = {
   "title.confirm": [{ code: "Enter" }],
   "gameplay.devPanel": [{ code: "F3" }],
   "gameplay.pause": [{ code: "Escape" }],
-  "playerOptions.back": [{ code: "Escape" }],
   "editor.undo": [{ code: "KeyZ", ctrl: true, shift: false }],
   "editor.redo": [{ code: "KeyZ", ctrl: true, shift: true }],
   "editor.save": [{ code: "KeyS", ctrl: true }],
@@ -110,6 +108,42 @@ function chordCtrl(e: KeyboardEvent): boolean {
   return e.ctrlKey || e.metaKey;
 }
 
+/** 主键盘 Digit0–9 与小键盘 Numpad0–9 映射到同一 canonical（如 Digit7）。非数字键返回 null。 */
+export function canonicalDigitKeyCode(code: string): string | null {
+  if (/^Digit[0-9]$/.test(code)) return code;
+  const m = /^Numpad([0-9])$/.exec(code);
+  if (m) return `Digit${m[1]}`;
+  return null;
+}
+
+/** DigitN ↔ NumpadN 互换；非数字键返回 null。 */
+export function alternateNumpadDigitCode(code: string): string | null {
+  if (/^Digit[0-9]$/.test(code)) return `Numpad${code.slice(5)}`;
+  const m = /^Numpad([0-9])$/.exec(code);
+  if (m) return `Digit${m[1]}`;
+  return null;
+}
+
+/** 游玩键位图查询：`code` 与主/小键盘数字互认。 */
+export function keyMapLookupTrack(
+  map: Readonly<Record<string, number>>,
+  code: string,
+  keyProp?: string,
+): number | undefined {
+  const direct = map[code];
+  if (direct !== undefined) return direct;
+  if (keyProp !== undefined && keyProp !== "") {
+    const k = map[keyProp];
+    if (k !== undefined) return k;
+  }
+  const alt = alternateNumpadDigitCode(code);
+  if (alt) {
+    const v = map[alt];
+    if (v !== undefined) return v;
+  }
+  return undefined;
+}
+
 function isPlusFromChord(c: KeyChord): boolean {
   return c.code === "NumpadAdd" || (c.code === "Equal" && !!c.shift);
 }
@@ -126,10 +160,40 @@ function isMinusFromEvent(e: KeyboardEvent): boolean {
   return e.code === "NumpadSubtract" || (e.code === "Minus" && !e.shiftKey);
 }
 
+function isEnterLikeChord(c: KeyChord): boolean {
+  return c.code === "Enter" || c.code === "NumpadEnter";
+}
+
+function isEnterLikeEvent(e: KeyboardEvent): boolean {
+  return e.code === "Enter" || e.code === "NumpadEnter";
+}
+
+function isDecimalLikeChord(c: KeyChord): boolean {
+  return c.code === "Period" || c.code === "NumpadDecimal";
+}
+
+function isDecimalLikeEvent(e: KeyboardEvent): boolean {
+  return e.code === "Period" || e.code === "NumpadDecimal";
+}
+
+function digitChordMatches(c: KeyChord, e: KeyboardEvent): boolean {
+  const cc = canonicalDigitKeyCode(c.code);
+  const ec = canonicalDigitKeyCode(e.code);
+  return cc !== null && ec !== null && cc === ec;
+}
+
 export function eventMatchesChord(e: KeyboardEvent, c: KeyChord): boolean {
   const plusAliasMatch = isPlusFromChord(c) && isPlusFromEvent(e);
   const minusAliasMatch = isMinusFromChord(c) && isMinusFromEvent(e);
-  const aliasMatch = plusAliasMatch || minusAliasMatch;
+  const enterAliasMatch = isEnterLikeChord(c) && isEnterLikeEvent(e);
+  const decimalAliasMatch = isDecimalLikeChord(c) && isDecimalLikeEvent(e);
+  const digitAliasMatch = digitChordMatches(c, e);
+  const aliasMatch =
+    plusAliasMatch ||
+    minusAliasMatch ||
+    enterAliasMatch ||
+    decimalAliasMatch ||
+    digitAliasMatch;
 
   if (!aliasMatch && e.code !== c.code) return false;
   if (!!c.ctrl !== !!chordCtrl(e)) return false;
@@ -162,7 +226,11 @@ export function buildGameplayMapFromLanes(lanes: readonly string[]): Record<stri
       if (track === lane) delete base[code];
     }
     const c = lanes[lane]?.trim();
-    if (c) base[c] = lane;
+    if (c) {
+      base[c] = lane;
+      const alt = alternateNumpadDigitCode(c);
+      if (alt) base[alt] = lane;
+    }
   }
   return base;
 }
@@ -218,6 +286,7 @@ const CODE_LABEL_OVERRIDES: Readonly<Record<string, string>> = {
   Space: "Space",
   Escape: "Esc",
   Enter: "Enter",
+  NumpadEnter: "Enter",
   Delete: "Del",
   ArrowUp: "↑",
   ArrowDown: "↓",
@@ -225,13 +294,10 @@ const CODE_LABEL_OVERRIDES: Readonly<Record<string, string>> = {
   ArrowRight: "→",
   Equal: "=",
   Minus: "-",
+  Period: ".",
+  NumpadDecimal: ".",
   NumpadAdd: "+",
   NumpadSubtract: "-",
-  Numpad0: "Num0",
-  Numpad5: "Num5",
-  Numpad7: "Num7",
-  Numpad8: "Num8",
-  Numpad9: "Num9",
 };
 
 export function formatChord(c: KeyChord): string {
@@ -239,12 +305,18 @@ export function formatChord(c: KeyChord): string {
   if (c.ctrl) parts.push("Ctrl");
   if (c.alt) parts.push("Alt");
   if (c.shift) parts.push("Shift");
-  let key = CODE_LABEL_OVERRIDES[c.code];
-  if (!key) {
-    if (c.code.startsWith("Key")) key = c.code.slice(3);
-    else if (c.code.startsWith("Digit")) key = c.code.slice(5);
-    else if (c.code.startsWith("Numpad")) key = c.code.replace("Numpad", "Num");
-    else key = c.code;
+  const digitCanon = canonicalDigitKeyCode(c.code);
+  let key: string;
+  if (digitCanon) {
+    key = digitCanon.slice(5);
+  } else {
+    key = CODE_LABEL_OVERRIDES[c.code] ?? "";
+    if (!key) {
+      if (c.code.startsWith("Key")) key = c.code.slice(3);
+      else if (c.code.startsWith("Digit")) key = c.code.slice(5);
+      else if (c.code.startsWith("Numpad")) key = c.code.replace("Numpad", "Num");
+      else key = c.code;
+    }
   }
   parts.push(key);
   return parts.join(" ");
