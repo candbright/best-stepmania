@@ -68,8 +68,10 @@ const NOTE_HEIGHT = 24;
 
 // ── HUD flash state ───────────────────────────────────────────────────────────
 
-let judgmentFlash = { text: "", color: "", alpha: 0, time: 0 };
-let comboFlash = { scale: 1, time: 0 };
+let judgmentFlashP1 = { text: "", color: "", alpha: 0, time: 0 };
+let judgmentFlashP2 = { text: "", color: "", alpha: 0, time: 0 };
+let comboFlashP1 = { scale: 1, time: 0 };
+let comboFlashP2 = { scale: 1, time: 0 };
 
 // ── Component-glue helpers ────────────────────────────────────────────────────
 
@@ -306,9 +308,6 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
     }
   }
 
-  // Hit particles
-  particleSystem.updateAndDraw(c, dt, quality.level);
-
   // Receptors + key press glow
   for (let col = 0; col < numTracks; col++) {
     const lx = px + col * colW;
@@ -367,21 +366,36 @@ function drawFrame(time: number) {
   for (const panel of panels) {
     drawPanel(ctx, panel, h, time, dt);
   }
+  // Draw hit particles once per frame above all panels.
+  particleSystem.updateAndDraw(ctx, dt, quality.level);
 
   animFrameId = requestAnimationFrame(drawFrame);
 
-  const hudPanel = panels[0];
-  if (hudPanel) {
-    drawJudgmentFlashHud(ctx, time, h, hudPanel, quality.level, judgmentFlash);
-    drawComboHud(ctx, time, h, hudPanel, quality.level, comboFlash.time, engine);
+  const hudP1 = panels.find((p) => p.player === 1);
+  const hudP2 = panels.find((p) => p.player === 2);
+  if (hudP1) {
+    drawJudgmentFlashHud(ctx, time, h, hudP1, quality.level, judgmentFlashP1);
+    drawComboHud(ctx, time, h, hudP1, quality.level, comboFlashP1.time, engine.judgment?.player1Score.combo ?? 0);
+  }
+  if (hudP2) {
+    drawJudgmentFlashHud(ctx, time, h, hudP2, quality.level, judgmentFlashP2);
+    drawComboHud(ctx, time, h, hudP2, quality.level, comboFlashP2.time, engine.judgment?.player2Score.combo ?? 0);
   }
 }
 
 // ── Exposed API ───────────────────────────────────────────────────────────────
 
 function showJudgment(judgment: string, color: string, track?: number) {
-  judgmentFlash = { text: judgment, color, alpha: 1, time: performance.now() };
-  comboFlash = { scale: 1.15, time: performance.now() };
+  const now = performance.now();
+  const panel = track !== undefined ? getPanelForTrack(track) : undefined;
+  const player = panel?.player ?? 1;
+  if (player === 2) {
+    judgmentFlashP2 = { text: judgment, color, alpha: 1, time: now };
+    comboFlashP2 = { scale: 1.15, time: now };
+  } else {
+    judgmentFlashP1 = { text: judgment, color, alpha: 1, time: now };
+    comboFlashP1 = { scale: 1.15, time: now };
+  }
 
   if (canvasRef.value && track !== undefined) {
     const h = canvasRef.value.height;
@@ -390,7 +404,7 @@ function showJudgment(judgment: string, color: string, track?: number) {
       const colW = getColumnWidth(panel.numTracks);
       const localTrack = track - panel.startTrack;
       const px = panel.x + localTrack * colW + colW / 2;
-      const receptorY = panel.reverse ? h - 100 : 100;
+      const receptorY = panel.receptorY;
       if (judgment !== "Miss" && judgment !== "Way Off" && judgment !== "Boo") {
         particleSystem.spawnHitEffect(
           px, receptorY, color,

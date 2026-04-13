@@ -48,6 +48,10 @@ const CHART_LEAD_EARLY_NOTE_REVEAL_CHART_SEC = 0.52;
 const CHART_LEAD_POST_SYNC_MAX_JUMP_SEC = 0.05;
 /** Wall-clock ms after lead-in end during which {@link CHART_LEAD_POST_SYNC_MAX_JUMP_SEC} applies. */
 const CHART_LEAD_POST_SYNC_GUARD_MS = 320;
+/** Fallback finish grace after audio reaches decoded duration. */
+const AUDIO_END_FINISH_GRACE_SEC = 0.35;
+/** After audio end, push simulation this much to settle trailing misses/holds. */
+const AUDIO_END_SETTLE_AHEAD_SEC = 0.4;
 
 export class GameEngine {
   public notes: ChartNote[] = [];
@@ -314,38 +318,23 @@ export class GameEngine {
       this.judgment.skipBefore(targetSecond);
     }
 
-    const L = this.chartLeadInSeconds;
-    if (L <= 1e-4) {
-      this.chartLeadInActive = false;
-      this.currentSecond = seekTo;
-      this.simulatedSecond = seekTo;
-      this.fallbackStartTime = performance.now() - (seekTo / this.playbackRate) * 1000;
-      if (this.audioLoaded) {
-        this.useAudioSync = true;
-        this.audioAnchorSecond = seekTo;
-        this.audioAnchorPerfMs = performance.now();
-        await this.audioPort?.seek(seekTo);
-        await this.audioPort?.play();
-        this.audioAnchorPerfMs = performance.now();
-        this.startAudioSync();
-      } else {
-        this.useAudioSync = false;
-      }
-      this.resetBeatLineSfxCursor();
-      return;
-    }
-
-    this.chartLeadInActive = true;
-    this.chartLeadInEndSimSecond = seekTo;
-    this.useAudioSync = false;
-    const startSim = seekTo - L;
-    this.simulatedSecond = startSim;
-    this.currentSecond = startSim;
-    this.fallbackStartTime =
-      performance.now() - ((startSim - this.audioOffset) / this.playbackRate) * 1000;
+    // Editor preview should start immediately after entering gameplay.
+    // Keep only the caller-provided musical lead-in (seekTo), and skip gameplay blank lead-in.
+    this.chartLeadInActive = false;
+    this.currentSecond = seekTo;
+    this.simulatedSecond = seekTo;
+    this.fallbackStartTime = performance.now() - (seekTo / this.playbackRate) * 1000;
 
     if (this.audioLoaded) {
       await this.audioPort?.seek(seekTo);
+      this.useAudioSync = true;
+      this.audioAnchorSecond = seekTo;
+      this.audioAnchorPerfMs = performance.now();
+      await this.audioPort?.play();
+      this.audioAnchorPerfMs = performance.now();
+      this.startAudioSync();
+    } else {
+      this.useAudioSync = false;
     }
     this.resetBeatLineSfxCursor();
   }
@@ -569,14 +558,35 @@ export class GameEngine {
     }
 
     const elapsedSinceStart = (now - this.playingStartTime) / 1000;
-    if (
+    const finishedByChartTail =
       elapsedSinceStart >= 2 &&
       this.notes.length > 0 &&
       this.currentSecond > this.lastNoteSecond + 2 &&
       // simulatedSecond must have actually processed past all notes to guard against
       // a corrupted audioAnchor making currentSecond jump ahead prematurely
-      this.simulatedSecond > this.lastNoteSecond
-    ) {
+      this.simulatedSecond > this.lastNoteSecond;
+
+    // Fallback: for charts with malformed/extreme timing tails, audio may end while
+    // `lastNoteSecond` is far in the future.
+    // First, force a small post-end settle step so trailing misses/holds are flushed.
+    const songEndSecond = this.songDuration + this.audioOffset;
+    const audioEnded = this.songDuration > 0 && this.currentSecond >= songEndSecond + AUDIO_END_FINISH_GRACE_SEC;
+    if (audioEnded) {
+      const settleTo = this.currentSecond + AUDIO_END_SETTLE_AHEAD_SEC;
+      if (this.simulatedSecond < settleTo) {
+        this.simulatedSecond = settleTo;
+        this.runSimulationStep(this.simulatedSecond);
+      }
+      if (this.state !== "playing") return;
+    }
+
+    // Then finish once judgment-line-behind content is fully settled.
+    const noPendingPastJudgmentLine = audioEnded
+      ? !this.judgment.hasPendingScoreableNotesBefore(this.currentSecond) &&
+        !this.judgment.hasPendingHoldsBefore(this.currentSecond)
+      : false;
+
+    if (finishedByChartTail || noPendingPastJudgmentLine) {
       this.state = "finished";
       this.cleanup();
       this.callbacks.onFinish?.(this.judgment.score);

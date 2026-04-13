@@ -247,6 +247,7 @@ engine.callbacks = {
   onFinish: async () => {
     gameState.value = "finished";
     game.lastResults = buildResultsObject();
+    game.lastResults2 = game.hasPlayer1 && game.hasPlayer2 ? buildResultsObject2() : null;
     await saveScoreToProfile();
     if (game.hasPlayer1 && game.hasPlayer2) await saveScoreToProfile2();
     resultNavTimer.value = setTimeout(() => router.push("/evaluation"), 1500);
@@ -254,6 +255,7 @@ engine.callbacks = {
   onFail: async () => {
     gameState.value = "failed";
     game.lastResults = buildResultsObject();
+    game.lastResults2 = game.hasPlayer1 && game.hasPlayer2 ? buildResultsObject2() : null;
     await saveScoreToProfile();
     if (game.hasPlayer1 && game.hasPlayer2) await saveScoreToProfile2();
     resultNavTimer.value = setTimeout(() => router.push("/evaluation"), 2000);
@@ -322,6 +324,7 @@ async function loadAndStart() {
 
   // Clear save badge from any previous run before loading the new chart.
   game.lastScoreSaved = null;
+  game.lastResults2 = null;
 
   // 先停止任何正在播放的预览音频，确保音频引擎干净
   try { await api.audioStop(); } catch { /* ignore */ }

@@ -1,4 +1,3 @@
-import type { GameEngine } from "@/engine/GameEngine";
 import type { PanelConfig } from "@/engine/types";
 import type { QualityLevel } from "@/engine/render/drawers";
 
@@ -59,9 +58,9 @@ export function drawComboHud(
   primaryPanel: PanelConfig,
   qualityLevel: QualityLevel,
   comboFlashTime: number,
-  engine: GameEngine,
+  comboValue: number,
 ): void {
-  if (!engine.judgment || engine.judgment.score.combo <= 2) return;
+  if (comboValue <= 2) return;
 
   const comboAge = (time - comboFlashTime) / 1000;
   const cBounce = comboAge < 0.06 ? 1.15 : 1 + Math.max(0, 0.12 - comboAge) * 1.2;
@@ -79,7 +78,7 @@ export function drawComboHud(
     ctx.shadowBlur = 12;
   }
   ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.fillText(String(engine.judgment.score.combo), panelCenterX, comboY);
+  ctx.fillText(String(comboValue), panelCenterX, comboY);
   ctx.shadowBlur = 0;
   ctx.font = "700 11px 'Orbitron', sans-serif";
   ctx.fillStyle = "rgba(255,255,255,0.35)";

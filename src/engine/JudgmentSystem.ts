@@ -34,12 +34,17 @@ export class JudgmentSystem {
   private trackNotes: ChartNote[][] = [];
   private trackSearchStart: number[] = [];
 
-  private getPlayerForTrack(track: number): 1 | 2 {
-    if (this.config.coopMode === "solo") return 1;
-    if (this.config.coopMode === "double" || this.config.coopMode === "co-op") {
-      return track < this.config.numTracks / 2 ? 1 : 2;
+  private getPlayerForNote(note: ChartNote): 1 | 2 {
+    // Routine merged chart: follow `&` layer ownership first.
+    if (this.config.coopMode === "co-op" && (note.routineLayer === 1 || note.routineLayer === 2)) {
+      return note.routineLayer === 2 ? 2 : 1;
     }
-    return track % 2 === 0 ? 1 : 2;
+    // Single-mode dual-player and split layouts: left half = P1, right half = P2.
+    if (this.config.numTracks >= 8) {
+      return note.track < this.config.numTracks / 2 ? 1 : 2;
+    }
+    // Legacy narrow fallback.
+    return note.track % 2 === 0 ? 1 : 2;
   }
 
   private getScoreStateForPlayer(player: 1 | 2): ScoreState {
@@ -263,7 +268,7 @@ export class JudgmentSystem {
       track: bestNote.track,
       noteRow: bestNote.row,
       time: currentSecond,
-      player: this.getPlayerForTrack(bestNote.track),
+          player: this.getPlayerForNote(bestNote),
     };
 
     this.applyJudgment(evt);
@@ -325,7 +330,7 @@ export class JudgmentSystem {
           track: note.track,
           noteRow: note.row,
           time: currentSecond,
-          player: this.getPlayerForTrack(note.track),
+          player: this.getPlayerForNote(note),
         };
         this.applyJudgment(evt);
         missed.push(evt);
@@ -359,7 +364,7 @@ export class JudgmentSystem {
         track: note.track,
         noteRow: note.row,
         time: currentSecond,
-        player: this.getPlayerForTrack(note.track),
+        player: this.getPlayerForNote(note),
       };
       this.applyJudgment(evt);
       events.push(evt);
@@ -493,5 +498,32 @@ export class JudgmentSystem {
 
   isNoteJudged(track: number, row: number): boolean {
     return this.judgedRows.has(this.noteKey(track, row));
+  }
+
+  /**
+   * Returns true if there are any unjudged scoreable notes (non-mine) at or before `second`.
+   * Used by engine end-condition fallback when audio has already reached the song end.
+   */
+  hasPendingScoreableNotesBefore(second: number): boolean {
+    for (const note of this.notes) {
+      if (note.second > second) continue;
+      if (note.noteType === "Mine") continue;
+      if (!this.judgedRows.has(this.noteKey(note.track, note.row))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns true if there are unfinished holds whose tail should have been settled by `second`.
+   */
+  hasPendingHoldsBefore(second: number): boolean {
+    for (const hold of this.holds) {
+      if (!hold.finished && hold.endSecond <= second) {
+        return true;
+      }
+    }
+    return false;
   }
 }

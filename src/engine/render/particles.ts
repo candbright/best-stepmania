@@ -47,10 +47,15 @@ export function createParticleSystem(): ParticleSystem {
     },
 
     spawnHitEffect(x, y, color, judgment, qualityLevel, showParticles) {
-      if (qualityLevel === "low" || !showParticles) return;
+      if (!showParticles) return;
 
       const baseCount = judgment === "W1" ? 18 : judgment === "W2" ? 14 : judgment === "W3" ? 10 : 6;
-      const count = qualityLevel === "medium" ? Math.max(4, Math.floor(baseCount * 0.55)) : baseCount;
+      const count =
+        qualityLevel === "high"
+          ? baseCount
+          : qualityLevel === "medium"
+            ? Math.max(4, Math.floor(baseCount * 0.55))
+            : Math.max(2, Math.floor(baseCount * 0.3));
 
       for (let i = 0; i < count; i++) {
         const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
@@ -67,7 +72,7 @@ export function createParticleSystem(): ParticleSystem {
         });
       }
 
-      particles.push({ x, y, vx: 0, vy: 0, life: 1, decay: 3.5, size: 8, color, type: "ring" });
+      particles.push({ x, y, vx: 0, vy: 0, life: 1, decay: 3.5, size: qualityLevel === "low" ? 6 : 8, color, type: "ring" });
 
       if (qualityLevel === "high") {
         particles.push({ x, y, vx: 0, vy: 0, life: 1, decay: 4.0, size: 24, color, type: "glow" });
@@ -75,11 +80,6 @@ export function createParticleSystem(): ParticleSystem {
     },
 
     updateAndDraw(c, dt, qualityLevel) {
-      if (qualityLevel === "low") {
-        particles.length = 0;
-        return;
-      }
-
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]!;
         p.life -= p.decay * dt;
