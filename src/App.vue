@@ -102,6 +102,31 @@ function preventContextMenu(e: MouseEvent) {
   e.preventDefault();
 }
 
+function findTextFieldFromEventTarget(start: EventTarget | null): HTMLInputElement | HTMLTextAreaElement | null {
+  let el = start as HTMLElement | null;
+  for (; el; el = el.parentElement) {
+    if (el instanceof HTMLTextAreaElement) {
+      return el;
+    }
+    if (el instanceof HTMLInputElement) {
+      const ty = (el.type || "text").toLowerCase();
+      if (
+        ty === "text" ||
+        ty === "search" ||
+        ty === "number" ||
+        ty === "email" ||
+        ty === "password" ||
+        ty === "tel" ||
+        ty === "url" ||
+        ty === ""
+      ) {
+        return el;
+      }
+    }
+  }
+  return null;
+}
+
 function handleGlobalPointerMove(e: PointerEvent) {
   if (e.pointerType !== "mouse") return;
 
@@ -109,19 +134,28 @@ function handleGlobalPointerMove(e: PointerEvent) {
   let state: CursorVisualState = "default";
 
   if (target) {
-    const interactive = target.closest(
-      'button, a, [role="button"], input[type="checkbox"], input[type="radio"], input[type="range"], select, summary, [draggable="true"], [data-sfx], label',
-    ) as HTMLElement | null;
-
-    if (interactive) {
-      if (interactive.hasAttribute("disabled") || interactive.getAttribute("aria-disabled") === "true") {
+    const textField = findTextFieldFromEventTarget(target);
+    if (textField) {
+      if (textField.disabled || textField.readOnly) {
         state = "not-allowed";
       } else {
-        state = "pointer";
+        state = "text";
       }
     } else {
-      const computedCursor = window.getComputedStyle(target).cursor;
-      state = mapCssCursorToVisualState(computedCursor);
+      const interactive = target.closest(
+        'button, a, [role="button"], input[type="checkbox"], input[type="radio"], input[type="range"], select, summary, [draggable="true"], [data-sfx], label',
+      ) as HTMLElement | null;
+
+      if (interactive) {
+        if (interactive.hasAttribute("disabled") || interactive.getAttribute("aria-disabled") === "true") {
+          state = "not-allowed";
+        } else {
+          state = "pointer";
+        }
+      } else {
+        const computedCursor = window.getComputedStyle(target).cursor;
+        state = mapCssCursorToVisualState(computedCursor);
+      }
     }
   }
 
@@ -225,7 +259,10 @@ function handleGlobalEsc(e: KeyboardEvent) {
   const target = e.target as HTMLElement | null;
   if (target) {
     const tag = target.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable) {
+    if (tag === "INPUT") {
+      // 文本/数字等输入框内 Esc 留给输入行为；range 无文本编辑，应仍能全局返回
+      if ((target as HTMLInputElement).type !== "range") return;
+    } else if (tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable) {
       return;
     }
   }
