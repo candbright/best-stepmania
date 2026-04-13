@@ -1,0 +1,76 @@
+name: Release Windows installer
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "已有标签（如 v1.0.0），检出该标签并构建、上传/更新对应 Release 附件"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      TAG_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Tauri (NSIS)
+        run: npm run tauri -- build
+
+      - name: Verify NSIS installer exists
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:GITHUB_WORKSPACE "target/release/bundle/nsis"
+          if (-not (Test-Path $dir)) { throw "Missing bundle dir: $dir" }
+          $exes = Get-ChildItem $dir -Filter "*.exe"
+          if ($exes.Count -eq 0) { throw "No .exe under $dir" }
+          $exes | ForEach-Object { $_.FullName }
+
+      # Tag v1.2.3 → docs/changelog/bsm-v1.2.3.md. GitHub prepends this body ahead of auto-generated notes.
+      - name: Prepare release body from changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${TAG_NAME}"
+          CL="docs/changelog/bsm-${TAG}.md"
+          OUT="${GITHUB_WORKSPACE}/release-body-prepared.md"
+          if [[ -f "$CL" ]]; then
+            cp "$CL" "$OUT"
+          else
+            {
+              echo "## ${TAG}"
+              echo
+              echo "_未找到 \`docs/changelog/bsm-${TAG}.md\`。发版前请新增该文件（或随后在 GitHub 上编辑 Release 正文）。_"
+            } > "$OUT"
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          body_path: release-body-prepared.md
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          working_directory: target/release/bundle/nsis
+          files: |
+            *-setup.exe
