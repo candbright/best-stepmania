@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "@/i18n";
+import CustomSelect from "@/components/CustomSelect.vue";
 import {
   NOTE_TYPES,
   RATE_OPTIONS,
+  EDITOR_QUANTIZE_LEVELS,
   getNoteTypeIcon,
 } from "./constants";
 import type { ShortcutId } from "@/engine/keyBindings";
@@ -75,16 +77,31 @@ const toolbarScrollTrackRef = ref<HTMLElement | null>(null);
 defineExpose({
   getScrollTrackEl: (): HTMLElement | null => toolbarScrollTrackRef.value,
 });
+
+const quantizeSelectOptions = computed(() =>
+  [...EDITOR_QUANTIZE_LEVELS].map((v) => ({
+    value: v,
+    label: `1/${v}`,
+  })),
+);
+
+const rateSelectOptions = computed(() =>
+  RATE_OPTIONS.map((r) => ({
+    value: r,
+    label: `${r}x`,
+  })),
+);
 </script>
 
 <template>
   <header class="toolbar">
+    <div class="toolbar-back-fixed">
+      <button class="tool-icon-btn" type="button" @click="emit('goBack')" :title="t('back')">←</button>
+      <div class="toolbar-divider toolbar-divider--back" />
+    </div>
     <div class="toolbar-scroll">
       <div ref="toolbarScrollTrackRef" class="toolbar-scroll-track">
         <div class="toolbar-scroll-icons">
-          <button class="tool-icon-btn" type="button" @click="emit('goBack')" :title="t('back')">←</button>
-          <div class="toolbar-divider" />
-
           <div class="toolbar-group">
             <button
               v-for="(nt, i) in NOTE_TYPES"
@@ -209,7 +226,7 @@ defineExpose({
           <div class="toolbar-group">
             <button
               type="button"
-              class="tool-icon-btn"
+              class="tool-icon-btn tool-icon-btn--playback"
               :title="(playing ? t('editor.pause') : t('editor.play')) + props.shortcutHint('editor.playPause')"
               :disabled="!editorToolbarEditingEnabled"
               @click="emit('togglePlayback')"
@@ -273,24 +290,13 @@ defineExpose({
             >↑</button>
             <div class="toolbar-divider" />
             <label class="compact-label" :title="t('editor.quantize')">
-              <select
-                v-model.number="quantize"
-                class="compact-sel"
+              <CustomSelect
+                v-model="quantize"
+                variant="compact"
+                :options="quantizeSelectOptions"
                 :disabled="!editorToolbarEditingEnabled"
-                @keydown="emit('toolbarSelectKeydown', $event)"
-              >
-                <option :value="3">1/3</option>
-                <option :value="4">1/4</option>
-                <option :value="6">1/6</option>
-                <option :value="8">1/8</option>
-                <option :value="12">1/12</option>
-                <option :value="16">1/16</option>
-                <option :value="24">1/24</option>
-                <option :value="32">1/32</option>
-                <option :value="48">1/48</option>
-                <option :value="64">1/64</option>
-                <option :value="192">1/192</option>
-              </select>
+                @trigger-keydown="emit('toolbarSelectKeydown', $event)"
+              />
             </label>
             <button
               type="button"
@@ -313,16 +319,21 @@ defineExpose({
               :title="showTrackGrid ? t('editor.hideTrackGrid') : t('editor.showTrackGrid')"
               :disabled="!editorToolbarEditingEnabled"
               @click="showTrackGrid = !showTrackGrid"
-            >▦</button>
+            >
+              <span class="track-grid-toggle-icon" :class="{ 'is-hidden': !showTrackGrid }" aria-hidden="true">
+                <span class="vline vline-left" />
+                <span class="vline vline-right" />
+                <span class="diag-slash" />
+              </span>
+            </button>
             <label class="compact-label" :title="t('editor.rate')">
-              <select
-                v-model.number="editorRate"
-                class="compact-sel"
+              <CustomSelect
+                v-model="editorRate"
+                variant="compact"
+                :options="rateSelectOptions"
                 :disabled="!editorToolbarEditingEnabled"
-                @keydown="emit('toolbarSelectKeydown', $event)"
-              >
-                <option v-for="r in RATE_OPTIONS" :key="r" :value="r">{{ r }}x</option>
-              </select>
+                @trigger-keydown="emit('toolbarSelectKeydown', $event)"
+              />
             </label>
           </div>
         </div>
@@ -345,6 +356,23 @@ defineExpose({
   flex-shrink: 0;
   min-height: var(--editor-toolbar-band-h);
 }
+.toolbar-back-fixed {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  align-self: stretch;
+  min-height: var(--editor-toolbar-band-h);
+  padding: var(--editor-toolbar-track-pad-y) 0.35rem var(--editor-toolbar-hscroll-pad) 0.55rem;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-color);
+  z-index: 2;
+}
+.toolbar-divider--back {
+  margin-left: 0.28rem;
+  margin-right: 0.12rem;
+}
 .toolbar-scroll {
   flex: 1;
   min-width: 0;
@@ -358,7 +386,7 @@ defineExpose({
   flex-shrink: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: var(--editor-toolbar-track-pad-y) 0.35rem var(--editor-toolbar-hscroll-pad) 0.6rem;
+  padding: var(--editor-toolbar-track-pad-y) 0.35rem var(--editor-toolbar-hscroll-pad) 0.35rem;
   min-height: var(--editor-toolbar-band-h);
   max-height: var(--editor-toolbar-band-h);
   scrollbar-width: thin;
@@ -368,7 +396,7 @@ defineExpose({
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.42rem;
   width: max-content;
   min-height: var(--editor-toolbar-icons-h);
   max-height: var(--editor-toolbar-icons-h);
@@ -407,20 +435,20 @@ defineExpose({
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0.35rem;
   flex-shrink: 0;
 }
 .toolbar-divider {
   width: 1px;
   height: 22px;
   background: rgba(255, 255, 255, 0.08);
-  margin: 0 0.15rem;
+  margin: 0 0.22rem;
   flex-shrink: 0;
 }
 .toolbar-controls {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: 0.35rem;
   flex-shrink: 0;
 }
 
@@ -447,6 +475,9 @@ defineExpose({
 .tool-icon-btn:hover {
   background: rgba(255, 255, 255, 0.12);
   color: var(--text-color);
+}
+.tool-icon-btn--playback {
+  font-size: calc(var(--editor-toolbar-icon-size, 0.85rem) * 0.76);
 }
 .tool-icon-btn:disabled {
   opacity: 0.3;
@@ -506,16 +537,54 @@ defineExpose({
 }
 .beat-lines-toggle-icon .slash {
   position: absolute;
-  left: 1px;
-  right: 1px;
+  left: 50%;
   top: 50%;
-  height: 1.4px;
-  transform: translateY(-50%) rotate(32deg);
+  width: 20px;
+  height: 2px;
+  transform: translate(-50%, -50%) rotate(38deg);
+  transform-origin: center;
   border-radius: 999px;
-  background-image: repeating-linear-gradient(to right, currentColor 0 2px, transparent 2px 4px);
+  background-image: repeating-linear-gradient(to right, currentColor 0 3px, transparent 3px 5.5px);
   opacity: 0;
 }
 .beat-lines-toggle-icon.is-hidden .slash {
+  opacity: 0.95;
+}
+
+.track-grid-toggle-icon {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+}
+.track-grid-toggle-icon .vline {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  width: 1.6px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.95;
+}
+.track-grid-toggle-icon .vline-left {
+  left: 3px;
+}
+.track-grid-toggle-icon .vline-right {
+  right: 3px;
+}
+.track-grid-toggle-icon .diag-slash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 20px;
+  height: 2px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  transform-origin: center;
+  border-radius: 999px;
+  background-image: repeating-linear-gradient(to right, currentColor 0 3px, transparent 3px 5.5px);
+  opacity: 0;
+}
+.track-grid-toggle-icon.is-hidden .diag-slash {
   opacity: 0.95;
 }
 
@@ -566,14 +635,6 @@ defineExpose({
   font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.35);
   flex-shrink: 0;
-}
-.compact-sel {
-  padding: 0.15rem 0.3rem;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-color);
-  font-size: 0.7rem;
 }
 .song-name {
   font-family: "Orbitron", "Rajdhani", sans-serif;

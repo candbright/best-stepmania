@@ -102,7 +102,8 @@ export function useEditorState() {
   const holdStartRow = ref<{ row: number; track: number } | null>(null);
   const holdDragCurrentRow = ref<number | null>(null);
   const isHoldDragging = ref(false);
-  const waveformPeaks = ref<number[]>([]);
+  /** Interleaved min/max per time bucket: [min0, max0, min1, max1, ...] in [-1, 1]. */
+  const waveformMinMax = ref<Float32Array>(new Float32Array(0));
   const waveformDuration = ref(0);
   /** Horizontal offset for waveform panel (drag to move), in pixels from default position */
   const waveformPanelOffsetX = ref(0);
@@ -146,6 +147,16 @@ export function useEditorState() {
   const isDragging = ref(false);
   /** Extra selection regions added via Ctrl+drag */
   const additionalSelections = ref<Array<{ minRow: number; maxRow: number; minTrack: number; maxTrack: number }>>([]);
+  /**
+   * Right-drag / Shift+drag marquee. Start is anchored in chart space so auto-scroll does not drift the first corner.
+   * End follows the pointer in canvas CSS pixels.
+   */
+  const selectionRubberBand = ref<{
+    anchorBeat: number;
+    anchorTrackT: number;
+    endBeat: number;
+    endTrackT: number;
+  } | null>(null);
 
   // --- New chart dialog ---
   const showNewChartModal = ref(false);
@@ -317,7 +328,7 @@ export function useEditorState() {
     holdStartRow,
     holdDragCurrentRow,
     isHoldDragging,
-    waveformPeaks,
+    waveformMinMax,
     waveformDuration,
     waveformPanelOffsetX,
     isWaveformPanelDragging,
@@ -348,6 +359,7 @@ export function useEditorState() {
     clipboardBpmChanges,
     isDragging,
     additionalSelections,
+    selectionRubberBand,
     // New chart
     showNewChartModal,
     newChartStepsType,

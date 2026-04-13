@@ -51,6 +51,49 @@ export function useEditorCanvas(s: EditorState) {
     return (s.canvasRef.value.clientWidth - s.FIELD_WIDTH.value) / 2;
   }
 
+  /** Row/track bounds of the in-progress marquee (same geometry as commit); null if off the field. */
+  function marqueePreviewRowTrackRect(): {
+    minRow: number;
+    maxRow: number;
+    minTrack: number;
+    maxTrack: number;
+  } | null {
+    const rb = s.selectionRubberBand.value;
+    if (!rb) return null;
+    const fieldX = getCanvasFieldX();
+    const fieldW = s.FIELD_WIDTH.value;
+    const nT = s.NUM_TRACKS.value;
+    const ax = fieldX + rb.anchorTrackT * COLUMN_WIDTH;
+    const ay = beatToY(rb.anchorBeat);
+    const ex = fieldX + rb.endTrackT * COLUMN_WIDTH;
+    const ey = beatToY(rb.endBeat);
+    const rx0 = Math.min(ax, ex);
+    const rx1 = Math.max(ax, ex);
+    const ry0 = Math.min(ay, ey);
+    const ry1 = Math.max(ay, ey);
+    const ix0 = Math.max(rx0, fieldX);
+    const ix1 = Math.min(rx1, fieldX + fieldW);
+    if (ix1 <= fieldX || ix0 >= fieldX + fieldW) return null;
+    const chartY0 = Math.max(ry0, HEADER_HEIGHT);
+    const chartY1 = Math.max(ry1, HEADER_HEIGHT);
+    const b0 = yToBeat(chartY0);
+    const b1 = yToBeat(chartY1);
+    const bLo = Math.min(b0, b1);
+    const bHi = Math.max(b0, b1);
+    let minRow = Math.floor(bLo * 48);
+    let maxRow = Math.ceil(bHi * 48) - 1;
+    if (maxRow < minRow) maxRow = minRow;
+    minRow = Math.max(0, minRow);
+    let minTrack = Math.max(0, Math.min(nT - 1, Math.floor((ix0 - fieldX) / COLUMN_WIDTH)));
+    let maxTrack = Math.max(0, Math.min(nT - 1, Math.floor((ix1 - fieldX - Number.EPSILON) / COLUMN_WIDTH)));
+    if (maxTrack < minTrack) {
+      const swap = minTrack;
+      minTrack = maxTrack;
+      maxTrack = swap;
+    }
+    return { minRow, maxRow, minTrack, maxTrack };
+  }
+
   function getWaveformPanelX(fieldX: number): number {
     return Math.max(14, fieldX - WAVEFORM_WIDTH - WAVEFORM_FIELD_GAP);
   }
@@ -334,38 +377,89 @@ export function useEditorCanvas(s: EditorState) {
     const panelH = h;
     const centerX = panelX + panelW * 0.5;
 
-    // Draw waveform peaks
-    if (s.waveformPeaks.value.length > 0 && s.waveformDuration.value > 0) {
+    // Waveform: min/max envelope per time bucket → thin upper/lower polylines (not symmetric "bars")
+    if (s.waveformMinMax.value.length >= 2 && s.waveformDuration.value > 0) {
       const visibleTop = panelY;
-      const visibleH = panelH;
-      const maxAmp = (panelW - 8) * 0.4;
-
+      const visibleBottom = panelY + panelH;
+      const scaleX = (panelW - 10) * 0.46;
       const dur = s.waveformDuration.value;
-      const peaks = s.waveformPeaks.value;
-      for (let py = visibleTop; py < visibleTop + visibleH; py += 1) {
+      const mm = s.waveformMinMax.value;
+      const nBuckets = mm.length >> 1;
+      const strokeIn = getThemePrimaryHex();
+      const strokeOut = "rgba(255,255,255,0.15)";
+
+      function envelopeX(py: number): { mn: number; mx: number; inFile: boolean } {
         const beat = yToBeat(py);
         const sec = beatToTime(beat) - s.metaOffset.value;
-        const inFile = sec >= 0 && sec <= dur;
-        let amp: number;
-        if (!inFile) {
-          amp = 0;
-        } else {
-          const idx = Math.min(
-            peaks.length - 1,
-            Math.max(0, Math.floor((sec / dur) * peaks.length))
-          );
-          amp = peaks[idx] || 0;
+        if (sec < 0 || sec > dur) {
+          return { mn: centerX, mx: centerX, inFile: false };
         }
-        const minHalf = inFile ? 0.5 : 2.5;
-        const halfW = Math.max(minHalf, amp * maxAmp);
-
-        c.strokeStyle = inFile ? getThemePrimaryHex() : "rgba(255,255,255,0.14)";
-        c.lineWidth = inFile ? 0.5 : 1;
-        c.beginPath();
-        c.moveTo(centerX - halfW, py);
-        c.lineTo(centerX + halfW, py);
-        c.stroke();
+        const idx = Math.min(nBuckets - 1, Math.max(0, Math.floor((sec / dur) * nBuckets)));
+        const lo = mm[idx * 2]!;
+        const hi = mm[idx * 2 + 1]!;
+        return { mn: centerX + lo * scaleX, mx: centerX + hi * scaleX, inFile: true };
       }
+
+      c.save();
+      c.beginPath();
+      let first = true;
+      for (let py = visibleTop; py < visibleBottom; py++) {
+        const { mx } = envelopeX(py);
+        if (first) {
+          c.moveTo(mx, py);
+          first = false;
+        } else {
+          c.lineTo(mx, py);
+        }
+      }
+      for (let py = visibleBottom - 1; py >= visibleTop; py--) {
+        const { mn } = envelopeX(py);
+        c.lineTo(mn, py);
+      }
+      c.closePath();
+      c.globalAlpha = 0.1;
+      c.fillStyle = strokeIn;
+      c.fill();
+      c.globalAlpha = 1;
+      c.restore();
+
+      c.lineWidth = 1;
+      c.lineJoin = "round";
+      c.lineCap = "round";
+
+      function strokeSegmentedPolyline(edge: "min" | "max") {
+        let segIn: boolean | null = null;
+        let started = false;
+        for (let py = visibleTop; py < visibleBottom; py++) {
+          const e = envelopeX(py);
+          const x = edge === "max" ? e.mx : e.mn;
+          const { inFile } = e;
+          if (segIn === null) {
+            segIn = inFile;
+            c.beginPath();
+            c.moveTo(x, py);
+            started = true;
+            continue;
+          }
+          if (inFile !== segIn) {
+            c.strokeStyle = segIn ? strokeIn : strokeOut;
+            c.stroke();
+            segIn = inFile;
+            c.beginPath();
+            c.moveTo(x, py);
+            started = true;
+            continue;
+          }
+          c.lineTo(x, py);
+        }
+        if (started) {
+          c.strokeStyle = segIn ? strokeIn : strokeOut;
+          c.stroke();
+        }
+      }
+
+      strokeSegmentedPolyline("max");
+      strokeSegmentedPolyline("min");
     }
 
     // Red dashed offset line
@@ -590,7 +684,7 @@ export function useEditorCanvas(s: EditorState) {
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
         const measureNum = Math.round(b / 4) + 1;
-        const labelX = s.waveformPeaks.value.length > 0 ? getWaveformPanelX(fieldX) + WAVEFORM_WIDTH - 8 : fieldX - 10;
+        const labelX = s.waveformMinMax.value.length >= 2 ? getWaveformPanelX(fieldX) + WAVEFORM_WIDTH - 8 : fieldX - 10;
         ctx.fillText(String(measureNum), labelX, y);
       }
 
@@ -614,40 +708,7 @@ export function useEditorCanvas(s: EditorState) {
     }
     }
 
-    // Selection highlight (primary + Ctrl+right additive regions)
-    function drawSelectionRect(
-      c: CanvasRenderingContext2D,
-      minRow: number,
-      maxRow: number,
-      minTrack: number,
-      maxTrack: number,
-    ) {
-      const sy1 = beatToY(minRow / 48);
-      const sy2 = beatToY(maxRow / 48);
-      const sx1 = fieldX + minTrack * COLUMN_WIDTH;
-      const sx2 = fieldX + (maxTrack + 1) * COLUMN_WIDTH;
-      const selY = Math.min(sy1, sy2);
-      const selH = Math.abs(sy2 - sy1) || 2;
-      c.fillStyle = "rgba(124,77,255,0.12)";
-      c.fillRect(sx1, selY, sx2 - sx1, selH);
-      c.strokeStyle = "rgba(124,77,255,0.4)";
-      c.lineWidth = 1.5;
-      c.strokeRect(sx1, selY, sx2 - sx1, selH);
-    }
-    for (const extra of s.additionalSelections.value) {
-      drawSelectionRect(ctx, extra.minRow, extra.maxRow, extra.minTrack, extra.maxTrack);
-    }
-    if (s.selectionStart.value !== null && s.selectionEnd.value !== null) {
-      const minRow = Math.min(s.selectionStart.value, s.selectionEnd.value);
-      const maxRow = Math.max(s.selectionStart.value, s.selectionEnd.value);
-      let minTrack = 0,
-        maxTrack = numTracks - 1;
-      if (s.selectionTrackStart.value !== null && s.selectionTrackEnd.value !== null) {
-        minTrack = Math.min(s.selectionTrackStart.value, s.selectionTrackEnd.value);
-        maxTrack = Math.max(s.selectionTrackStart.value, s.selectionTrackEnd.value);
-      }
-      drawSelectionRect(ctx, minRow, maxRow, minTrack, maxTrack);
-    }
+    // Committed selection: no block fill (marquee is the only rectangle overlay). Notes use isNoteInSelection stroke below.
 
     function bpmChangeRowInSelectionRowBand(beat: number): boolean {
       const row = Math.round(beat * 48);
@@ -659,6 +720,8 @@ export function useEditorCanvas(s: EditorState) {
         const hi = Math.max(s.selectionStart.value, s.selectionEnd.value);
         if (row >= lo && row <= hi) return true;
       }
+      const mp = marqueePreviewRowTrackRect();
+      if (mp && row >= mp.minRow && row <= mp.maxRow) return true;
       return false;
     }
 
@@ -874,6 +937,25 @@ export function useEditorCanvas(s: EditorState) {
     // Waveform panel drawn last so it appears on top when overlapping with field
     drawWaveformPanel(ctx, fieldX, h);
 
+    const rb = s.selectionRubberBand.value;
+    if (rb) {
+      const ax = fieldX + rb.anchorTrackT * COLUMN_WIDTH;
+      const ay = beatToY(rb.anchorBeat);
+      const ex = fieldX + rb.endTrackT * COLUMN_WIDTH;
+      const ey = beatToY(rb.endBeat);
+      const mx0 = Math.min(ax, ex);
+      const my0 = Math.min(ay, ey);
+      const mw = Math.abs(ex - ax);
+      const mh = Math.abs(ey - ay);
+      ctx.fillStyle = "rgba(124,77,255,0.07)";
+      ctx.fillRect(mx0, my0, mw, mh);
+      ctx.strokeStyle = "rgba(186, 147, 255, 0.92)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 3]);
+      ctx.strokeRect(mx0 + 0.5, my0 + 0.5, Math.max(0, mw - 1), Math.max(0, mh - 1));
+      ctx.setLineDash([]);
+    }
+
     animId = requestAnimationFrame(drawEditor);
   }
 
@@ -889,16 +971,28 @@ export function useEditorCanvas(s: EditorState) {
         return true;
       }
     }
-    if (s.selectionStart.value === null || s.selectionEnd.value === null) return false;
-    const minRow = Math.min(s.selectionStart.value, s.selectionEnd.value);
-    const maxRow = Math.max(s.selectionStart.value, s.selectionEnd.value);
-    let minTrack = 0,
-      maxTrack = s.NUM_TRACKS.value - 1;
-    if (s.selectionTrackStart.value !== null && s.selectionTrackEnd.value !== null) {
-      minTrack = Math.min(s.selectionTrackStart.value, s.selectionTrackEnd.value);
-      maxTrack = Math.max(s.selectionTrackStart.value, s.selectionTrackEnd.value);
+    if (s.selectionStart.value !== null && s.selectionEnd.value !== null) {
+      const minRow = Math.min(s.selectionStart.value, s.selectionEnd.value);
+      const maxRow = Math.max(s.selectionStart.value, s.selectionEnd.value);
+      let minTrack = 0,
+        maxTrack = s.NUM_TRACKS.value - 1;
+      if (s.selectionTrackStart.value !== null && s.selectionTrackEnd.value !== null) {
+        minTrack = Math.min(s.selectionTrackStart.value, s.selectionTrackEnd.value);
+        maxTrack = Math.max(s.selectionTrackStart.value, s.selectionTrackEnd.value);
+      }
+      if (row >= minRow && row <= maxRow && track >= minTrack && track <= maxTrack) return true;
     }
-    return row >= minRow && row <= maxRow && track >= minTrack && track <= maxTrack;
+    const mp = marqueePreviewRowTrackRect();
+    if (
+      mp &&
+      row >= mp.minRow &&
+      row <= mp.maxRow &&
+      track >= mp.minTrack &&
+      track <= mp.maxTrack
+    ) {
+      return true;
+    }
+    return false;
   }
 
   /** Check if a canvas pixel coordinate hits a BPM edit button; returns the BPM change index or -1 */

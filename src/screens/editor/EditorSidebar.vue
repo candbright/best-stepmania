@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import type { StyleValue } from "vue";
+import { computed } from "vue";
 import { useI18n } from "@/i18n";
 import type { ChartInfo } from "@/utils/api";
 import type { BpmChange } from "./useEditorState";
 import { DIFFICULTIES, DIFF_COLORS, BPM_BEAT_MATCH_EPS } from "./constants";
+import CustomSelect from "@/components/CustomSelect.vue";
+import AppNumberField from "@/components/AppNumberField.vue";
 
 const { t } = useI18n();
 
 type EditorSidebarTab = "charts" | "info" | "stats" | "bpm";
 
-defineProps<{
+const props = defineProps<{
   allCharts: ChartInfo[];
   activeChartIndex: number;
   activeChart: ChartInfo | undefined;
@@ -62,10 +65,19 @@ const emit = defineEmits<{
   addBpmChange: [];
 }>();
 
-function onBpmInputChange(idx: number, ev: Event) {
-  const v = parseFloat((ev.target as HTMLInputElement).value) || 120;
-  emit("updateBpmChange", idx, v);
-}
+const chartStepsTypeSelectOptions = computed(() =>
+  props.chartStepsTypeOptions.map((st) => ({
+    value: st,
+    label: props.stepsTypePropertyLabel(st),
+  })),
+);
+
+const chartDifficultySelectOptions = computed(() =>
+  DIFFICULTIES.map((d) => ({
+    value: d,
+    label: props.translateChartDifficulty(d),
+  })),
+);
 </script>
 
 <template>
@@ -142,21 +154,30 @@ function onBpmInputChange(idx: number, ev: Event) {
         <div class="meta-form chart-properties-form">
           <label class="meta-field">
             <span>{{ t('editor.stepsType') }}</span>
-            <select v-model="editChartStepsType" :disabled="chartPropertiesSaving">
-              <option v-for="st in chartStepsTypeOptions" :key="st" :value="st">
-                {{ stepsTypePropertyLabel(st) }}
-              </option>
-            </select>
+            <CustomSelect
+              v-model="editChartStepsType"
+              variant="form"
+              :options="chartStepsTypeSelectOptions"
+              :disabled="chartPropertiesSaving"
+            />
           </label>
           <label class="meta-field">
             <span>{{ t('editor.difficulty') }}</span>
-            <select v-model="editChartDifficulty" :disabled="chartPropertiesSaving">
-              <option v-for="d in DIFFICULTIES" :key="d" :value="d">{{ translateChartDifficulty(d) }}</option>
-            </select>
+            <CustomSelect
+              v-model="editChartDifficulty"
+              variant="form"
+              :options="chartDifficultySelectOptions"
+              :disabled="chartPropertiesSaving"
+            />
           </label>
           <label class="meta-field">
             <span>{{ t('editor.meter') }}</span>
-            <input v-model.number="editChartMeter" type="number" min="1" max="99" :disabled="chartPropertiesSaving" />
+            <AppNumberField
+              v-model="editChartMeter"
+              :min="1"
+              :max="99"
+              :disabled="chartPropertiesSaving"
+            />
           </label>
           <button
             type="button"
@@ -207,15 +228,15 @@ function onBpmInputChange(idx: number, ev: Event) {
         </label>
         <label class="meta-field">
           <span>{{ t('editor.metaOffset') }}</span>
-          <input v-model.number="metaOffset" type="number" inputmode="decimal" step="0.001" />
+          <AppNumberField v-model="metaOffset" inputmode="decimal" step="0.001" />
         </label>
         <label class="meta-field">
           <span>{{ t('editor.metaSampleStart') }}</span>
-          <input v-model.number="metaSampleStart" type="number" step="0.1" />
+          <AppNumberField v-model="metaSampleStart" step="0.1" />
         </label>
         <label class="meta-field">
           <span>{{ t('editor.metaSampleLength') }}</span>
-          <input v-model.number="metaSampleLength" type="number" step="0.1" />
+          <AppNumberField v-model="metaSampleLength" step="0.1" />
         </label>
         <button type="button" class="tool-btn save-btn meta-save" @click="emit('saveMetadata')" :disabled="metaSaving">
           {{ t('editor.save') }}
@@ -284,7 +305,13 @@ function onBpmInputChange(idx: number, ev: Event) {
           <label v-for="(bc, idx) in bpmChanges" :key="idx" class="meta-field bpm-field">
             <span>{{ t('editor.bpmChangeRowLabel').replace('{0}', bc.beat.toFixed(3)) }}</span>
             <div class="meta-field-with-action">
-              <input type="number" :value="bc.bpm" step="0.01" min="1" @change="onBpmInputChange(idx, $event)" />
+              <AppNumberField
+                :model-value="bc.bpm"
+                step="0.01"
+                min="1"
+                :emit-while-typing="false"
+                @update:model-value="emit('updateBpmChange', idx, $event ?? 120)"
+              />
               <button
                 v-if="bpmChanges.length > 1 && Math.abs(bc.beat) >= BPM_BEAT_MATCH_EPS"
                 type="button"
@@ -298,11 +325,11 @@ function onBpmInputChange(idx: number, ev: Event) {
         <div class="bpm-add-section">
           <label class="meta-field">
             <span>{{ t('editor.bpmNewAnchorBeat') }}</span>
-            <input v-model.number="newBpmBeat" type="number" step="0.25" min="0" />
+            <AppNumberField v-model="newBpmBeat" step="0.25" min="0" />
           </label>
           <label class="meta-field">
             <span>{{ t('editor.bpmNewAnchorBpm') }}</span>
-            <input v-model.number="newBpmValue" type="number" step="0.01" min="1" />
+            <AppNumberField v-model="newBpmValue" step="0.01" min="1" />
           </label>
           <button type="button" class="tool-btn small accent bpm-add-btn" @click="emit('addBpmChange')">
             + {{ t('editor.bpmAddChange') }}
@@ -754,6 +781,30 @@ function onBpmInputChange(idx: number, ev: Event) {
   border-color: color-mix(in srgb, var(--primary-color) 40%, transparent);
   background: rgba(255, 255, 255, 0.06);
 }
+.meta-field :deep(.app-number-field-host) {
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-color);
+  font-size: 0.75rem;
+}
+.meta-field :deep(.app-number-field-host:focus-within) {
+  border-color: color-mix(in srgb, var(--primary-color) 40%, transparent);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+.meta-field :deep(.app-number-spin) {
+  border-left-color: rgba(255, 255, 255, 0.12);
+}
+.meta-field :deep(.app-number-spin-btn) {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.55);
+}
+.meta-field :deep(.app-number-spin-btn:hover:not(:disabled)) {
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  color: var(--text-color);
+}
 .meta-field select {
   padding: 0.3rem 0.5rem;
   border-radius: 4px;
@@ -786,6 +837,10 @@ function onBpmInputChange(idx: number, ev: Event) {
   gap: 0.35rem;
 }
 .meta-field-with-action input {
+  flex: 1;
+  min-width: 0;
+}
+.meta-field-with-action :deep(.app-number-field-host) {
   flex: 1;
   min-width: 0;
 }

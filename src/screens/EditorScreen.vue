@@ -23,6 +23,8 @@ import { routineColorHex } from "@/constants/routinePlayerColors";
 import { logOptionalRejection } from "@/utils/devLog";
 import TwoStepDangerModal from "@/components/TwoStepDangerModal.vue";
 import BaseModal from "@/components/BaseModal.vue";
+import CustomSelect from "@/components/CustomSelect.vue";
+import AppNumberField from "@/components/AppNumberField.vue";
 import type { EditorChartBackupStored } from "@/utils/editorChartBackup";
 import {
   applyEditorChartBackupToState,
@@ -374,6 +376,20 @@ function translateChartDifficulty(d: string): string {
   const tr = t(key);
   return tr === key ? d : tr;
 }
+
+const newChartModalStepsOptions = computed(() =>
+  STEPS_TYPES.map((st) => ({
+    value: st.value,
+    label: String(t(st.labelKey)),
+  })),
+);
+
+const newChartModalDifficultyOptions = computed(() =>
+  DIFFICULTIES.map((d) => ({
+    value: d,
+    label: translateChartDifficulty(d),
+  })),
+);
 
 function translateChartStepsType(st: string): string {
   const key = `stepsType.${st}`;
@@ -798,15 +814,11 @@ onUnmounted(() => {
     >
       <div class="form-modal-fields">
         <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
-        <select v-model="newChartStepsType" class="form-modal-input">
-          <option v-for="st in STEPS_TYPES" :key="st.value" :value="st.value">{{ t(st.labelKey) }}</option>
-        </select>
+        <CustomSelect v-model="newChartStepsType" variant="form" :options="newChartModalStepsOptions" />
         <label class="form-modal-label">{{ t('editor.difficulty') }}</label>
-        <select v-model="newChartDifficulty" class="form-modal-input">
-          <option v-for="d in DIFFICULTIES" :key="d" :value="d">{{ translateChartDifficulty(d) }}</option>
-        </select>
+        <CustomSelect v-model="newChartDifficulty" variant="form" :options="newChartModalDifficultyOptions" />
         <label class="form-modal-label">{{ t('editor.meter') }}</label>
-        <input v-model.number="newChartMeter" class="form-modal-input" type="number" min="1" max="99" />
+        <AppNumberField v-model="newChartMeter" input-class="form-modal-input" :min="1" :max="99" />
       </div>
       <template #footer>
         <div class="form-modal-footer-inner">

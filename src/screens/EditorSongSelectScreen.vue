@@ -11,6 +11,7 @@ import { openDirectoryDialog, isTauri } from "@/utils/platform";
 
 import CreateSongModal from "./select-music/CreateSongModal.vue";
 import FilterModal from "./select-music/FilterModal.vue";
+import { syncSelectionToFilteredSongs } from "./select-music/syncSelectionToFilteredSongs";
 import DeleteSongModal from "./song-packs/DeleteSongModal.vue";
 import { ensureMinElapsed } from "@/utils/loadingGate";
 import { primeEditorEntryResources } from "./editor/editorEntryPrefetch";
@@ -415,6 +416,7 @@ onMounted(async () => {
     }
     ensureCurrentSongVisible();
     preloadAllBanners();
+    void syncSelectionToFilteredSongs(filteredSongs.value, loadBannerLazy);
     return;
   }
 
@@ -430,9 +432,17 @@ onMounted(async () => {
     ensureCurrentSongVisible();
     preloadAllBanners();
   }
+  void syncSelectionToFilteredSongs(filteredSongs.value, loadBannerLazy);
 });
 
 watch(() => game.currentSongIndex, () => ensureCurrentSongVisible());
+
+watch(
+  () => filteredSongs.value.map((s) => s.path).join("\0"),
+  () => {
+    void syncSelectionToFilteredSongs(filteredSongs.value, loadBannerLazy);
+  },
+);
 
 onUnmounted(() => {
   editorLoadAbortCtrl?.abort();
@@ -499,8 +509,6 @@ onUnmounted(() => {
               >
                 <div class="empty-icon">♪</div>
                 <p class="empty-title">{{ t('select.noSongs') }}</p>
-                <p class="empty-hint">{{ t('select.noSongsHint') }}</p>
-                <button class="cta-btn" @click="importSongs">{{ t('select.import') }}</button>
               </div>
               <button v-for="{ song, idx } in group.songs" :key="song.path"
                 class="song-row"
@@ -684,7 +692,6 @@ onUnmounted(() => {
 .topbar-actions { display: flex; gap: 0.4rem; }
 .tb-btn,
 .play-btn,
-.cta-btn,
 .path-btn,
 .modal-btn {
   justify-content: center;
@@ -774,21 +781,11 @@ onUnmounted(() => {
 }
 .empty-icon { font-size: 3rem; opacity: 0.3; }
 .empty-title { font-size: 1rem; font-weight: 700; }
-.empty-hint { font-size: 0.75rem; color: var(--text-subtle); max-width: 24ch; text-align: center; }
 .empty-state--in-pack {
   height: auto;
   min-height: 10rem;
   flex: 1;
 }
-.cta-btn {
-  margin-top: 0.5rem; min-height: 44px; padding: 0.6rem 1.4rem;
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-color-hover));
-  border: none; border-radius: 10px; color: var(--text-color);
-  font-family: 'Rajdhani', sans-serif; font-size: 0.9rem; font-weight: 700;
-  cursor: pointer; transition: filter 0.15s;
-  box-shadow: 0 4px 18px var(--primary-color-glow);
-}
-.cta-btn:hover { filter: brightness(1.12); }
 
 /* Pack groups */
 .pack-group {

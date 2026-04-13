@@ -72,6 +72,70 @@ export function useEditorActions(
   const session = useSessionStore();
   const { t } = useI18n();
   let suppressNextClick = false;
+  /** True for the current marquee if Ctrl was held at mousedown (additive selection). */
+  let selectionMarqueeAdditive = false;
+  let selectionMarqueeEdgeRaf = 0;
+  let selectionMarqueeLastClientX = 0;
+  let selectionMarqueeLastClientY = 0;
+
+  function stopSelectionMarqueeEdgeScroll() {
+    if (selectionMarqueeEdgeRaf !== 0) {
+      cancelAnimationFrame(selectionMarqueeEdgeRaf);
+      selectionMarqueeEdgeRaf = 0;
+    }
+  }
+
+  function selectionMarqueeEdgeScrollStep() {
+    if (!s.isDragging.value || !s.selectionRubberBand.value) {
+      selectionMarqueeEdgeRaf = 0;
+      return;
+    }
+    autoScrollEditorDuringMarquee(selectionMarqueeLastClientY);
+    const { x, y } = pointerToCanvasCss(selectionMarqueeLastClientX, selectionMarqueeLastClientY);
+    const rb = s.selectionRubberBand.value;
+    const fieldX = canvas.getCanvasFieldX();
+    const clampedY = Math.max(y, HEADER_HEIGHT);
+    s.selectionRubberBand.value = {
+      ...rb,
+      endBeat: canvas.yToBeat(clampedY),
+      endTrackT: (x - fieldX) / COLUMN_WIDTH,
+    };
+    selectionMarqueeEdgeRaf = requestAnimationFrame(selectionMarqueeEdgeScrollStep);
+  }
+
+  /** Canvas pixel corners for marquee (anchor follows chart; end follows pointer). */
+  function marqueeCanvasCorners(rb: {
+    anchorBeat: number;
+    anchorTrackT: number;
+    endBeat: number;
+    endTrackT: number;
+  }): {
+    x0: number;
+    y0: number;
+    x1: number;
+    y1: number;
+  } {
+    const fieldX = canvas.getCanvasFieldX();
+    const x0 = fieldX + rb.anchorTrackT * COLUMN_WIDTH;
+    const y0 = canvas.beatToY(rb.anchorBeat);
+    const x1 = fieldX + rb.endTrackT * COLUMN_WIDTH;
+    const y1 = canvas.beatToY(rb.endBeat);
+    return { x0, y0, x1, y1 };
+  }
+
+  /** After scroll/zoom, re-map marquee end to chart coords under the last pointer (wheel does not fire mousemove). */
+  function syncMarqueeEndFromLastPointer() {
+    if (!s.isDragging.value || !s.selectionRubberBand.value || !s.canvasRef.value) return;
+    const { x, y } = pointerToCanvasCss(selectionMarqueeLastClientX, selectionMarqueeLastClientY);
+    const rb = s.selectionRubberBand.value;
+    const fieldX = canvas.getCanvasFieldX();
+    const clampedY = Math.max(y, HEADER_HEIGHT);
+    s.selectionRubberBand.value = {
+      ...rb,
+      endBeat: canvas.yToBeat(clampedY),
+      endTrackT: (x - fieldX) / COLUMN_WIDTH,
+    };
+  }
 
   /**
    * Viewport → canvas CSS pixel space (same as drawEditor / getCanvasFieldX).
@@ -91,6 +155,89 @@ export function useEditorActions(
     };
   }
 
+  /** While marquee-selecting past canvas top/bottom, scroll so more rows enter the field. */
+  function autoScrollEditorDuringMarquee(clientY: number) {
+    const el = s.canvasRef.value;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const margin = 40;
+    const base = 0.32;
+    if (clientY > rect.bottom - margin) {
+      const over = clientY - (rect.bottom - margin);
+      const t = Math.min(1, over / margin);
+      s.scrollBeat.value = Math.min(
+        s.totalBeats.value,
+        s.scrollBeat.value + base * (0.35 + t * t * 2.6),
+      );
+    } else if (clientY < rect.top + margin) {
+      const over = rect.top + margin - clientY;
+      const t = Math.min(1, over / margin);
+      s.scrollBeat.value = Math.max(0, s.scrollBeat.value - base * (0.35 + t * t * 2.6));
+    }
+  }
+
+  /** Turn marquee pixels into row/track selection; additive = Ctrl at mousedown. */
+  function commitMarqueeSelection() {
+    const rb = s.selectionRubberBand.value;
+    if (!rb) return;
+    const { x0: ax0, y0: ay0, x1: ax1, y1: ay1 } = marqueeCanvasCorners(rb);
+    const fieldX = canvas.getCanvasFieldX();
+    const fieldW = s.FIELD_WIDTH.value;
+    const nT = s.NUM_TRACKS.value;
+    const rx0 = Math.min(ax0, ax1);
+    const rx1 = Math.max(ax0, ax1);
+    const ry0 = Math.min(ay0, ay1);
+    const ry1 = Math.max(ay0, ay1);
+    const ix0 = Math.max(rx0, fieldX);
+    const ix1 = Math.min(rx1, fieldX + fieldW);
+    if (ix1 <= fieldX || ix0 >= fieldX + fieldW) {
+      if (!selectionMarqueeAdditive) {
+        s.selectionStart.value = null;
+        s.selectionEnd.value = null;
+        s.selectionTrackStart.value = null;
+        s.selectionTrackEnd.value = null;
+      }
+      return;
+    }
+    const chartY0 = Math.max(ry0, HEADER_HEIGHT);
+    const chartY1 = Math.max(ry1, HEADER_HEIGHT);
+    const b0 = canvas.yToBeat(chartY0);
+    const b1 = canvas.yToBeat(chartY1);
+    const bLo = Math.min(b0, b1);
+    const bHi = Math.max(b0, b1);
+    let minRow = Math.floor(bLo * 48);
+    let maxRow = Math.ceil(bHi * 48) - 1;
+    if (maxRow < minRow) maxRow = minRow;
+    minRow = Math.max(0, minRow);
+    let minTrack = Math.max(0, Math.min(nT - 1, Math.floor((ix0 - fieldX) / COLUMN_WIDTH)));
+    let maxTrack = Math.max(0, Math.min(nT - 1, Math.floor((ix1 - fieldX - Number.EPSILON) / COLUMN_WIDTH)));
+    if (maxTrack < minTrack) {
+      const swap = minTrack;
+      minTrack = maxTrack;
+      maxTrack = swap;
+    }
+    if (selectionMarqueeAdditive) {
+      const prev = getSelectionRange();
+      if (prev) {
+        s.additionalSelections.value = [...s.additionalSelections.value, prev];
+      }
+    }
+    s.selectionStart.value = minRow;
+    s.selectionEnd.value = maxRow;
+    s.selectionTrackStart.value = minTrack;
+    s.selectionTrackEnd.value = maxTrack;
+  }
+
+  /** End marquee drag: commit to row/track selection and clear rubber (also safe if already cleared). */
+  function finalizeSelectionMarquee() {
+    stopSelectionMarqueeEdgeScroll();
+    if (s.isDragging.value && s.selectionRubberBand.value) {
+      commitMarqueeSelection();
+      s.selectionRubberBand.value = null;
+    }
+    s.isDragging.value = false;
+  }
+
   function routineLayerForNewNote(): { routineLayer: 1 | 2 } | Record<string, never> {
     if (s.activeChart.value?.stepsType !== "pump-routine") return {};
     return { routineLayer: s.editorRoutineLayer.value };
@@ -108,6 +255,7 @@ export function useEditorActions(
     s.selectionTrackStart.value = null;
     s.selectionTrackEnd.value = null;
     s.additionalSelections.value = [];
+    s.selectionRubberBand.value = null;
     s.clipboard.value = [];
     s.clipboardBpmChanges.value = [];
     s.holdStartRow.value = null;
@@ -340,7 +488,7 @@ export function useEditorActions(
     if (expectedSongPath && song.path !== expectedSongPath) return;
     const currentSongPath = song.path;
     
-    s.waveformPeaks.value = [];
+    s.waveformMinMax.value = new Float32Array(0);
     s.waveformDuration.value = 0;
     try {
       const musicPath = await api.getSongMusicPath(currentSongPath);
@@ -368,24 +516,34 @@ export function useEditorActions(
         if (numChannels > 1) {
           for (let j = 0; j < length; j++) mono[j] /= numChannels;
         }
-        const samples = 4096;
-        const blockSize = Math.max(1, Math.floor(length / samples));
-        const peaks = new Array(samples).fill(0);
-        for (let i = 0; i < samples; i++) {
+        const bucketCount = Math.min(65536, Math.max(12288, Math.ceil(length / 128)));
+        const blockSize = Math.max(1, Math.floor(length / bucketCount));
+        const mm = new Float32Array(bucketCount * 2);
+        for (let i = 0; i < bucketCount; i++) {
           const start = i * blockSize;
           const end = Math.min(length, start + blockSize);
-          let peak = 0;
-          for (let j = start; j < end; j++) peak = Math.max(peak, Math.abs(mono[j] || 0));
-          peaks[i] = peak;
+          let mn = 0;
+          let mx = 0;
+          if (start < end) {
+            mn = mono[start] ?? 0;
+            mx = mn;
+            for (let j = start + 1; j < end; j++) {
+              const v = mono[j] ?? 0;
+              if (v < mn) mn = v;
+              if (v > mx) mx = v;
+            }
+          }
+          mm[i * 2] = mn;
+          mm[i * 2 + 1] = mx;
         }
-        s.waveformPeaks.value = peaks;
+        s.waveformMinMax.value = mm;
         s.waveformDuration.value = audioBuffer.duration;
       } finally {
         await audioCtx.close();
       }
     } catch (err: unknown) {
       console.warn("[Editor] Failed to load waveform:", err);
-      s.waveformPeaks.value = [];
+      s.waveformMinMax.value = new Float32Array(0);
       s.waveformDuration.value = 0;
     }
   }
@@ -898,25 +1056,28 @@ export function useEditorActions(
 
     if (e.button === 2 || (e.button === 0 && e.shiftKey)) {
       e.preventDefault();
-      if (e.button === 2 && e.ctrlKey) {
-        const prev = getSelectionRange();
-        if (prev) {
-          s.additionalSelections.value = [...s.additionalSelections.value, prev];
-        }
-      } else if (e.button === 2) {
+      selectionMarqueeAdditive = e.ctrlKey;
+      if (!selectionMarqueeAdditive) {
         s.additionalSelections.value = [];
-      }
-      if (e.button === 0 && e.shiftKey) {
-        s.additionalSelections.value = [];
+        s.selectionStart.value = null;
+        s.selectionEnd.value = null;
+        s.selectionTrackStart.value = null;
+        s.selectionTrackEnd.value = null;
       }
       s.isDragging.value = true;
-      const beat = canvas.snapBeat(canvas.yToBeat(y));
-      const row = canvas.beatToRow(beat);
-      const col = Math.floor((x - fieldX) / COLUMN_WIDTH);
-      s.selectionStart.value = row;
-      s.selectionEnd.value = row;
-      s.selectionTrackStart.value = Math.max(0, Math.min(col, s.NUM_TRACKS.value - 1));
-      s.selectionTrackEnd.value = s.selectionTrackStart.value;
+      stopSelectionMarqueeEdgeScroll();
+      const fieldX0 = canvas.getCanvasFieldX();
+      const clampedY = Math.max(y, HEADER_HEIGHT);
+      const b0 = canvas.yToBeat(clampedY);
+      const t0 = (x - fieldX0) / COLUMN_WIDTH;
+      s.selectionRubberBand.value = {
+        anchorBeat: b0,
+        anchorTrackT: t0,
+        endBeat: b0,
+        endTrackT: t0,
+      };
+      selectionMarqueeLastClientX = e.clientX;
+      selectionMarqueeLastClientY = e.clientY;
     }
   }
 
@@ -939,14 +1100,30 @@ export function useEditorActions(
       s.holdDragCurrentRow.value = canvas.beatToRow(beat);
       return;
     }
-    if (!s.isDragging.value) return;
+    if (!s.isDragging.value || !s.selectionRubberBand.value) return;
     const { x, y } = pointerToCanvasCss(e.clientX, e.clientY);
-    const beat = canvas.snapBeat(canvas.yToBeat(y));
-    const row = canvas.beatToRow(beat);
+    const rb = s.selectionRubberBand.value;
     const fieldX = canvas.getCanvasFieldX();
-    const col = Math.floor((x - fieldX) / COLUMN_WIDTH);
-    s.selectionEnd.value = row;
-    s.selectionTrackEnd.value = Math.max(0, Math.min(col, s.NUM_TRACKS.value - 1));
+    const clampedY = Math.max(y, HEADER_HEIGHT);
+    s.selectionRubberBand.value = {
+      ...rb,
+      endBeat: canvas.yToBeat(clampedY),
+      endTrackT: (x - fieldX) / COLUMN_WIDTH,
+    };
+    selectionMarqueeLastClientX = e.clientX;
+    selectionMarqueeLastClientY = e.clientY;
+    autoScrollEditorDuringMarquee(e.clientY);
+    const el = s.canvasRef.value;
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const margin = 40;
+      const pastEdge = e.clientY > rect.bottom - margin || e.clientY < rect.top + margin;
+      if (pastEdge && selectionMarqueeEdgeRaf === 0) {
+        selectionMarqueeEdgeRaf = requestAnimationFrame(selectionMarqueeEdgeScrollStep);
+      } else if (!pastEdge) {
+        stopSelectionMarqueeEdgeScroll();
+      }
+    }
   }
 
   function handleMouseUp(e: MouseEvent) {
@@ -992,11 +1169,12 @@ export function useEditorActions(
     s.isHoldDragging.value = false;
     s.holdStartRow.value = null;
     s.holdDragCurrentRow.value = null;
-    s.isDragging.value = false;
+    finalizeSelectionMarquee();
   }
 
   function handleRightClick(e: MouseEvent) {
     e.preventDefault();
+    finalizeSelectionMarquee();
   }
 
   // ====== Selection ======
@@ -1028,6 +1206,73 @@ export function useEditorActions(
       minTrack: Math.min(...rects.map((r) => r.minTrack)),
       maxTrack: Math.max(...rects.map((r) => r.maxTrack)),
     };
+  }
+
+  /** Bbox of { mapT(t) | minT <= t <= maxT } (integer tracks). */
+  function trackSpanAfterMap(minT: number, maxT: number, mapT: (t: number) => number): { minTrack: number; maxTrack: number } {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let t = minT; t <= maxT; t++) {
+      const u = mapT(t);
+      lo = Math.min(lo, u);
+      hi = Math.max(hi, u);
+    }
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) {
+      return { minTrack: minT, maxTrack: maxT };
+    }
+    return { minTrack: lo, maxTrack: hi };
+  }
+
+  function remapRectNonPumpH(r: SelectionRect, m: SelectionRect): SelectionRect {
+    return {
+      minRow: r.minRow,
+      maxRow: r.maxRow,
+      minTrack: m.minTrack + m.maxTrack - r.maxTrack,
+      maxTrack: m.minTrack + m.maxTrack - r.minTrack,
+    };
+  }
+
+  function remapRectNonPumpV(r: SelectionRect, m: SelectionRect): SelectionRect {
+    return {
+      minRow: m.minRow + m.maxRow - r.maxRow,
+      maxRow: m.minRow + m.maxRow - r.minRow,
+      minTrack: r.minTrack,
+      maxTrack: r.maxTrack,
+    };
+  }
+
+  function remapRectNonPumpD(r: SelectionRect, m: SelectionRect): SelectionRect {
+    return remapRectNonPumpV(remapRectNonPumpH(r, m), m);
+  }
+
+  function remapRectPumpH(r: SelectionRect, nT: number): SelectionRect {
+    const { minTrack, maxTrack } = trackSpanAfterMap(r.minTrack, r.maxTrack, (t) => mirrorPumpTrackH(t, nT));
+    return { ...r, minTrack, maxTrack };
+  }
+
+  function remapRectPumpV(r: SelectionRect, nT: number): SelectionRect {
+    const { minTrack, maxTrack } = trackSpanAfterMap(r.minTrack, r.maxTrack, (t) => mirrorPumpTrackV(t, nT));
+    return { ...r, minTrack, maxTrack };
+  }
+
+  function remapRectPumpD(r: SelectionRect, nT: number): SelectionRect {
+    const { minTrack, maxTrack } = trackSpanAfterMap(r.minTrack, r.maxTrack, (t) =>
+      mirrorPumpTrackV(mirrorPumpTrackH(t, nT), nT),
+    );
+    return { ...r, minTrack, maxTrack };
+  }
+
+  /** Keep selection regions aligned with flipped notes (primary + Ctrl+drag rects). */
+  function remapAllSelectionRects(mapper: (r: SelectionRect) => SelectionRect) {
+    const primary = getSelectionRange();
+    if (primary) {
+      const u = mapper(primary);
+      s.selectionStart.value = u.minRow;
+      s.selectionEnd.value = u.maxRow;
+      s.selectionTrackStart.value = u.minTrack;
+      s.selectionTrackEnd.value = u.maxTrack;
+    }
+    s.additionalSelections.value = s.additionalSelections.value.map(mapper);
   }
 
   function noteInAnyRect(row: number, track: number, rects: SelectionRect[]): boolean {
@@ -1075,11 +1320,13 @@ export function useEditorActions(
   }
 
   function clearSelection() {
+    stopSelectionMarqueeEdgeScroll();
     s.selectionStart.value = null;
     s.selectionEnd.value = null;
     s.selectionTrackStart.value = null;
     s.selectionTrackEnd.value = null;
     s.additionalSelections.value = [];
+    s.selectionRubberBand.value = null;
   }
 
   function deleteSelection() {
@@ -1368,6 +1615,7 @@ export function useEditorActions(
           }
         }
       }
+      remapAllSelectionRects((r) => remapRectPumpH(r, nT));
     } else {
       const range = mergeSelectionRects(rects);
       if (!range) return;
@@ -1380,6 +1628,7 @@ export function useEditorActions(
           }
         }
       }
+      remapAllSelectionRects((r) => remapRectNonPumpH(r, range));
     }
     pushUndo();
   }
@@ -1397,10 +1646,12 @@ export function useEditorActions(
           }
         }
       }
+      remapAllSelectionRects((r) => remapRectPumpV(r, nT));
     } else {
       const merged = mergeSelectionRects(rects);
       if (!merged) return;
       applyTimeMirrorInRect(merged);
+      remapAllSelectionRects((r) => remapRectNonPumpV(r, merged));
     }
     pushUndo();
   }
@@ -1419,6 +1670,7 @@ export function useEditorActions(
           }
         }
       }
+      remapAllSelectionRects((r) => remapRectPumpD(r, nT));
     } else {
       const range = mergeSelectionRects(rects);
       if (!range) return;
@@ -1432,6 +1684,7 @@ export function useEditorActions(
         }
       }
       applyTimeMirrorInRect(range);
+      remapAllSelectionRects((r) => remapRectNonPumpD(r, range));
     }
     pushUndo();
   }
@@ -1535,6 +1788,9 @@ export function useEditorActions(
       if (dir === 0) return;
       s.scrollBeat.value = Math.max(0, s.scrollBeat.value + dir * stepBeats);
     }
+    if (s.isDragging.value && s.selectionRubberBand.value) {
+      syncMarqueeEndFromLastPointer();
+    }
   }
 
   function handleKeyDown(e: KeyboardEvent) {
@@ -1596,21 +1852,25 @@ export function useEditorActions(
     if (game.shortcutMatches(e, "editor.deleteBeat")) { if (canDeleteBeatShiftNotesUp()) { deleteBeatShiftNotesUp(); } e.preventDefault(); return; }
     if (game.shortcutMatches(e, "editor.scrollUp")) {
       s.scrollBeat.value = Math.max(0, s.scrollBeat.value - 1);
+      if (s.isDragging.value && s.selectionRubberBand.value) syncMarqueeEndFromLastPointer();
       e.preventDefault();
       return;
     }
     if (game.shortcutMatches(e, "editor.scrollDown")) {
       s.scrollBeat.value += 1;
+      if (s.isDragging.value && s.selectionRubberBand.value) syncMarqueeEndFromLastPointer();
       e.preventDefault();
       return;
     }
     if (game.shortcutMatches(e, "editor.zoomIn")) {
       s.zoom.value = Math.min(EDITOR_ZOOM_MAX, s.zoom.value + EDITOR_ZOOM_STEP_KEY);
+      if (s.isDragging.value && s.selectionRubberBand.value) syncMarqueeEndFromLastPointer();
       e.preventDefault();
       return;
     }
     if (game.shortcutMatches(e, "editor.zoomOut")) {
       s.zoom.value = Math.max(EDITOR_ZOOM_MIN, s.zoom.value - EDITOR_ZOOM_STEP_KEY);
+      if (s.isDragging.value && s.selectionRubberBand.value) syncMarqueeEndFromLastPointer();
       e.preventDefault();
       return;
     }
