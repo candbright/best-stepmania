@@ -1,7 +1,6 @@
 export default {
   "select.title": "选择歌曲",
   "select.noSongs": "未找到歌曲",
-  "select.noSongsHint": "请将歌曲包放入 Songs/ 目录",
   "select.searchPlaceholder": "搜索歌曲...",
   "select.topScores": "最佳十次成绩",
   "select.clearTopScores": "清空排行榜",

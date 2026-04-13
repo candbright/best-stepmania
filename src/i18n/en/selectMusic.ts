@@ -1,7 +1,6 @@
 export default {
   "select.title": "SELECT MUSIC",
   "select.noSongs": "No songs found",
-  "select.noSongsHint": "Place song packs in the Songs/ directory",
   "select.searchPlaceholder": "Search songs...",
   "select.topScores": "TOP 10 SCORES",
   "select.clearTopScores": "Clear scores",

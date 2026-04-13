@@ -2,6 +2,8 @@
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useI18n } from "@/i18n";
 import { useModalBottomHintLayout } from "@/composables/useModalBottomHintLayout";
+import CustomSelect from "@/components/CustomSelect.vue";
+import AppNumberField from "@/components/AppNumberField.vue";
 
 /** Same three modes as TitleScreen → enter game (pump only; no dance charts in this flow). */
 const STEPS_TYPE_OPTIONS = [
@@ -96,6 +98,19 @@ function stepsTypeOptionLabel(st: string): string {
   return translated === key ? st : translated;
 }
 
+const packFilterOptions = computed(() => [
+  { label: "—", value: "" },
+  ...props.existingPacks.map((p) => ({ label: p, value: p })),
+]);
+
+const stepsTypeFilterOptions = computed(() => [
+  { label: t("select.filterStepsTypeAll"), value: "" },
+  ...STEPS_TYPE_OPTIONS.map((st) => ({
+    value: st,
+    label: stepsTypeOptionLabel(st),
+  })),
+]);
+
 /** 捕获阶段优先于 App 全局 Esc，只关弹框不触发选歌页返回 */
 function onEscKey(e: KeyboardEvent) {
   if (e.key !== "Escape") return;
@@ -135,43 +150,31 @@ onUnmounted(() => {
 
             <label class="form-modal-label">{{ t('select.filterDifficulty') }}</label>
             <div class="form-modal-diff-row">
-              <input
-                v-model.number="localDiffMin"
-                class="form-modal-input form-modal-diff-input"
-                type="number"
+              <AppNumberField
+                v-model="localDiffMin"
+                nullable
+                input-class="form-modal-input form-modal-diff-input"
                 :placeholder="t('select.filterDiffMinPlaceholder')"
-                min="1"
-                max="99"
+                :min="1"
+                :max="99"
               />
               <span class="form-modal-diff-sep">~</span>
-              <input
-                v-model.number="localDiffMax"
-                class="form-modal-input form-modal-diff-input"
-                type="number"
+              <AppNumberField
+                v-model="localDiffMax"
+                nullable
+                input-class="form-modal-input form-modal-diff-input"
                 :placeholder="t('select.filterDiffMaxPlaceholder')"
-                min="1"
-                max="99"
+                :min="1"
+                :max="99"
               />
             </div>
 
             <label class="form-modal-label">{{ t('select.filterPack') }}</label>
-            <select v-model="localPack" class="form-modal-input">
-              <option value="">—</option>
-              <option v-for="p in existingPacks" :key="p" :value="p">{{ p }}</option>
-            </select>
+            <CustomSelect v-model="localPack" variant="form" :options="packFilterOptions" />
 
             <template v-if="showStepsTypeFilter">
               <label class="form-modal-label">{{ t('select.filterStepsType') }}</label>
-              <select v-model="localStepsType" class="form-modal-input">
-                <option value="">{{ t('select.filterStepsTypeAll') }}</option>
-                <option
-                  v-for="st in STEPS_TYPE_OPTIONS"
-                  :key="st"
-                  :value="st"
-                >
-                  {{ stepsTypeOptionLabel(st) }}
-                </option>
-              </select>
+              <CustomSelect v-model="localStepsType" variant="form" :options="stepsTypeFilterOptions" />
             </template>
           </div>
 

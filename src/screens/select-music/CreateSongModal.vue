@@ -6,6 +6,9 @@ import { usePlayerStore } from "@/stores/player";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import { openFileDialog } from "@/utils/platform";
+import CustomSelect from "@/components/CustomSelect.vue";
+import AppNumberField from "@/components/AppNumberField.vue";
+import type { Ref } from "vue";
 
 const props = withDefaults(
   defineProps<{
@@ -61,6 +64,42 @@ const createChart = ref(false);
 const createStepsType = ref("pump-single");
 const createDifficulty = ref("Easy");
 const createMeter = ref(5);
+
+const createPackSelectOptions = computed(() => [
+  { label: t("select.rootPack"), value: ROOT_PACK_KEY },
+  ...props.existingPacks.map((p) => ({ label: p, value: p })),
+  { label: t("select.newPack"), value: "__CUSTOM__" },
+]);
+
+const createStepsTypeOptions = computed(() => [
+  { value: "pump-single", label: t("editor.stepsTypeOption.pump-single") },
+  { value: "pump-double", label: t("editor.stepsTypeOption.pump-double") },
+  { value: "pump-couple", label: t("editor.stepsTypeOption.pump-couple") },
+  { value: "pump-routine", label: t("editor.stepsTypeOption.pump-routine") },
+]);
+
+const createDifficultyOptions = computed(() => [
+  { value: "Beginner", label: "Beginner" },
+  { value: "Easy", label: "Easy" },
+  { value: "Medium", label: "Medium" },
+  { value: "Hard", label: "Hard" },
+  { value: "Expert", label: "Expert" },
+  { value: "Edit", label: "Edit" },
+]);
+
+function numOrEmptyBridge(r: Ref<number | "">) {
+  return computed({
+    get: (): number | null => (r.value === "" ? null : r.value),
+    set: (v: number | null) => {
+      r.value = v === null ? "" : v;
+    },
+  });
+}
+
+const createBpmBridge = numOrEmptyBridge(createBpm);
+const createOffsetBridge = numOrEmptyBridge(createOffset);
+const createSampleStartBridge = numOrEmptyBridge(createSampleStart);
+const createSampleLengthBridge = numOrEmptyBridge(createSampleLength);
 
 async function pickCreateMusic() {
   const selected = await openFileDialog({
@@ -185,11 +224,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
           <div class="form-modal-body">
             <div class="form-modal-fields">
             <label class="form-modal-label">{{ t('select.targetPack') }}</label>
-            <select v-model="createPack" class="form-modal-input">
-              <option :value="ROOT_PACK_KEY">{{ t('select.rootPack') }}</option>
-              <option v-for="p in existingPacks" :key="p" :value="p">{{ p }}</option>
-              <option value="__CUSTOM__">{{ t('select.newPack') }}</option>
-            </select>
+            <CustomSelect v-model="createPack" variant="form" :options="createPackSelectOptions" />
             <input
               v-if="createPack === '__CUSTOM__'"
               v-model="createPackCustom"
@@ -244,40 +279,40 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
 
             <p class="form-modal-hint">{{ t('select.timingDefaultsHint') }}</p>
             <label class="form-modal-label">{{ t('select.createInitialBpm') }}</label>
-            <input
-              v-model.number="createBpm"
-              class="form-modal-input"
-              type="number"
-              min="20"
-              max="999"
+            <AppNumberField
+              v-model="createBpmBridge"
+              input-class="form-modal-input"
+              nullable
+              :min="20"
+              :max="999"
               step="0.001"
               :placeholder="String(DEFAULT_CREATE_BPM)"
             />
 
             <label class="form-modal-label">{{ t('editor.metaOffset') }}</label>
-            <input
-              v-model.number="createOffset"
-              class="form-modal-input"
-              type="number"
+            <AppNumberField
+              v-model="createOffsetBridge"
+              input-class="form-modal-input"
+              nullable
               step="0.001"
               :placeholder="String(DEFAULT_CREATE_OFFSET)"
             />
 
             <label class="form-modal-label">{{ t('editor.metaSampleStart') }}</label>
-            <input
-              v-model.number="createSampleStart"
-              class="form-modal-input"
-              type="number"
-              min="0"
+            <AppNumberField
+              v-model="createSampleStartBridge"
+              input-class="form-modal-input"
+              nullable
+              :min="0"
               step="0.001"
               :placeholder="String(DEFAULT_CREATE_SAMPLE_START)"
             />
 
             <label class="form-modal-label">{{ t('editor.metaSampleLength') }}</label>
-            <input
-              v-model.number="createSampleLength"
-              class="form-modal-input"
-              type="number"
+            <AppNumberField
+              v-model="createSampleLengthBridge"
+              input-class="form-modal-input"
+              nullable
               min="0.01"
               step="0.001"
               :placeholder="String(DEFAULT_CREATE_SAMPLE_LENGTH)"
@@ -290,31 +325,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
 
             <template v-if="createChart">
               <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
-              <select v-model="createStepsType" class="form-modal-input">
-                <option value="pump-single">{{ t('editor.stepsTypeOption.pump-single') }}</option>
-                <option value="pump-double">{{ t('editor.stepsTypeOption.pump-double') }}</option>
-                <option value="pump-couple">{{ t('editor.stepsTypeOption.pump-couple') }}</option>
-                <option value="pump-routine">{{ t('editor.stepsTypeOption.pump-routine') }}</option>
-              </select>
+              <CustomSelect v-model="createStepsType" variant="form" :options="createStepsTypeOptions" />
 
               <label class="form-modal-label">{{ t('editor.difficulty') }}</label>
-              <select v-model="createDifficulty" class="form-modal-input">
-                <option value="Beginner">Beginner</option>
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-                <option value="Expert">Expert</option>
-                <option value="Edit">Edit</option>
-              </select>
+              <CustomSelect v-model="createDifficulty" variant="form" :options="createDifficultyOptions" />
 
               <label class="form-modal-label">{{ t('editor.meter') }}</label>
-              <input
-                v-model.number="createMeter"
-                class="form-modal-input"
-                type="number"
-                min="1"
-                max="20"
-              />
+              <AppNumberField v-model="createMeter" input-class="form-modal-input" :min="1" :max="20" />
             </template>
             </div>
           </div>
