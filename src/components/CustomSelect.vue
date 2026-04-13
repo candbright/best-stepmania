@@ -9,20 +9,25 @@ const props = withDefaults(
     options: Array<{ label: string; value: SelectValue; disabled?: boolean }>;
     disabled?: boolean;
     ariaLabel?: string;
+    /** Visual style: default (rounded panel), form (modal fields), compact (editor toolbar). */
+    variant?: "default" | "form" | "compact";
   }>(),
   {
     disabled: false,
     ariaLabel: "",
+    variant: "default",
   },
 );
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: SelectValue): void;
+  (e: "triggerKeydown", ev: KeyboardEvent): void;
 }>();
 
 const open = ref(false);
 const rootRef = ref<HTMLElement | null>(null);
 const listRef = ref<HTMLElement | null>(null);
+const menuStyle = ref<Record<string, string>>({});
 
 const selectedOption = computed(() => props.options.find((o) => o.value === props.modelValue));
 const activeIndex = ref(-1);
@@ -52,11 +57,32 @@ function selectOption(value: SelectValue, disabled?: boolean) {
   closeMenu();
 }
 
+function layoutMenu() {
+  const trigger = rootRef.value?.querySelector<HTMLElement>(".custom-select-trigger");
+  if (!trigger) return;
+  const r = trigger.getBoundingClientRect();
+  menuStyle.value = {
+    position: "fixed",
+    left: `${r.left}px`,
+    top: `${r.bottom + 6}px`,
+    width: `${r.width}px`,
+    "z-index": "14000",
+  };
+}
+
+function onWindowReposition() {
+  if (open.value) layoutMenu();
+}
+
 function onDocumentPointerDown(e: PointerEvent) {
   const root = rootRef.value;
+  const menu = listRef.value;
   if (!root) return;
   const target = e.target as Node | null;
-  if (target && !root.contains(target)) closeMenu();
+  if (!target) return;
+  if (root.contains(target)) return;
+  if (menu?.contains(target)) return;
+  closeMenu();
 }
 
 function moveActive(delta: number) {
@@ -77,6 +103,7 @@ function moveActive(delta: number) {
 }
 
 function onTriggerKeydown(e: KeyboardEvent) {
+  emit("triggerKeydown", e);
   if (props.disabled) return;
   if (e.key === "Enter" || e.key === " ") {
     e.preventDefault();
@@ -124,23 +151,35 @@ function onListKeydown(e: KeyboardEvent) {
 
 watch(open, (isOpen) => {
   if (!isOpen) return;
-  nextTick(() => listRef.value?.focus());
+  nextTick(() => {
+    layoutMenu();
+    listRef.value?.focus();
+  });
 });
 
 onMounted(() => {
   document.addEventListener("pointerdown", onDocumentPointerDown, { capture: true });
+  window.addEventListener("scroll", onWindowReposition, true);
+  window.addEventListener("resize", onWindowReposition);
 });
 
 onUnmounted(() => {
   document.removeEventListener("pointerdown", onDocumentPointerDown, { capture: true });
+  window.removeEventListener("scroll", onWindowReposition, true);
+  window.removeEventListener("resize", onWindowReposition);
 });
 </script>
 
 <template>
-  <div ref="rootRef" class="custom-select" :class="{ 'is-open': open, 'is-disabled': disabled }">
+  <div
+    ref="rootRef"
+    class="custom-select"
+    :class="[`custom-select--${variant}`, { 'is-open': open, 'is-disabled': disabled }]"
+  >
     <button
       type="button"
       class="custom-select-trigger"
+      data-sfx="move"
       :disabled="disabled"
       :aria-label="ariaLabel || undefined"
       :aria-expanded="open"
@@ -152,39 +191,52 @@ onUnmounted(() => {
       <span class="custom-select-caret">▾</span>
     </button>
 
-    <ul
-      v-if="open"
-      ref="listRef"
-      class="custom-select-menu"
-      role="listbox"
-      tabindex="-1"
-      @keydown="onListKeydown"
-    >
-      <li
-        v-for="(option, idx) in options"
-        :key="`${option.value}`"
-        class="custom-select-option"
-        :class="{
-          'is-selected': option.value === modelValue,
-          'is-active': idx === activeIndex,
-          'is-disabled': option.disabled,
-        }"
-        :data-option-idx="idx"
-        role="option"
-        :aria-selected="option.value === modelValue"
-        @click="selectOption(option.value, option.disabled)"
-        @mousemove="activeIndex = idx"
+    <Teleport to="body">
+      <ul
+        v-if="open"
+        ref="listRef"
+        class="custom-select-menu"
+        :style="menuStyle"
+        role="listbox"
+        tabindex="-1"
+        @keydown="onListKeydown"
       >
-        {{ option.label }}
-      </li>
-    </ul>
+        <li
+          v-for="(option, idx) in options"
+          :key="`${option.value}`"
+          class="custom-select-option"
+          :class="{
+            'is-selected': option.value === modelValue,
+            'is-active': idx === activeIndex,
+            'is-disabled': option.disabled,
+          }"
+          :data-option-idx="idx"
+          role="option"
+          :aria-selected="option.value === modelValue"
+          @click="selectOption(option.value, option.disabled)"
+          @mousemove="activeIndex = idx"
+        >
+          {{ option.label }}
+        </li>
+      </ul>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
 .custom-select {
   position: relative;
-  min-width: 160px;
+  /* Wider than the old 160px cap so settings rows match native <select> comfort. */
+  min-width: 12rem;
+}
+
+.custom-select--form {
+  width: 100%;
+  min-width: 0;
+}
+
+.custom-select--compact {
+  min-width: 0;
 }
 
 .custom-select-trigger {
@@ -193,14 +245,38 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+  box-sizing: border-box;
   padding: 0.45rem 0.6rem;
+  min-height: 2.35rem;
   border-radius: 10px;
   border: 1px solid var(--border-color);
   background: color-mix(in srgb, var(--bg-color) 76%, white 24%);
   color: var(--text-color);
   font-weight: 600;
-  font-size: 0.82rem;
-  line-height: 1.08;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.custom-select--form .custom-select-trigger {
+  padding: 0.45rem 0.65rem;
+  min-height: 2.4rem;
+  border-radius: var(--control-radius);
+  background: var(--surface-elevated);
+  font-family: "Rajdhani", system-ui, sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.custom-select--compact .custom-select-trigger {
+  padding: 0.15rem 0.3rem;
+  min-height: 1.55rem;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.25;
 }
 
 .custom-select-trigger:disabled {
@@ -209,30 +285,46 @@ onUnmounted(() => {
 
 .custom-select-caret {
   opacity: 0.9;
-  font-size: 0.75rem;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+
+.custom-select--compact .custom-select-caret {
+  font-size: 0.65rem;
 }
 
 .custom-select-menu {
-  position: absolute;
-  z-index: 1200;
-  left: 0;
-  right: 0;
-  top: calc(100% + 6px);
   max-height: 240px;
   overflow: auto;
   border-radius: 10px;
   border: 1px solid var(--border-color);
   background: color-mix(in srgb, var(--bg-color) 82%, black 18%);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.34);
-  padding: 0.35rem;
+  padding: 0.28rem;
   list-style: none;
+  box-sizing: border-box;
+}
+
+.custom-select--form .custom-select-menu {
+  font-family: "Rajdhani", system-ui, sans-serif;
 }
 
 .custom-select-option {
-  padding: 0.46rem 0.56rem;
+  padding: 0.34rem 0.48rem;
   border-radius: 8px;
   color: var(--text-color);
-  font-size: 0.86rem;
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.custom-select--form .custom-select-option {
+  font-size: 0.74rem;
+}
+
+.custom-select--compact .custom-select-option {
+  padding: 0.26rem 0.38rem;
+  font-size: 0.65rem;
 }
 
 .custom-select-option.is-active,
