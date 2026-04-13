@@ -60,7 +60,7 @@ export function isUiSfxEnabled(): boolean {
 }
 
 /** Extra headroom so rhythm cues read over music at typical effect volume. */
-const RHYTHM_SFX_BASE_BOOST = 1.42;
+const RHYTHM_SFX_BASE_BOOST = 1.68;
 
 /** Amplitude multiplier for rhythm-category SFX (countdown, judgments, mines, beat ticks). */
 function gameplayRhythmAmp(mult: number): number {
