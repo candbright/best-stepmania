@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onUnmounted, watch } from "vue";
+import { computed, onUnmounted, useSlots, watch } from "vue";
 
 const props = withDefaults(
   defineProps<{
@@ -8,18 +8,24 @@ const props = withDefaults(
     closeOnOverlay?: boolean;
     closeOnEsc?: boolean;
     width?: string;
+    /** When true, body scrolls inside a max-height shell (long forms). */
+    bodyScrollable?: boolean;
   }>(),
   {
     title: "",
     closeOnOverlay: true,
     closeOnEsc: true,
     width: "min(560px, 92vw)",
+    bodyScrollable: false,
   },
 );
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: boolean): void;
 }>();
+
+const slots = useSlots();
+const hasFooter = computed(() => Boolean(slots.footer));
 
 function close() {
   emit("update:modelValue", false);
@@ -48,17 +54,31 @@ onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
 
 <template>
   <Teleport to="body">
-    <div v-if="modelValue" class="base-modal-overlay" @click.self="closeOnOverlay ? close() : undefined">
-      <div class="base-modal" role="dialog" aria-modal="true" :style="{ width }" @click.stop>
-        <div class="base-modal-header">
+    <div
+      v-if="modelValue"
+      class="base-modal-overlay"
+      @click.self="closeOnOverlay ? close() : undefined"
+    >
+      <div
+        class="form-modal-shell"
+        :class="{ 'form-modal--scrollable': bodyScrollable }"
+        role="dialog"
+        aria-modal="true"
+        :style="{ width }"
+        @click.stop
+      >
+        <header class="form-modal-header">
           <slot name="title">
-            <span class="base-modal-title">{{ title }}</span>
+            <span class="form-modal-title">{{ title }}</span>
           </slot>
-          <button type="button" class="base-modal-close" aria-label="close" @click="close">×</button>
-        </div>
-        <div class="base-modal-body">
+          <button type="button" class="form-modal-close" aria-label="close" @click="close">×</button>
+        </header>
+        <div class="form-modal-body">
           <slot />
         </div>
+        <footer v-if="hasFooter" class="form-modal-footer">
+          <slot name="footer" />
+        </footer>
       </div>
     </div>
   </Teleport>
@@ -68,63 +88,23 @@ onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
 .base-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: color-mix(in srgb, var(--bg-color) 24%, transparent);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 12000;
+  z-index: var(--z-modal, 13000);
+  padding: 1rem;
+  box-sizing: border-box;
+  animation: form-modal-mask-in 0.15s ease;
 }
 
-.base-modal {
-  background: var(--bg-color);
-  border: 1px solid color-mix(in srgb, var(--primary-color) 25%, transparent);
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-  animation: base-modal-in 0.18s ease;
-}
-
-@keyframes base-modal-in {
+@keyframes form-modal-mask-in {
   from {
-    transform: translateY(14px);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
     opacity: 1;
   }
-}
-
-.base-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  padding: 1rem 1.25rem 0.6rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.base-modal-title {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--text-color) 80%, transparent);
-  line-height: 1.35;
-}
-
-.base-modal-close {
-  border: none;
-  background: transparent;
-  color: var(--text-subtle);
-  font-size: 1.4rem;
-  line-height: 1;
-  padding: 0 0.25rem;
-}
-
-.base-modal-close:hover {
-  color: var(--text-color);
-}
-
-.base-modal-body {
-  padding: 1rem 1.25rem 1.25rem;
 }
 </style>
