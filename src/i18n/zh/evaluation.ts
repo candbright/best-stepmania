@@ -1,0 +1,15 @@
+export default {
+  "eval.selectMusic": "选择歌曲",
+  "eval.maxCombo": "最大连击",
+  "eval.totalNotes": "总音符数",
+  "eval.timingOffset": "时间偏移分布",
+  "eval.early": "偏早",
+  "eval.late": "偏晚",
+  "eval.fullCombo": "全连击！",
+  "eval.holdsHeld": "长按成功",
+  "eval.holdsDropped": "长按失败",
+  "eval.minesHit": "触雷次数",
+  "eval.scoreSaved": "成绩已保存！",
+  "eval.retry": "再来一次",
+  "eval.playerOptions": "玩家设置",
+} as const;

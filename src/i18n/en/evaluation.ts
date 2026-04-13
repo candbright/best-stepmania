@@ -1,0 +1,15 @@
+export default {
+  "eval.selectMusic": "SELECT MUSIC",
+  "eval.maxCombo": "MAX COMBO",
+  "eval.totalNotes": "TOTAL NOTES",
+  "eval.timingOffset": "TIMING OFFSET",
+  "eval.early": "EARLY",
+  "eval.late": "LATE",
+  "eval.fullCombo": "FULL COMBO!",
+  "eval.holdsHeld": "Holds Held",
+  "eval.holdsDropped": "Holds Dropped",
+  "eval.minesHit": "Mines Hit",
+  "eval.scoreSaved": "Score saved!",
+  "eval.retry": "RETRY",
+  "eval.playerOptions": "PLAYER OPTIONS",
+} as const;

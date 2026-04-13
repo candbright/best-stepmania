@@ -1,0 +1,18 @@
+export default {
+  "difficulty.Beginner": "Beginner",
+  "difficulty.Easy": "Easy",
+  "difficulty.Medium": "Medium",
+  "difficulty.Hard": "Hard",
+  "difficulty.Challenge": "Challenge",
+  "difficulty.Edit": "Edit",
+  "playMode.title": "SELECT MODE",
+  "playMode.pump-single": "SOLO",
+  "playMode.pump-double": "DOUBLE",
+  "playMode.pump-routine": "ROUTINE",
+  "stepsType.pump-single": "Solo",
+  "stepsType.pump-double": "DP",
+  "stepsType.pump-routine": "Routine",
+  "stepsType.pump-couple": "Co-op",
+  "stepsType.dance-single": "Single",
+  "stepsType.dance-double": "Co-op",
+} as const;

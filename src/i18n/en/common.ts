@@ -1,0 +1,20 @@
+export default {
+  back: "Back",
+  confirm: "Confirm",
+  cancel: "Cancel",
+  continue: "Continue",
+  stepBack: "Go back",
+  close: "Close",
+  search: "Search",
+  loading: "Loading...",
+  "loadingOverlay.retry": "Retry",
+  "loadingOverlay.failed":
+    "Something went wrong. Check the song files and try again.",
+  "loadingPhase.preparing": "Preparing…",
+  "loadingPhase.audio": "Finishing audio preview…",
+  "loadingPhase.navigate": "Opening…",
+  "loadingPhase.editorCharts": "Loading chart data…",
+  "loadingPhase.editorAudio": "Loading song audio…",
+  "common.clear": "Clear",
+  "common.browse": "Browse",
+} as const;

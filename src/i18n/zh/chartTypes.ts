@@ -1,0 +1,18 @@
+export default {
+  "difficulty.Beginner": "入门",
+  "difficulty.Easy": "简单",
+  "difficulty.Medium": "普通",
+  "difficulty.Hard": "困难",
+  "difficulty.Challenge": "挑战",
+  "difficulty.Edit": "编辑",
+  "playMode.title": "选择模式",
+  "playMode.pump-single": "单人模式",
+  "playMode.pump-double": "双板模式",
+  "playMode.pump-routine": "协作模式",
+  "stepsType.pump-single": "单人",
+  "stepsType.pump-double": "双板",
+  "stepsType.pump-routine": "协作",
+  "stepsType.pump-couple": "协作（10 键）",
+  "stepsType.dance-single": "Single",
+  "stepsType.dance-double": "多人协作",
+} as const;

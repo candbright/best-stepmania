@@ -1,0 +1,65 @@
+import { invoke, invokeWithRetry } from "./core";
+
+export interface AudioInfo {
+  duration: number;
+  sampleRate: number;
+}
+
+export async function audioLoad(musicPath: string): Promise<AudioInfo> {
+  return invokeWithRetry<AudioInfo>("audio_load", { musicPath });
+}
+
+export async function audioPlay(): Promise<void> {
+  return invoke("audio_play");
+}
+
+export async function audioPause(): Promise<void> {
+  return invoke("audio_pause");
+}
+
+export async function audioSeek(seconds: number): Promise<void> {
+  return invoke("audio_seek", { seconds });
+}
+
+export async function audioGetTime(): Promise<number> {
+  return invoke<number>("audio_get_time");
+}
+
+export async function audioGetDuration(): Promise<number> {
+  return invoke<number>("audio_get_duration");
+}
+
+export async function audioIsPlaying(): Promise<boolean> {
+  return invokeWithRetry<boolean>("audio_is_playing");
+}
+
+export async function audioSetVolume(
+  musicVolume?: number,
+  masterVolume?: number,
+): Promise<void> {
+  return invoke("audio_set_volume", { musicVolume, masterVolume });
+}
+
+export async function audioSetRate(rate: number): Promise<void> {
+  return invoke("audio_set_rate", { rate });
+}
+
+export async function audioStop(): Promise<void> {
+  return invoke("audio_stop");
+}
+
+export async function audioClearCache(): Promise<void> {
+  return invoke("audio_clear_cache");
+}
+
+export async function audioPreview(
+  musicPath: string,
+  start: number,
+  length: number,
+): Promise<void> {
+  return invoke("audio_preview", { musicPath, start, length });
+}
+
+export async function audioPreload(musicPath: string): Promise<void> {
+  return invoke("audio_preload", { musicPath });
+}

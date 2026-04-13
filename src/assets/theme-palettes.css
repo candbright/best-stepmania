@@ -1,0 +1,254 @@
+/**
+ * Curated dark palettes — community & display-oriented themes.
+ * Tokens consumed by main.css / OptionsScreen / overlays via CSS variables.
+ */
+
+[data-theme="purple"] {
+  --bg-color: #0f0814;
+  --text-color: #e8d5f5;
+  --bg-gradient-start: #230836;
+  --bg-gradient-end: #0f0814;
+  --primary-color: #d500f9;
+  --primary-color-hover: #e040fb;
+  --primary-color-glow: rgba(213, 0, 249, 0.8);
+  --primary-color-bg: rgba(213, 0, 249, 0.1);
+  --border-color: rgba(213, 0, 249, 0.2);
+  --section-bg: rgba(213, 0, 249, 0.03);
+  --surface-elevated: rgba(255, 255, 255, 0.05);
+  --text-muted: rgba(232, 213, 245, 0.5);
+  --text-subtle: rgba(232, 213, 245, 0.3);
+  --focus-ring: 0 0 0 2px rgba(224, 64, 251, 0.35);
+}
+
+[data-theme="retro"] {
+  --bg-color: #12100e;
+  --text-color: #ffead6;
+  --bg-gradient-start: #2a1f10;
+  --bg-gradient-end: #12100e;
+  --primary-color: #ff9100;
+  --primary-color-hover: #ffab40;
+  --primary-color-glow: rgba(255, 145, 0, 0.7);
+  --primary-color-bg: rgba(255, 145, 0, 0.05);
+  --border-color: rgba(255, 171, 64, 0.3);
+  --section-bg: rgba(255, 171, 64, 0.04);
+  --surface-elevated: rgba(255, 255, 255, 0.05);
+  --text-muted: rgba(255, 234, 214, 0.48);
+  --text-subtle: rgba(255, 234, 214, 0.28);
+  --focus-ring: 0 0 0 2px rgba(255, 171, 64, 0.35);
+}
+
+/* OLED / true black — common on mobile & high-contrast displays */
+[data-theme="oled"] {
+  --bg-color: #000000;
+  --text-color: #f2f2f7;
+  --bg-gradient-start: #0c0c0e;
+  --bg-gradient-end: #000000;
+  --primary-color: #0a84ff;
+  --primary-color-hover: #409cff;
+  --primary-color-glow: rgba(10, 132, 255, 0.55);
+  --primary-color-bg: rgba(10, 132, 255, 0.08);
+  --border-color: rgba(255, 255, 255, 0.12);
+  --section-bg: rgba(255, 255, 255, 0.04);
+  --surface-elevated: rgba(255, 255, 255, 0.06);
+  --text-muted: rgba(242, 242, 247, 0.45);
+  --text-subtle: rgba(242, 242, 247, 0.28);
+  --focus-ring: 0 0 0 2px rgba(10, 132, 255, 0.4);
+}
+
+/* Dracula — https://draculatheme.com */
+[data-theme="dracula"] {
+  --bg-color: #282a36;
+  --text-color: #f8f8f2;
+  --bg-gradient-start: #44475a;
+  --bg-gradient-end: #282a36;
+  --primary-color: #bd93f9;
+  --primary-color-hover: #d6acff;
+  --primary-color-glow: rgba(189, 147, 249, 0.55);
+  --primary-color-bg: rgba(189, 147, 249, 0.08);
+  --border-color: rgba(189, 147, 249, 0.22);
+  --section-bg: rgba(255, 255, 255, 0.03);
+  --surface-elevated: rgba(255, 255, 255, 0.05);
+  --text-muted: rgba(248, 248, 242, 0.48);
+  --text-subtle: rgba(248, 248, 242, 0.28);
+  --focus-ring: 0 0 0 2px rgba(189, 147, 249, 0.38);
+}
+
+/* Nord — https://www.nordtheme.com */
+[data-theme="nord"] {
+  --bg-color: #2e3440;
+  --text-color: #eceff4;
+  --bg-gradient-start: #3b4252;
+  --bg-gradient-end: #2e3440;
+  --primary-color: #88c0d0;
+  --primary-color-hover: #8fbcbb;
+  --primary-color-glow: rgba(136, 192, 208, 0.5);
+  --primary-color-bg: rgba(136, 192, 208, 0.09);
+  --border-color: rgba(94, 129, 172, 0.35);
+  --section-bg: rgba(76, 86, 106, 0.25);
+  --surface-elevated: rgba(236, 239, 244, 0.06);
+  --text-muted: rgba(236, 239, 244, 0.5);
+  --text-subtle: rgba(236, 239, 244, 0.3);
+  --focus-ring: 0 0 0 2px rgba(136, 192, 208, 0.4);
+}
+
+/* Tokyo Night — https://github.com/enkia/tokyo-night-vscode-theme */
+[data-theme="tokyo-night"] {
+  --bg-color: #1a1b26;
+  --text-color: #c0caf5;
+  --bg-gradient-start: #24283b;
+  --bg-gradient-end: #1a1b26;
+  --primary-color: #7aa2f7;
+  --primary-color-hover: #9d7cd8;
+  --primary-color-glow: rgba(122, 162, 247, 0.55);
+  --primary-color-bg: rgba(122, 162, 247, 0.08);
+  --border-color: rgba(122, 162, 247, 0.22);
+  --section-bg: rgba(86, 95, 137, 0.2);
+  --surface-elevated: rgba(192, 202, 245, 0.05);
+  --text-muted: rgba(192, 202, 245, 0.48);
+  --text-subtle: rgba(192, 202, 245, 0.28);
+  --focus-ring: 0 0 0 2px rgba(122, 162, 247, 0.38);
+}
+
+/* Catppuccin Mocha — https://github.com/catppuccin/catppuccin */
+[data-theme="catppuccin-mocha"] {
+  --bg-color: #1e1e2e;
+  --text-color: #cdd6f4;
+  --bg-gradient-start: #313244;
+  --bg-gradient-end: #1e1e2e;
+  --primary-color: #cba6f7;
+  --primary-color-hover: #f5c2e7;
+  --primary-color-glow: rgba(203, 166, 247, 0.5);
+  --primary-color-bg: rgba(203, 166, 247, 0.08);
+  --border-color: rgba(166, 173, 200, 0.22);
+  --section-bg: rgba(205, 214, 244, 0.04);
+  --surface-elevated: rgba(205, 214, 244, 0.06);
+  --text-muted: rgba(205, 214, 244, 0.5);
+  --text-subtle: rgba(205, 214, 244, 0.3);
+  --focus-ring: 0 0 0 2px rgba(203, 166, 247, 0.38);
+}
+
+/* Gruvbox dark — https://github.com/morhetz/gruvbox */
+[data-theme="gruvbox-dark"] {
+  --bg-color: #282828;
+  --text-color: #ebdbb2;
+  --bg-gradient-start: #3c3836;
+  --bg-gradient-end: #282828;
+  --primary-color: #fe8019;
+  --primary-color-hover: #fabd2f;
+  --primary-color-glow: rgba(254, 128, 25, 0.55);
+  --primary-color-bg: rgba(254, 128, 25, 0.08);
+  --border-color: rgba(235, 219, 178, 0.18);
+  --section-bg: rgba(235, 219, 178, 0.04);
+  --surface-elevated: rgba(235, 219, 178, 0.06);
+  --text-muted: rgba(235, 219, 178, 0.48);
+  --text-subtle: rgba(235, 219, 178, 0.28);
+  --focus-ring: 0 0 0 2px rgba(254, 128, 25, 0.38);
+}
+
+/* Solarized dark — https://ethanschoonover.com/solarized */
+[data-theme="solarized-dark"] {
+  --bg-color: #002b36;
+  --text-color: #839496;
+  --bg-gradient-start: #073642;
+  --bg-gradient-end: #002b36;
+  --primary-color: #268bd2;
+  --primary-color-hover: #2aa198;
+  --primary-color-glow: rgba(38, 139, 210, 0.5);
+  --primary-color-bg: rgba(38, 139, 210, 0.1);
+  --border-color: rgba(7, 54, 66, 0.9);
+  --section-bg: rgba(0, 43, 54, 0.5);
+  --surface-elevated: rgba(131, 148, 150, 0.08);
+  --text-muted: rgba(131, 148, 150, 0.75);
+  --text-subtle: rgba(131, 148, 150, 0.45);
+  --focus-ring: 0 0 0 2px rgba(38, 139, 210, 0.45);
+}
+
+/* Rosé Pine — https://rosepinetheme.com */
+[data-theme="rose-pine"] {
+  --bg-color: #191724;
+  --text-color: #e0def4;
+  --bg-gradient-start: #26233a;
+  --bg-gradient-end: #191724;
+  --primary-color: #ebbcba;
+  --primary-color-hover: #f6c177;
+  --primary-color-glow: rgba(235, 188, 186, 0.45);
+  --primary-color-bg: rgba(235, 188, 186, 0.08);
+  --border-color: rgba(224, 222, 244, 0.15);
+  --section-bg: rgba(224, 222, 244, 0.04);
+  --surface-elevated: rgba(224, 222, 244, 0.06);
+  --text-muted: rgba(224, 222, 244, 0.5);
+  --text-subtle: rgba(224, 222, 244, 0.3);
+  --focus-ring: 0 0 0 2px rgba(235, 188, 186, 0.38);
+}
+
+/* One Dark Pro (Atom / VS Code lineage) */
+[data-theme="one-dark-pro"] {
+  --bg-color: #282c34;
+  --text-color: #abb2bf;
+  --bg-gradient-start: #353b45;
+  --bg-gradient-end: #282c34;
+  --primary-color: #61afef;
+  --primary-color-hover: #c678dd;
+  --primary-color-glow: rgba(97, 175, 239, 0.5);
+  --primary-color-bg: rgba(97, 175, 239, 0.08);
+  --border-color: rgba(97, 175, 239, 0.2);
+  --section-bg: rgba(171, 178, 191, 0.04);
+  --surface-elevated: rgba(171, 178, 191, 0.06);
+  --text-muted: rgba(171, 178, 191, 0.65);
+  --text-subtle: rgba(171, 178, 191, 0.38);
+  --focus-ring: 0 0 0 2px rgba(97, 175, 239, 0.38);
+}
+
+/* Everforest dark — https://github.com/sainnhe/everforest */
+[data-theme="everforest-dark"] {
+  --bg-color: #2d353b;
+  --text-color: #d3c6aa;
+  --bg-gradient-start: #3d484d;
+  --bg-gradient-end: #2d353b;
+  --primary-color: #a7c080;
+  --primary-color-hover: #83c092;
+  --primary-color-glow: rgba(167, 192, 128, 0.5);
+  --primary-color-bg: rgba(167, 192, 128, 0.1);
+  --border-color: rgba(211, 198, 170, 0.16);
+  --section-bg: rgba(211, 198, 170, 0.04);
+  --surface-elevated: rgba(211, 198, 170, 0.06);
+  --text-muted: rgba(211, 198, 170, 0.55);
+  --text-subtle: rgba(211, 198, 170, 0.32);
+  --focus-ring: 0 0 0 2px rgba(167, 192, 128, 0.4);
+}
+
+/* Ayu dark */
+[data-theme="ayu-dark"] {
+  --bg-color: #0f1419;
+  --text-color: #e6e1cf;
+  --bg-gradient-start: #1f2430;
+  --bg-gradient-end: #0f1419;
+  --primary-color: #ffb454;
+  --primary-color-hover: #ff8f40;
+  --primary-color-glow: rgba(255, 180, 84, 0.5);
+  --primary-color-bg: rgba(255, 180, 84, 0.08);
+  --border-color: rgba(230, 225, 207, 0.12);
+  --section-bg: rgba(230, 225, 207, 0.04);
+  --surface-elevated: rgba(230, 225, 207, 0.06);
+  --text-muted: rgba(230, 225, 207, 0.5);
+  --text-subtle: rgba(230, 225, 207, 0.3);
+  --focus-ring: 0 0 0 2px rgba(255, 180, 84, 0.38);
+}
+
+/* Kanagawa — https://github.com/rebelot/kanagawa.nvim */
+[data-theme="kanagawa"] {
+  --bg-color: #1f1f28;
+  --text-color: #dcd7ba;
+  --bg-gradient-start: #2a2a37;
+  --bg-gradient-end: #1f1f28;
+  --primary-color: #7e9cd8;
+  --primary-color-hover: #957fb8;
+  --primary-color-glow: rgba(126, 156, 216, 0.5);
+  --primary-color-bg: rgba(126, 156, 216, 0.09);
+  --border-color: rgba(220, 215, 186, 0.14);
+  --section-bg: rgba(220, 215, 186, 0.04);
+  --surface-elevated: rgba(220, 215, 186, 0.06);
+  --text-muted: rgba(220, 215, 186, 0.52);
+  --text-subtle: rgba(220, 215, 186, 0.3);
+  --focus-ring: 0 0 0 2px rgba(126, 156, 216, 0.38);
+}
