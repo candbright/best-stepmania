@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+# Vite / tooling generated types (may appear under node_modules)
+**/.vue-global-types/
+
+# Build output
+dist/
+
+# Rust
+target/
+
+# Copied by build.rs for NSIS (see bundle.resources)
+src-tauri/bundle-extra/WebView2Loader.dll
+
+# Tauri updater / signing keys (never commit)
+src-tauri/.keys/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# AI
+.cursor/
+tsconfig.node.tsbuildinfo
+tsconfig.tsbuildinfo
+vite.config.d.ts
