@@ -4,6 +4,8 @@ import { useI18n } from "@/i18n";
 import { openFileDialog } from "@/utils/platform";
 import type { SongPackInfo } from "@/utils/api";
 import BaseModal from "@/components/BaseModal.vue";
+import CustomSelect from "@/components/CustomSelect.vue";
+import AppNumberField from "@/components/AppNumberField.vue";
 
 const props = defineProps<{
   show: boolean;
@@ -109,9 +111,13 @@ watch(() => props.show, (isShowing) => {
 });
 
 const packOptions = computed(() => [
-  { name: "", label: t("songPacks.packRoot") },
+  { name: ROOT_PACK_ID, label: t("songPacks.packRoot") },
   ...props.packs.map((p) => ({ name: p.name, label: p.name })),
 ]);
+
+const packSelectDropdownOptions = computed(() =>
+  packOptions.value.map((o) => ({ value: o.name, label: o.label })),
+);
 
 const difficultyOptions = [
   { value: "Beginner", label: "Beginner" },
@@ -168,11 +174,7 @@ function onOpenChange(open: boolean) {
   >
     <div class="form-modal-fields">
       <label class="form-modal-label">{{ t('songPacks.targetPack') }}</label>
-      <select v-model="selectedPack" class="form-modal-input">
-        <option v-for="opt in packOptions" :key="opt.name" :value="opt.name">
-          {{ opt.label }}
-        </option>
-      </select>
+      <CustomSelect v-model="selectedPack" variant="form" :options="packSelectDropdownOptions" />
 
       <label class="form-modal-label">{{ t('editor.metaTitle') }} *</label>
       <input
@@ -235,24 +237,17 @@ function onOpenChange(open: boolean) {
       <p class="form-modal-hint">{{ t('select.timingDefaultsHint') }}</p>
 
       <label class="form-modal-label">{{ t('select.createInitialBpm') }}</label>
-      <input
-        v-model.number="songBpm"
-        type="number"
-        class="form-modal-input"
-        min="20"
-        max="999"
+      <AppNumberField
+        v-model="songBpm"
+        input-class="form-modal-input"
+        :min="20"
+        :max="999"
         step="0.001"
         placeholder="120"
       />
 
       <label class="form-modal-label">{{ t('editor.metaOffset') }}</label>
-      <input
-        v-model.number="songOffset"
-        type="number"
-        class="form-modal-input"
-        step="0.001"
-        placeholder="0"
-      />
+      <AppNumberField v-model="songOffset" input-class="form-modal-input" step="0.001" placeholder="0" />
 
       <label class="form-modal-check">
         <input type="checkbox" v-model="createChart" />
@@ -261,27 +256,13 @@ function onOpenChange(open: boolean) {
 
       <template v-if="createChart">
         <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
-        <select v-model="songStepsType" class="form-modal-input">
-          <option v-for="opt in stepsTypeOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
+        <CustomSelect v-model="songStepsType" variant="form" :options="stepsTypeOptions" />
 
         <label class="form-modal-label">{{ t('editor.difficulty') }}</label>
-        <select v-model="songDifficulty" class="form-modal-input">
-          <option v-for="opt in difficultyOptions" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </option>
-        </select>
+        <CustomSelect v-model="songDifficulty" variant="form" :options="difficultyOptions" />
 
         <label class="form-modal-label">{{ t('editor.meter') }}</label>
-        <input
-          v-model.number="songMeter"
-          type="number"
-          class="form-modal-input"
-          min="1"
-          max="20"
-        />
+        <AppNumberField v-model="songMeter" input-class="form-modal-input" :min="1" :max="20" />
       </template>
     </div>
 
