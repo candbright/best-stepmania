@@ -182,7 +182,7 @@ function getRenderDrawerDeps(): RenderDrawerDeps {
 
 // ── Panel renderer ────────────────────────────────────────────────────────────
 
-function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, time: number, dt: number) {
+function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, time: number, _dt: number) {
   const engine = props.engine;
   const deps = getRenderDrawerDeps();
   const colW = getColumnWidth(panel.numTracks);
@@ -398,7 +398,6 @@ function showJudgment(judgment: string, color: string, track?: number) {
   }
 
   if (canvasRef.value && track !== undefined) {
-    const h = canvasRef.value.height;
     const panel = getPanelForTrack(track);
     if (panel) {
       const colW = getColumnWidth(panel.numTracks);

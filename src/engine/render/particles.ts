@@ -79,7 +79,7 @@ export function createParticleSystem(): ParticleSystem {
       }
     },
 
-    updateAndDraw(c, dt, qualityLevel) {
+    updateAndDraw(c, dt, _qualityLevel) {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i]!;
         p.life -= p.decay * dt;
