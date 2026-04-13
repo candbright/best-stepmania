@@ -1,6 +1,6 @@
 [package]
 name = "best-stepmania"
-version = "1.0.0"
+version = "1.2.0"
 edition = "2021"
 description = "Advanced rhythm game engine built with Tauri + Rust"
 

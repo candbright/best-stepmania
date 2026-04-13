@@ -215,6 +215,13 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 
 ---
 
+## Release documentation
+
+- **Version source of truth**: Keep `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and `src/constants/appMeta.ts` on the same semver string (no `v` prefix in those files).
+- **Player-facing changelog**: Maintain `docs/changelog/bsm-vX.Y.Z.md` so its name matches the git tag `vX.Y.Z`. The Windows release workflow prepends that file to the GitHub Release description.
+
+---
+
 ## Explicit Constraints
 
 - **Do not commit** unless explicitly asked
