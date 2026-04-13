@@ -1,0 +1,9 @@
+[package]
+name = "sm-score"
+version = "0.1.0"
+edition = "2021"
+description = "Scoring, judgment timing windows, life bar, and grade definitions for BestStepMania. This crate is the SINGLE SOURCE OF TRUTH for all scoring constants. The frontend fetches these values at startup via the get_scoring_config Tauri command. Real-time judgment processing happens in the TypeScript engine (JudgmentSystem.ts) for latency reasons, but all constants originate here."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+sm-core = { path = "../sm-core" }

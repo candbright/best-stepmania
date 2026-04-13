@@ -1,0 +1,13 @@
+[package]
+name = "sm-chart"
+version = "0.1.0"
+edition = "2021"
+description = "SM/SSC chart file parser for BestStepMania"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+sm-core = { path = "../sm-core" }
+sm-timing = { path = "../sm-timing" }
+thiserror = "2"
+encoding_rs = "0.8"
+chardetng = "0.1"

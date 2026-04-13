@@ -1,0 +1,13 @@
+[package]
+name = "sm-profile"
+version = "0.1.0"
+edition = "2021"
+description = "Player profile and high score management for BestStepMania"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rusqlite = { version = "0.34", features = ["bundled"] }
+sm-core = { path = "../sm-core" }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }

@@ -1,0 +1,11 @@
+[package]
+name = "sm-audio"
+version = "0.1.0"
+edition = "2021"
+description = "Audio engine for BestStepMania using cpal + symphonia"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+cpal = "0.15"
+symphonia = { version = "0.5", features = ["all"] }
+rb = "0.4"

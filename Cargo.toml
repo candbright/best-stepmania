@@ -1,0 +1,3 @@
+[workspace]
+members = ["src-tauri", "crates/sm-core", "crates/sm-timing", "crates/sm-chart", "crates/sm-score", "crates/sm-song", "crates/sm-profile", "crates/sm-audio", "crates/sm-noteskin"]
+resolver = "2"

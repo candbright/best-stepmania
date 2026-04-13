@@ -1,0 +1,9 @@
+[package]
+name = "sm-timing"
+version = "0.1.0"
+edition = "2021"
+description = "Timing system for BestStepMania (BPM, stops, warps, etc.)"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+sm-core = { path = "../sm-core" }

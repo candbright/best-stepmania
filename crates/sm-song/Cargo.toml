@@ -1,0 +1,11 @@
+[package]
+name = "sm-song"
+version = "0.1.0"
+edition = "2021"
+description = "Song management and scanning for BestStepMania"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+sm-core = { path = "../sm-core" }
+sm-chart = { path = "../sm-chart" }
+walkdir = "2"

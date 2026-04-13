@@ -1,0 +1,39 @@
+[package]
+name = "best-stepmania"
+version = "1.0.0"
+edition = "2021"
+description = "Advanced rhythm game engine built with Tauri + Rust"
+
+[lib]
+name = "best_stepmania_lib"
+crate-type = ["lib", "staticlib"]
+
+[[bin]]
+name = "best-stepmania"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sm-core = { path = "../crates/sm-core" }
+sm-timing = { path = "../crates/sm-timing" }
+sm-chart = { path = "../crates/sm-chart" }
+sm-score = { path = "../crates/sm-score" }
+sm-song = { path = "../crates/sm-song" }
+sm-profile = { path = "../crates/sm-profile" }
+sm-audio = { path = "../crates/sm-audio" }
+sm-noteskin = { path = "../crates/sm-noteskin" }
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+toml = "0.8"
+base64 = "0.22"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
