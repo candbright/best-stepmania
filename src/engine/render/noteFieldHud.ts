@@ -21,11 +21,10 @@ export function drawJudgmentFlashHud(
   const dt2 = (time - flash.time) / 1000;
   flash.alpha = Math.max(0, 1 - dt2 * 2.2);
   const bounce = dt2 < 0.08 ? 1.18 - dt2 * 2 : 1 + Math.max(0, 0.08 - (dt2 - 0.08)) * 2;
-  const fontSize = Math.round(30 * bounce);
+  const fontSize = Math.round(22 * bounce);
   const panelCenterX = primaryPanel.x + primaryPanel.width / 2;
-  const jy = primaryPanel.reverse
-    ? Math.max(primaryPanel.receptorY - 55, h * 0.25)
-    : Math.min(primaryPanel.receptorY + 55, h * 0.25);
+  // Keep judgment text around lane visual center (not near the receptor line).
+  const jy = h * 0.5 - 18;
 
   ctx.save();
   ctx.globalAlpha = flash.alpha;
@@ -64,13 +63,12 @@ export function drawComboHud(
 
   const comboAge = (time - comboFlashTime) / 1000;
   const cBounce = comboAge < 0.06 ? 1.15 : 1 + Math.max(0, 0.12 - comboAge) * 1.2;
-  const comboY = primaryPanel.reverse
-    ? Math.min(primaryPanel.receptorY - 105, h * 0.52)
-    : Math.max(primaryPanel.receptorY + 105, h * 0.33);
+  // Stack combo near center, below judgment.
+  const comboY = h * 0.5 + 22;
   const panelCenterX = primaryPanel.x + primaryPanel.width / 2;
 
   ctx.save();
-  ctx.font = `900 ${Math.round(50 * cBounce)}px 'Orbitron', sans-serif`;
+  ctx.font = `900 ${Math.round(36 * cBounce)}px 'Orbitron', sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   if (qualityLevel !== "low") {
@@ -80,8 +78,8 @@ export function drawComboHud(
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   ctx.fillText(String(comboValue), panelCenterX, comboY);
   ctx.shadowBlur = 0;
-  ctx.font = "700 11px 'Orbitron', sans-serif";
+  ctx.font = "700 9px 'Orbitron', sans-serif";
   ctx.fillStyle = "rgba(255,255,255,0.35)";
-  ctx.fillText("COMBO", panelCenterX, comboY + 28);
+  ctx.fillText("COMBO", panelCenterX, comboY + 22);
   ctx.restore();
 }

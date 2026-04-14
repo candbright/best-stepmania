@@ -16,6 +16,15 @@ const JUDGMENT_SCORE_KEY: Readonly<Record<JudgmentType, keyof Pick<ScoreState, "
   W1: "w1", W2: "w2", W3: "w3", W4: "w4", W5: "w5", Miss: "miss",
 } as const;
 
+const JUDGMENT_DP_DELTA: Readonly<Record<JudgmentType, number>> = {
+  W1: 1,
+  W2: 1,
+  W3: 1,
+  W4: 0,
+  W5: -4,
+  Miss: 0,
+} as const;
+
 export class JudgmentSystem {
   private notes: ChartNote[] = [];
   private judgedRows: Set<number> = new Set();
@@ -106,7 +115,7 @@ export class JudgmentSystem {
     const j = evt.judgment;
     const ps = this.getScoreStateForPlayer(evt.player);
     ps[JUDGMENT_SCORE_KEY[j]]++;
-    ps.dancePoints += this.sc.dpWeights[j];
+    ps.dancePoints += JUDGMENT_DP_DELTA[j] ?? 0;
     this.events.push(evt);
     this.lastEvent = evt;
 
@@ -141,7 +150,7 @@ export class JudgmentSystem {
     this.syncAggregatedLifeFailed();
 
     this.score[JUDGMENT_SCORE_KEY[j]]++;
-    this.score.dancePoints += this.sc.dpWeights[j];
+    this.score.dancePoints += JUDGMENT_DP_DELTA[j] ?? 0;
     if (isMiss) {
       // In a dual-player session, a miss by one player must not reset the
       // aggregate combo if the other player is still building theirs.

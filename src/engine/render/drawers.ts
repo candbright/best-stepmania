@@ -35,38 +35,20 @@ export function drawReceptorDrawer(
   const style = deps.getPlayerConfig(panelPlayer)?.noteStyle ?? "default";
 
   if (isPump) {
-    if (style === "default") {
-      const pumpDirection = deps.getPumpDirection(col);
-      if (pumpDirection) {
-        const arrowSize = recSize * 0.92;
-        c.save();
-        if (pressed && deps.qualityLevel !== "low") {
-          c.shadowColor = color;
-          c.shadowBlur = deps.qualityLevel === "high" ? 18 : 8;
-        }
-        c.globalAlpha = pressed ? 1 : 0.92;
-        drawArrowWithSkin(c, cx, y, arrowSize, pumpDirection, color, "default", deps.qualityLevel, true, pressed);
-        c.restore();
-      } else {
-        const radius = recSize * 0.24;
-        c.save();
-        if (pressed && deps.qualityLevel !== "low") {
-          c.shadowColor = color;
-          c.shadowBlur = deps.qualityLevel === "high" ? 18 : 8;
-        }
-        c.fillStyle = pressed ? color + "22" : color + "18";
-        c.beginPath();
-        c.arc(cx, y, radius, 0, Math.PI * 2);
-        c.fill();
-        c.lineWidth = pressed ? 3 : 2;
-        c.strokeStyle = pressed ? color : "rgba(255,255,255,0.28)";
-        c.beginPath();
-        c.arc(cx, y, radius, 0, Math.PI * 2);
-        c.stroke();
-        c.restore();
+    const pumpDirection = deps.getPumpDirection(col);
+    if (pumpDirection) {
+      const arrowSize = recSize * 0.92;
+      c.save();
+      if (pressed && deps.qualityLevel !== "low") {
+        c.shadowColor = color;
+        c.shadowBlur = deps.qualityLevel === "high" ? 18 : 8;
       }
+      c.globalAlpha = pressed ? 1 : 0.92;
+      const directionalStyle = style === "musical" ? "musical" : style;
+      drawArrowWithSkin(c, cx, y, arrowSize, pumpDirection, color, directionalStyle, deps.qualityLevel, true, pressed);
+      c.restore();
     } else {
-      drawPumpPanelWithSkin(c, cx, y, recSize * 0.78, color, style, deps.isCenterColumn(col), deps.qualityLevel, true, pressed);
+      drawPumpPanelWithSkin(c, cx, y, recSize * 0.78, color, style, true, deps.qualityLevel, true, pressed);
     }
     return;
   }
@@ -119,29 +101,21 @@ export function drawNoteDrawer(
     const fillColor = noteType === "Roll" ? "#ff9800" : color;
     const pumpDirection = deps.getPumpDirection(track);
 
-    if (noteStyle === "default" && pumpDirection) {
+    if (pumpDirection) {
       const arrowSize = Math.min(colW * 0.8, 48) * scale;
-      drawArrowWithSkin(c, cx, y, arrowSize, pumpDirection, fillColor, "default", deps.qualityLevel);
-    } else if (noteStyle === "default" && deps.isCenterColumn(track)) {
-      const radius = Math.min(colW * 0.18, 10) * scale;
-      c.save();
-      if (deps.qualityLevel !== "low") {
-        c.shadowColor = fillColor;
-        c.shadowBlur = deps.qualityLevel === "high" ? 10 : 5;
-      }
-      c.fillStyle = fillColor;
-      c.beginPath();
-      c.arc(cx, y, radius, 0, Math.PI * 2);
-      c.fill();
-      c.shadowBlur = 0;
-      c.strokeStyle = "rgba(255,255,255,0.6)";
-      c.lineWidth = 1.5;
-      c.beginPath();
-      c.arc(cx, y, radius, 0, Math.PI * 2);
-      c.stroke();
-      c.restore();
+      const directionalStyle = noteStyle === "musical" ? "musical" : noteStyle;
+      drawArrowWithSkin(c, cx, y, arrowSize, pumpDirection, fillColor, directionalStyle, deps.qualityLevel);
     } else {
-      drawPumpPanelWithSkin(c, cx, y, Math.min(colW * 0.74, deps.noteHeight * 1.28) * scale, fillColor, noteStyle, deps.isCenterColumn(track), deps.qualityLevel);
+      drawPumpPanelWithSkin(
+        c,
+        cx,
+        y,
+        Math.min(colW * 0.74, deps.noteHeight * 1.28) * scale,
+        fillColor,
+        noteStyle,
+        true,
+        deps.qualityLevel,
+      );
     }
     return;
   }
@@ -299,9 +273,8 @@ export function drawHoldDrawer(
   if (capAlpha > 0) {
     c.globalAlpha = baseAlpha * capAlpha;
     c.fillStyle = bodyColor;
-    c.save();
+       c.save();
     c.translate(bodyX + bodyW / 2, capY);
-    c.rotate(Math.PI / 4);
     const capSize = 6;
     c.fillRect(-capSize / 2, -capSize / 2, capSize, capSize);
     c.restore();
@@ -355,7 +328,6 @@ export function drawLiftDrawer(
   const half = size / 2;
   c.save();
   c.translate(cx, y);
-  c.rotate(Math.PI / 4);
   c.strokeStyle = color;
   c.lineWidth = 2.5;
   if (deps.qualityLevel !== "low") {

@@ -52,8 +52,8 @@ const CHART_LEAD_POST_SYNC_MAX_JUMP_SEC = 0.05;
 const CHART_LEAD_POST_SYNC_GUARD_MS = 320;
 /** Fallback finish grace after audio reaches decoded duration. */
 const AUDIO_END_FINISH_GRACE_SEC = 0.35;
-/** After audio end, push simulation this much to settle trailing misses/holds. */
-const AUDIO_END_SETTLE_AHEAD_SEC = 0.4;
+/** Max simulation sub-steps per frame while flushing past audio end (spread across frames if chart tail is long). */
+const MAX_AUDIO_END_FLUSH_STEPS = 1024;
 
 export class GameEngine {
   public notes: ChartNote[] = [];
@@ -583,18 +583,24 @@ export class GameEngine {
     const songEndSecond = this.songDuration + this.audioOffset;
     const audioEnded = this.songDuration > 0 && this.currentSecond >= songEndSecond + AUDIO_END_FINISH_GRACE_SEC;
     if (audioEnded) {
-      const settleTo = this.currentSecond + AUDIO_END_SETTLE_AHEAD_SEC;
-      if (this.simulatedSecond < settleTo) {
-        this.simulatedSecond = settleTo;
+      // Audio clock stops near `songEndSecond`, but chart notes/holds may extend beyond it.
+      // Advance simulation in small steps (needed for rolls / hold tails) until we reach the chart tail.
+      const flushUntil = Math.max(this.currentSecond, this.lastNoteSecond + 2);
+      let flushSteps = 0;
+      while (this.simulatedSecond + 1e-9 < flushUntil && flushSteps < MAX_AUDIO_END_FLUSH_STEPS) {
+        this.simulatedSecond = Math.min(flushUntil, this.simulatedSecond + SIMULATION_DT);
         this.runSimulationStep(this.simulatedSecond);
+        flushSteps++;
+        if (this.state !== "playing") return;
       }
       if (this.state !== "playing") return;
     }
 
-    // Then finish once judgment-line-behind content is fully settled.
+    // Finish once everything at or before the simulation/audio timeline is settled.
+    const settleLine = Math.max(this.currentSecond, this.simulatedSecond);
     const noPendingPastJudgmentLine = audioEnded
-      ? !this.judgment.hasPendingScoreableNotesBefore(this.currentSecond) &&
-        !this.judgment.hasPendingHoldsBefore(this.currentSecond)
+      ? !this.judgment.hasPendingScoreableNotesBefore(settleLine) &&
+        !this.judgment.hasPendingHoldsBefore(settleLine)
       : false;
 
     if (finishedByChartTail || noPendingPastJudgmentLine) {
