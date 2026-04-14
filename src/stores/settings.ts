@@ -71,6 +71,8 @@ export const useSettingsStore = defineStore("settings", () => {
 
   // Display
   const windowDisplayPreset = ref<WindowDisplayPresetId>("normal");
+  const windowWidth = ref<number | null>(null);
+  const windowHeight = ref<number | null>(null);
   const vsync = ref(true);
   const targetFps = ref(144);
 
@@ -157,6 +159,8 @@ export const useSettingsStore = defineStore("settings", () => {
         cfg.windowDisplayPreset ?? undefined,
         cfg.fullscreen,
       );
+      windowWidth.value = Number.isFinite(cfg.windowWidth) ? Math.round(cfg.windowWidth as number) : null;
+      windowHeight.value = Number.isFinite(cfg.windowHeight) ? Math.round(cfg.windowHeight as number) : null;
       vsync.value = cfg.vsync;
       targetFps.value = cfg.targetFps;
       judgmentStyle.value = cfg.judgmentStyle;
@@ -253,6 +257,10 @@ export const useSettingsStore = defineStore("settings", () => {
   }
 
   async function saveAppConfig(profileName = "Player") {
+    if (windowDisplayPreset.value === "normal" && typeof window !== "undefined") {
+      windowWidth.value = Math.max(0, Math.round(window.innerWidth));
+      windowHeight.value = Math.max(0, Math.round(window.innerHeight));
+    }
     const mergedShortcuts = mergeShortcutBindings(shortcutOverrides.value);
     const serialShortcuts = shortcutsToSerializable(mergedShortcuts, SHORTCUT_DEFAULTS);
     const keyBindingsPayload =
@@ -282,6 +290,8 @@ export const useSettingsStore = defineStore("settings", () => {
       uiSfxStyle: uiSfxStyle.value,
       audioOffsetMs: audioOffsetMs.value,
       fullscreen: windowDisplayPreset.value === "exclusiveFullscreen",
+      windowWidth: windowWidth.value ?? undefined,
+      windowHeight: windowHeight.value ?? undefined,
       windowDisplayPreset: windowDisplayPreset.value,
       vsync: vsync.value,
       targetFps: targetFps.value,
@@ -360,6 +370,8 @@ export const useSettingsStore = defineStore("settings", () => {
     uiSfxStyle.value = "classic";
     audioOffsetMs.value = 0;
     windowDisplayPreset.value = "normal";
+    windowWidth.value = null;
+    windowHeight.value = null;
     vsync.value = true;
     targetFps.value = 144;
     judgmentStyle.value = "ddr";
@@ -401,7 +413,7 @@ export const useSettingsStore = defineStore("settings", () => {
     rhythmSfxEnabled, rhythmSfxVolume, rhythmSfxStyle,
     uiSfxEnabled, uiSfxVolume, uiSfxStyle,
     audioOffsetMs,
-    windowDisplayPreset, vsync, targetFps,
+    windowDisplayPreset, windowWidth, windowHeight, vsync, targetFps,
     judgmentStyle, showOffset, lifeType, autoPlay,
     playbackRate, uiScale, doublePanelGapPx, batteryLives, showParticles,
     cursorEnabled, cursorStylePreset, cursorScale, cursorOpacity, cursorGlow,

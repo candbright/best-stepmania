@@ -3,20 +3,22 @@ import { fixedLogicalSizeForPreset } from "@/constants/windowDisplay";
 import { isTauri } from "@/utils/platform";
 import { logOptionalRejection } from "@/utils/devLog";
 
+export interface CustomWindowSize {
+  width: number;
+  height: number;
+}
+
 /**
  * Applies window decorations, fullscreen, and size for the persisted display preset.
  * No-op outside Tauri (e.g. Vite dev in browser).
- *
- * `normal` only toggles chrome and resizable; it does not change the current inner size.
  */
-export async function applyWindowDisplayPreset(preset: WindowDisplayPresetId): Promise<void> {
+export async function applyWindowDisplayPreset(
+  preset: WindowDisplayPresetId,
+  customSize?: CustomWindowSize | null,
+): Promise<void> {
   if (!isTauri()) return;
   try {
-    const {
-      getCurrentWindow,
-      LogicalSize,
-      currentMonitor,
-    } = await import("@tauri-apps/api/window");
+    const { getCurrentWindow, LogicalSize, currentMonitor } = await import("@tauri-apps/api/window");
 
     const win = getCurrentWindow();
 
@@ -24,6 +26,11 @@ export async function applyWindowDisplayPreset(preset: WindowDisplayPresetId): P
       await win.setFullscreen(false);
       await win.setDecorations(true);
       await win.setResizable(true);
+      const width = customSize?.width;
+      const height = customSize?.height;
+      if (width && height && width > 0 && height > 0) {
+        await win.setSize(new LogicalSize(width, height));
+      }
       return;
     }
 

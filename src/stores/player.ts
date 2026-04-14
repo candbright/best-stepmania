@@ -36,6 +36,8 @@ export const usePlayerStore = defineStore("player", () => {
   // 防竞态：每次 loadAndPlay 递增，旧请求检测到 id 不匹配则丢弃
   let loadAbortId = 0;
   let activeAudioRequestToken: number | null = null;
+  /** Menu / preview progress: lower frequency + merged IPC reduces WebView ↔ Rust traffic. */
+  const PROGRESS_POLL_MS = 250;
   // 进度轮询句柄
   let progressTimer: ReturnType<typeof setInterval> | null = null;
   // 防止 playNext 在歌曲结束时被多次调用
@@ -93,21 +95,21 @@ export const usePlayerStore = defineStore("player", () => {
           currentTime.value = d > 0 ? raw % d : raw;
           progress.value = d > 0 ? currentTime.value / d : 0;
         } else {
-          // 普通音乐模式：IPC 获取时间
-          const t = await api.audioGetTime();
+          // 普通音乐模式：单次 IPC 取 time + duration
+          const playback = await api.audioGetPlaybackState();
           if (status.value !== "playing") return;
+          const t = playback.time;
           currentTime.value = t;
-          // duration 只在刚加载时为 0，之后不变，避免重复请求
           if (duration.value <= 0) {
             const cached = currentMusicPath.value ? durationCache.get(currentMusicPath.value) : undefined;
-            duration.value = cached ?? await api.audioGetDuration();
-            if (cached === undefined && currentMusicPath.value) {
-              durationCache.set(currentMusicPath.value, duration.value);
+            const fromBackend = playback.duration;
+            duration.value = cached ?? fromBackend;
+            if (cached === undefined && currentMusicPath.value && fromBackend > 0) {
+              durationCache.set(currentMusicPath.value, fromBackend);
             }
           }
           const d = duration.value;
           progress.value = d > 0 ? Math.min(1, t / d) : 0;
-          // 歌曲结束检测：播放队列内下一首（单曲则停在结尾）
           if (d > 0 && t >= d - 0.3 && !songEndTriggered) {
             songEndTriggered = true;
             await advanceAfterQueueTrackEnd();
@@ -116,7 +118,7 @@ export const usePlayerStore = defineStore("player", () => {
       } catch (e: unknown) {
         logOptionalRejection("player.progressPoll", e);
       }
-    }, 100);
+    }, PROGRESS_POLL_MS);
   }
 
   function stopProgressPoll() {

@@ -90,6 +90,10 @@ export const useSessionStore = defineStore("session", () => {
     if (!mapped) return;
     playMode.value = mapped.playMode;
     useSettingsStore().coopMode = mapped.coopMode;
+    if (mapped.playMode === "pump-double") {
+      hasPlayer2.value = false;
+      p2ChartIndex.value = p1ChartIndex.value;
+    }
   }
 
   /** Shared core: update index, charts list and default chart selection. */

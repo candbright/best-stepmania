@@ -6,6 +6,8 @@ import { firstSongIndexMatchingPlayMode, songHasChartForPlayMode } from "@/utils
 export interface ApplyPlayModeGameLike {
   playMode: SessionPlayMode;
   coopMode: CoopMode;
+  /** Session flag; double-panel mode is always solo (one player on both pads). */
+  hasPlayer2: boolean;
   songs: SongListItem[];
   currentSongIndex: number;
   selectSong: (index: number) => Promise<void>;
@@ -26,6 +28,7 @@ export async function applyPlayModeSelection(
     game.coopMode = "solo";
   } else if (mode === "pump-double") {
     game.coopMode = "double";
+    game.hasPlayer2 = false;
   } else {
     game.coopMode = "co-op";
   }

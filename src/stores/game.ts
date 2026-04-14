@@ -115,6 +115,8 @@ export const useGameStore = defineStore("game", () => {
     get: () => settings.windowDisplayPreset,
     set: (v: WindowDisplayPresetId) => { settings.windowDisplayPreset = v; },
   });
+  const windowWidth = computed({ get: () => settings.windowWidth, set: (v: number | null) => { settings.windowWidth = v; } });
+  const windowHeight = computed({ get: () => settings.windowHeight, set: (v: number | null) => { settings.windowHeight = v; } });
   const vsync = computed({ get: () => settings.vsync, set: (v: boolean) => { settings.vsync = v; } });
   const targetFps = computed({ get: () => settings.targetFps, set: (v: number) => { settings.targetFps = v; } });
   const judgmentStyle = computed({ get: () => settings.judgmentStyle, set: (v: string) => { settings.judgmentStyle = v; } });
@@ -268,7 +270,7 @@ export const useGameStore = defineStore("game", () => {
     rhythmSfxEnabled, rhythmSfxVolume, rhythmSfxStyle,
     uiSfxEnabled, uiSfxVolume, uiSfxStyle,
     audioOffsetMs,
-    windowDisplayPreset, vsync, targetFps, judgmentStyle, showOffset,
+    windowDisplayPreset, windowWidth, windowHeight, vsync, targetFps, judgmentStyle, showOffset,
     lifeType, autoPlay, playbackRate, showParticles,
     cursorEnabled, cursorStylePreset, cursorScale, cursorOpacity, cursorGlow,
     cursorTrailsEnabled, cursorRippleEnabled, cursorRippleDurationMs,
