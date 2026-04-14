@@ -64,7 +64,7 @@ router.beforeEach((to, from) => {
     const session = useSessionStore();
     session.resumeTitleMusicAfterOptions =
       player.status === "playing" || player.status === "loading";
-    void player.stopForGame();
+    void player.pauseTitleMusicForOptions();
     return;
   }
   if (from.path === "/options" && to.path === "/") {
@@ -73,7 +73,7 @@ router.beforeEach((to, from) => {
     const shouldResume = session.resumeTitleMusicAfterOptions;
     session.resumeTitleMusicAfterOptions = false;
     if (shouldResume) {
-      void player.resumeAfterGame();
+      void player.resumeTitleMusicAfterOptions();
     }
   }
 });

@@ -9,7 +9,7 @@ import { listNoteskins } from "@/api";
 import { ROUTINE_PLAYER_COLORS, type RoutinePlayerColorId } from "@/constants/routinePlayerColors";
 import { logOptionalRejection } from "@/utils/devLog";
 import { chartFitsPlayMode } from "@/utils/chartPlayMode";
-import { setUiSfxEnabled } from "@/utils/sfx";
+import { setMetronomeSfxEnabled, setRhythmSfxEnabled, setUiSfxEnabled } from "@/utils/sfx";
 
 const router = useRouter();
 const game = useGameStore();
@@ -172,6 +172,22 @@ watch(
   () => game.uiSfxEnabled,
   (val) => {
     setUiSfxEnabled(val);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => game.metronomeSfxEnabled,
+  (val) => {
+    setMetronomeSfxEnabled(val);
+  },
+  { immediate: true },
+);
+
+watch(
+  () => game.rhythmSfxEnabled,
+  (val) => {
+    setRhythmSfxEnabled(val);
   },
   { immediate: true },
 );
@@ -616,9 +632,16 @@ onUnmounted(() => {
           </label>
         </div>
         <div class="setting-row">
-          <span class="setting-label">{{ t('playerOpt.sfx') }}</span>
+          <span class="setting-label">{{ t('settings.rhythmSfxEnabled') }}</span>
           <label class="toggle-switch">
             <input type="checkbox" v-model="game.rhythmSfxEnabled" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">{{ t('playerOpt.sfx') }}</span>
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="game.metronomeSfxEnabled" />
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -723,12 +746,12 @@ onUnmounted(() => {
 .setting-label { font-size: 0.78rem; color: rgba(255,255,255,0.7); display: flex; align-items: center; gap: 0.3rem; }
 .setting-row.stacked { flex-direction: column; align-items: flex-start; gap: 0.35rem; }
 
-.toggle-switch { position: relative; width: 42px; height: 22px; cursor: pointer; flex-shrink: 0; }
+.toggle-switch { position: relative; width: 36px; height: 20px; cursor: pointer; flex-shrink: 0; }
 .toggle-switch input { opacity: 0; width: 0; height: 0; }
 .toggle-slider { position: absolute; inset: 0; background: rgba(255,255,255,0.1); border-radius: 22px; transition: 0.2s; }
-.toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; bottom: 3px; background: rgba(255,255,255,0.5); border-radius: 50%; transition: 0.2s; }
+.toggle-slider::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: rgba(255,255,255,0.5); border-radius: 50%; transition: 0.2s; }
 .toggle-switch input:checked + .toggle-slider { background: var(--primary-color); }
-.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); background: var(--text-on-primary); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--text-on-primary); }
 .toggle-switch input:disabled + .toggle-slider { opacity: 0.4; cursor: not-allowed; }
 
 /* Disabled toggle state */

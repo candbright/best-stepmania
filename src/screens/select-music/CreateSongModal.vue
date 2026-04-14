@@ -318,10 +318,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
               :placeholder="String(DEFAULT_CREATE_SAMPLE_LENGTH)"
             />
 
-            <label class="form-modal-check">
-              <input type="checkbox" v-model="createChart" />
-              {{ t('songPacks.createInitialChart') }}
-            </label>
+            <div class="form-modal-check">
+              <span>{{ t('songPacks.createInitialChart') }}</span>
+              <label class="toggle-switch">
+                <input type="checkbox" v-model="createChart" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
 
             <template v-if="createChart">
               <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
@@ -355,3 +358,19 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.form-modal-check {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.toggle-switch { position: relative; width: 36px; height: 20px; cursor: pointer; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: rgba(255,255,255,0.1); border-radius: 22px; transition: 0.2s; }
+.toggle-slider::before { content: ""; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: rgba(255,255,255,0.5); border-radius: 50%; transition: 0.2s; }
+.toggle-switch input:checked + .toggle-slider { background: var(--primary-color); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--text-on-primary); }
+</style>

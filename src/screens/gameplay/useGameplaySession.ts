@@ -18,6 +18,10 @@ import {
   setGameplaySfxVolume,
   playBeatLine,
   setGameplaySfxEnabled,
+  setMetronomeSfxEnabled,
+  setMetronomeSfxGain,
+  setMetronomeSfxStyle,
+  setRhythmSfxEnabled,
   setRhythmSfxGain,
   setRhythmSfxStyle,
 } from "@/utils/sfx";
@@ -37,8 +41,10 @@ const cdText = ref("");
 const showPauseMenu = ref(false);
 const lastJudgmentText = ref("");
 const lastJudgmentColor = ref("");
+/** Cancellable handle for the judgment-text clear timer — prevents rapid-fire notes clearing each other's text early. */
+let lastJudgmentTimer: ReturnType<typeof setTimeout> | null = null;
 const offsetText = ref("");
-const lifePercent = ref(50);
+const lifePercent = ref(100);
 const scoreDisplay = ref(0);
 const comboDisplay = ref(0);
 const savingScore = ref(false);
@@ -96,6 +102,19 @@ function isPumpDoubleSingleChartStepsType(stepsType: string | undefined): boolea
   return stepsType === "pump-double";
 }
 
+function computeRequireBothFailedForGameOver(): boolean {
+  if (!(game.hasPlayer1 && game.hasPlayer2)) return false;
+  return game.playMode === "pump-single" || game.playMode === "pump-routine";
+}
+
+function isPerPlayerDualSession(): boolean {
+  return (
+    game.hasPlayer1 &&
+    game.hasPlayer2 &&
+    (game.playMode === "pump-single" || game.playMode === "pump-routine")
+  );
+}
+
 const p1Config: GameConfig = {
   audioOffset: game.audioOffsetMs,
   judgmentStyle: (game.judgmentStyle === "itg" ? "itg" : "ddr") as "ddr" | "itg",
@@ -107,10 +126,12 @@ const p1Config: GameConfig = {
   batteryLives: game.batteryLives ?? 3,
   showParticles: game.showParticles,
   coopMode: game.coopMode,
+  sessionPlayMode: game.playMode,
   playerConfigs: [
     { ...game.player1Config },
     { ...game.player2Config },
   ],
+  requireBothFailedForGameOver: computeRequireBothFailedForGameOver(),
 };
 
 // Single audio port and engine for both players
@@ -118,7 +139,7 @@ const sharedAudioPort = createTauriAudioPort();
 const engine = new GameEngine(p1Config, sharedAudioPort);
 
 // ── P2 HUD state ──────────────────────────────
-const p2LifePercent = ref(50);
+const p2LifePercent = ref(100);
 const p2ScoreDisplay = ref(0);
 const p2ComboDisplay = ref(0);
 const p2Difficulty = ref("");
@@ -146,6 +167,8 @@ function onJudgment(evt: JudgmentEvent) {
   const color = JUDGMENT_COLORS[evt.judgment];
   lastJudgmentText.value = name;
   lastJudgmentColor.value = color;
+  if (lastJudgmentTimer !== null) clearTimeout(lastJudgmentTimer);
+  lastJudgmentTimer = setTimeout(() => { lastJudgmentText.value = ""; lastJudgmentTimer = null; }, 600);
 
   if (p1Config.showOffset && evt.judgment !== "Miss") {
     const ms = Math.round(evt.offset * 1000);
@@ -156,7 +179,7 @@ function onJudgment(evt: JudgmentEvent) {
   playJudgment(evt.judgment);
   noteFieldRef.value?.showJudgment(name, color, evt.track);
   updateHUD();
-  if (game.hasPlayer1 && game.hasPlayer2) updateHUD2();
+  if (isPerPlayerDualSession()) updateHUD2();
 }
 
 function onMiss(evt: JudgmentEvent) {
@@ -165,19 +188,41 @@ function onMiss(evt: JudgmentEvent) {
 
 function updateHUD() {
   if (!engine.judgment) return;
-  const s = engine.judgment.score;
-  comboDisplay.value = s.combo;
-  lifePercent.value = Math.round(s.life * 100);
-  scoreDisplay.value = Math.max(0, Math.round(engine.judgment.dpPercent() * 100 * 100));
+  const j = engine.judgment;
+  const primary = !game.hasPlayer1 && game.hasPlayer2 ? j.player2Score : j.player1Score;
+  comboDisplay.value = primary.combo;
+  lifePercent.value = Math.round(primary.life * 100);
+  const dp = !game.hasPlayer1 && game.hasPlayer2 ? j.dpPercentForPlayer(2) : j.dpPercentForPlayer(1);
+  scoreDisplay.value = Math.max(0, Math.round(dp * 100 * 100));
 }
 
 function updateHUD2() {
   if (!engine.judgment) return;
-  const s = engine.judgment.player2Score;
+  const j = engine.judgment;
+  const s = j.player2Score;
   p2ComboDisplay.value = s.combo;
   p2LifePercent.value = Math.round(s.life * 100);
-  const dp = s.maxPossibleDp > 0 ? s.dancePoints / s.maxPossibleDp : 1;
+  const dp = j.dpPercentForPlayer(2);
   p2ScoreDisplay.value = Math.max(0, Math.round(dp * 100 * 100));
+}
+
+function buildResultsForPlayer(player: 1 | 2) {
+  const j = engine.judgment;
+  if (!j) {
+    throw new Error("buildResultsForPlayer: judgment is not initialized");
+  }
+  const s = player === 1 ? j.player1Score : j.player2Score;
+  const dp = j.dpPercentForPlayer(player);
+  return {
+    grade: j.gradeForPlayer(player),
+    dpPercent: dp,
+    score: Math.max(0, Math.round(dp * 10000)),
+    maxCombo: s.maxCombo,
+    w1: s.w1, w2: s.w2, w3: s.w3, w4: s.w4, w5: s.w5, miss: s.miss,
+    held: s.held, letGo: s.letGo, minesHit: s.minesHit,
+    fullCombo: s.miss === 0,
+    offsets: j.events.filter((e) => e.player === player).map((e) => e.offset),
+  };
 }
 
 function buildResultsObject() {
@@ -185,24 +230,26 @@ function buildResultsObject() {
   if (!j) {
     throw new Error("buildResultsObject: judgment is not initialized");
   }
-  const s = j.score;
-  return {
-    grade: j.grade(),
-    dpPercent: j.dpPercent(),
-    maxCombo: s.maxCombo,
-    w1: s.w1, w2: s.w2, w3: s.w3, w4: s.w4, w5: s.w5, miss: s.miss,
-    held: s.held, letGo: s.letGo, minesHit: s.minesHit,
-    fullCombo: j.isFullCombo(),
-    offsets: j.events.map((e) => e.offset),
-  };
+  // P2-only session (rare edge case when P1 slot not taken).
+  if (!game.hasPlayer1 && game.hasPlayer2) {
+    return buildResultsForPlayer(2);
+  }
+  // pump-double is a single-player mode — all notes belong to P1.
+  // pump-single / pump-routine co-op with two players — results also keyed to P1
+  // (P2 results go through buildResultsObject2 / saveScoreToProfile2).
+  // Fall through only for genuine single-player P1 without a second player slot.
+  return buildResultsForPlayer(1);
 }
 
 async function saveScoreToProfile() {
   if (game.autoPlay) return;
-  if (!game.profileId || !game.currentSong || !game.currentChart) return;
+  if (!game.profileId || !game.currentSong) return;
   if (!engine.judgment) return;
 
   const results = buildResultsObject();
+  const mainChartIndex = game.hasPlayer1 ? game.p1ChartIndex : game.p2ChartIndex;
+  const chartForSave = game.charts[mainChartIndex] ?? game.currentChart;
+  if (!chartForSave) return;
   const modCfg = game.hasPlayer1 ? game.player1Config : game.player2Config;
   const modParts: string[] = [];
   modParts.push(modCfg.speedMod);
@@ -217,9 +264,9 @@ async function saveScoreToProfile() {
     await api.saveScore({
       profileId: game.profileId,
       songPath: game.currentSong.path,
-      stepsType: game.currentChart.stepsType,
-      difficulty: game.currentChart.difficulty,
-      meter: game.currentChart.meter,
+      stepsType: chartForSave.stepsType,
+      difficulty: chartForSave.difficulty,
+      meter: chartForSave.meter,
       grade: results.grade,
       dpPercent: results.dpPercent,
       score: Math.max(0, Math.round(results.dpPercent * 10000)),
@@ -241,43 +288,43 @@ async function saveScoreToProfile() {
 engine.callbacks = {
   onJudgment,
   onMiss,
-  onComboBreak: () => { comboDisplay.value = 0; },
-  onMineHit: () => { playMineHit(); updateHUD(); },
+  onComboBreak: () => {
+    updateHUD();
+    if (isPerPlayerDualSession()) updateHUD2();
+  },
+  onMineHit: (track: number) => {
+    playMineHit();
+    noteFieldRef.value?.showJudgment("Mine", "#ff1744", track);
+    updateHUD();
+    if (isPerPlayerDualSession()) updateHUD2();
+  },
   onBeatLineApproach: (beat: number) => { playBeatLine(); void beat; },
   onFinish: async () => {
     gameState.value = "finished";
     game.lastResults = buildResultsObject();
-    game.lastResults2 = game.hasPlayer1 && game.hasPlayer2 ? buildResultsObject2() : null;
+    const dualPerPlayerResults = isPerPlayerDualSession();
+    game.lastResults2 = dualPerPlayerResults ? buildResultsObject2() : null;
     await saveScoreToProfile();
-    if (game.hasPlayer1 && game.hasPlayer2) await saveScoreToProfile2();
+    if (dualPerPlayerResults) await saveScoreToProfile2();
     resultNavTimer.value = setTimeout(() => router.push("/evaluation"), 1500);
   },
   onFail: async () => {
     gameState.value = "failed";
     game.lastResults = buildResultsObject();
-    game.lastResults2 = game.hasPlayer1 && game.hasPlayer2 ? buildResultsObject2() : null;
+    const dualPerPlayerResults = isPerPlayerDualSession();
+    game.lastResults2 = dualPerPlayerResults ? buildResultsObject2() : null;
     await saveScoreToProfile();
-    if (game.hasPlayer1 && game.hasPlayer2) await saveScoreToProfile2();
+    if (dualPerPlayerResults) await saveScoreToProfile2();
     resultNavTimer.value = setTimeout(() => router.push("/evaluation"), 2000);
+  },
+  onHoldScoreTick: () => {
+    updateHUD();
+    if (isPerPlayerDualSession()) updateHUD2();
   },
 };
 
-// P2 results helper (uses main engine's player2Score)
 function buildResultsObject2() {
-  const j = engine.judgment;
-  if (!j) {
-    throw new Error("buildResultsObject2: judgment is not initialized");
-  }
-  const s = j.player2Score;
-  return {
-    grade: j.gradeForPlayer(2),
-    dpPercent: j.dpPercentForPlayer(2),
-    maxCombo: s.maxCombo,
-    w1: s.w1, w2: s.w2, w3: s.w3, w4: s.w4, w5: s.w5, miss: s.miss,
-    held: s.held, letGo: s.letGo, minesHit: s.minesHit,
-    fullCombo: s.miss === 0 && s.w5 === 0,
-    offsets: j.events.filter(e => e.player === 2).map(e => e.offset),
-  };
+  return buildResultsForPlayer(2);
 }
 
 async function saveScoreToProfile2() {
@@ -338,7 +385,20 @@ async function loadAndStart() {
   }
 
   try {
+    const offMs = game.audioOffsetMs;
+    engine.config.audioOffset = Number.isFinite(offMs) ? offMs : 0;
+    engine.config.lifeType =
+      game.lifeType === "battery" || game.lifeType === "survival" ? game.lifeType : "bar";
+    engine.config.batteryLives = Math.max(1, Math.min(99, game.batteryLives ?? 3));
+    engine.config.autoPlay = game.autoPlay;
+    engine.config.playbackRate = game.playbackRate ?? 1;
+    engine.config.judgmentStyle = game.judgmentStyle === "itg" ? "itg" : "ddr";
+    engine.config.showOffset = game.showOffset;
+    engine.config.showParticles = game.showParticles;
+
     engine.config.coopMode = game.coopMode;
+    engine.config.sessionPlayMode = game.playMode;
+    engine.config.requireBothFailedForGameOver = computeRequireBothFailedForGameOver();
     engine.config.playerConfigs[0] = { ...game.player1Config };
     engine.config.playerConfigs[1] = { ...game.player2Config };
 
@@ -496,8 +556,15 @@ async function loadAndStart() {
     engine.loadChart(mergedRows, audioOk ? engine.songDuration : 180);
     devWarn(`[Gameplay] Merged chart loaded: ${engine.notes.length} notes, engine.state=${engine.state}, lastNoteSecond=${engine.getDebugState().lastNoteSecond}`);
 
+    updateHUD();
+    if (isPerPlayerDualSession()) updateHUD2();
+
     setGameplaySfxVolume((game.effectVolume ?? 90) / 100);
-    setGameplaySfxEnabled(game.rhythmSfxEnabled ?? true);
+    setGameplaySfxEnabled(true);
+    setMetronomeSfxEnabled(game.metronomeSfxEnabled ?? true);
+    setMetronomeSfxGain((game.metronomeSfxVolume ?? 100) / 100);
+    setMetronomeSfxStyle(game.metronomeSfxStyle ?? "bright");
+    setRhythmSfxEnabled(game.rhythmSfxEnabled ?? true);
     setRhythmSfxGain((game.rhythmSfxVolume ?? 100) / 100);
     setRhythmSfxStyle(game.rhythmSfxStyle ?? "bright");
     // 同步音量到音频引擎
@@ -583,6 +650,10 @@ function handleKeyDown(e: KeyboardEvent) {
     }
     return;
   }
+
+  // Rhythm game key events must not auto-repeat: a held key should only register
+  // the initial press so the timing cursor is not mis-advanced by browser repeat events.
+  if (e.repeat) return;
 
   const keyMap = resolveGameplayKeyMap10(game.gameplayPumpDoubleLanes);
   const col = keyMapLookupTrack(keyMap, e.code, e.key);
@@ -701,6 +772,8 @@ const p2LifeClass = computed(() => {
     lifePercent,
     scoreDisplay,
     comboDisplay,
+    lastJudgmentText,
+    lastJudgmentColor,
     savingScore,
     devPerf,
     showDevPanel,

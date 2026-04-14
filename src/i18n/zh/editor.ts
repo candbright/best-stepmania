@@ -16,6 +16,8 @@ export default {
   "editor.save": "保存",
   "editor.previewPlay": "从当前位置预览（进入实际游玩）",
   "editor.sfx": "节奏音效",
+  "editor.rhythmSfx": "节奏音效",
+  "editor.metronomeSfx": "节拍器音效",
   "editor.saved": "谱面已保存！",
   "editor.saveError": "保存失败",
   "editor.noteType": "音符类型",

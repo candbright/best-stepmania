@@ -1,19 +1,24 @@
 <script setup lang="ts">
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/i18n";
 import { useGameStore } from "@/stores/game";
+import { useSessionStore } from "@/stores/session";
 import { usePlayerStore } from "@/stores/player";
 import { onMounted, onUnmounted, ref, watch, nextTick, computed } from "vue";
-import { playMenuMove, setUiSfxVolume } from "@/utils/sfx";
+import { playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/utils/sfx";
 import * as api from "@/utils/api";
 import { initScoringConfig } from "@/engine/types";
 import { isTauri } from "@/utils/platform";
 import { applyWindowDisplayPreset } from "@/utils/applyWindowDisplay";
-import { firstSongIndexMatchingPlayMode, songHasChartForPlayMode } from "@/utils/chartPlayMode";
+import { applyPlayModeSelection } from "@/utils/applyPlayModeSelection";
+import PlayModeStrip from "@/components/PlayModeStrip.vue";
+import type { SessionPlayMode } from "@/utils/chartPlayMode";
 
 const router = useRouter();
+const route = useRoute();
 const { t } = useI18n();
 const game = useGameStore();
+const session = useSessionStore();
 const player = usePlayerStore();
 
 const hasCachedSongs = game.songs.length > 0;
@@ -22,6 +27,71 @@ const scanCount = ref(hasCachedSongs ? game.songs.length : 0);
 const scanError = ref<string | null>(null);
 const scanning = ref(!hasCachedSongs);
 const showModeSelect = ref(false);
+if (session.openPlayModeSelectAfterTitleEnter) {
+  showModeSelect.value = true;
+  session.openPlayModeSelectAfterTitleEnter = false;
+}
+
+const TITLE_MODE_ORDER: readonly SessionPlayMode[] = ["pump-single", "pump-double", "pump-routine"];
+const MAIN_MENU_COUNT = 4;
+const MODE_MENU_COUNT = 4;
+
+const mainMenuFocusIndex = ref(0);
+const modeMenuFocusIndex = ref(0);
+
+function isMainActionDisabled(i: number): boolean {
+  return (i === 0 || i === 1) && !scanDone.value;
+}
+
+function isModeActionDisabled(i: number): boolean {
+  return i >= 0 && i <= 2 && !scanDone.value;
+}
+
+function firstEnabledMainIndex(): number {
+  for (let i = 0; i < MAIN_MENU_COUNT; i++) {
+    if (!isMainActionDisabled(i)) return i;
+  }
+  return 0;
+}
+
+function firstEnabledModeIndex(): number {
+  for (let i = 0; i < MODE_MENU_COUNT; i++) {
+    if (!isModeActionDisabled(i)) return i;
+  }
+  return MODE_MENU_COUNT - 1;
+}
+
+function moveMenuFocus(len: number, current: number, delta: number, disabled: (i: number) => boolean): number {
+  let i = current;
+  for (let s = 0; s < len; s++) {
+    i = (i + delta + len) % len;
+    if (!disabled(i)) return i;
+  }
+  return current;
+}
+
+function syncMenuFocusToEnabledState() {
+  if (showModeSelect.value) {
+    if (isModeActionDisabled(modeMenuFocusIndex.value)) {
+      modeMenuFocusIndex.value = firstEnabledModeIndex();
+    }
+  } else if (isMainActionDisabled(mainMenuFocusIndex.value)) {
+    mainMenuFocusIndex.value = firstEnabledMainIndex();
+  }
+}
+
+watch(
+  showModeSelect,
+  (m) => {
+    if (m) modeMenuFocusIndex.value = firstEnabledModeIndex();
+    else mainMenuFocusIndex.value = firstEnabledMainIndex();
+  },
+  { immediate: true },
+);
+
+watch(scanDone, () => {
+  syncMenuFocusToEnabledState();
+});
 
 const titleRootRef = ref<HTMLElement | null>(null);
 const contentCardRef = ref<HTMLElement | null>(null);
@@ -103,11 +173,15 @@ watch(
   { flush: "post" },
 );
 
-const MODES = [
-  { key: "pump-single" as const, labelKey: "playMode.pump-single" },
-  { key: "pump-double" as const, labelKey: "playMode.pump-double" },
-  { key: "pump-routine" as const, labelKey: "playMode.pump-routine" },
-];
+/** 外链等：`?modePick=1` 时直接打开模式选择。 */
+function applyPlayModeSelectReturnIntent() {
+  const q = route.query.modePick;
+  const fromQuery = q === "1" || (Array.isArray(q) && q[0] === "1");
+  if (fromQuery) {
+    showModeSelect.value = true;
+    void router.replace({ path: "/" });
+  }
+}
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -176,6 +250,8 @@ onMounted(async () => {
     scanning.value = false;
   }
 
+  applyPlayModeSelectReturnIntent();
+
   // Add keyboard listener
   window.addEventListener("keydown", onKeyDown);
 });
@@ -187,52 +263,81 @@ onUnmounted(() => {
 });
 
 function onKeyDown(e: KeyboardEvent) {
-  if (scanDone.value && game.shortcutMatches(e, "title.confirm")) {
-    startGame();
+  if (showModeSelect.value && game.shortcutMatches(e, "global.back")) {
+    e.preventDefault();
+    playMenuBack();
+    cancelModeSelect();
+    return;
+  }
+
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    const delta = e.key === "ArrowDown" ? 1 : -1;
+    if (showModeSelect.value) {
+      e.preventDefault();
+      const prev = modeMenuFocusIndex.value;
+      modeMenuFocusIndex.value = moveMenuFocus(
+        MODE_MENU_COUNT,
+        prev,
+        delta,
+        isModeActionDisabled,
+      );
+      if (modeMenuFocusIndex.value !== prev) playMenuMove();
+    } else {
+      e.preventDefault();
+      const prev = mainMenuFocusIndex.value;
+      mainMenuFocusIndex.value = moveMenuFocus(
+        MAIN_MENU_COUNT,
+        prev,
+        delta,
+        isMainActionDisabled,
+      );
+      if (mainMenuFocusIndex.value !== prev) playMenuMove();
+    }
+    return;
+  }
+
+  if (game.shortcutMatches(e, "title.confirm")) {
+    e.preventDefault();
+    if (showModeSelect.value) {
+      let i = modeMenuFocusIndex.value;
+      if (isModeActionDisabled(i)) i = firstEnabledModeIndex();
+      if (i <= 2) {
+        playMenuConfirm();
+        void selectMode(TITLE_MODE_ORDER[i]!);
+      } else {
+        playMenuBack();
+        cancelModeSelect();
+      }
+    } else {
+      let i = mainMenuFocusIndex.value;
+      if (isMainActionDisabled(i)) i = firstEnabledMainIndex();
+      playMenuConfirm();
+      if (i === 0) startGame();
+      else if (i === 1) openEditorSelect();
+      else if (i === 2) openOptions();
+      else void exitApp();
+    }
   }
 }
 
-  function startGame() {
-    showModeSelect.value = true;
-  }
+function startGame() {
+  showModeSelect.value = true;
+}
 
-  async function selectMode(mode: typeof MODES[number]["key"]) {
-    game.playMode = mode;
-    if (mode === "pump-single") {
-      game.coopMode = "solo";
-    } else if (mode === "pump-double") {
-      game.coopMode = "double";
-    } else {
-      game.coopMode = "co-op";
-    }
+async function selectMode(mode: SessionPlayMode) {
+  await applyPlayModeSelection(game, player, mode);
+  router.push("/select-music");
+}
 
-    const songs = game.songs;
-    if (songs.length > 0) {
-      const idx = game.currentSongIndex;
-      const cur = idx >= 0 && idx < songs.length ? songs[idx] : null;
-      if (!songHasChartForPlayMode(cur, mode)) {
-        const firstIdx = firstSongIndexMatchingPlayMode(songs, mode);
-        if (firstIdx >= 0) {
-          await game.selectSong(firstIdx);
-          player.setQueue(songs, firstIdx);
-        }
-      }
-    }
-
-    router.push("/select-music");
-  }
-
-  function cancelModeSelect() {
-    showModeSelect.value = false;
-  }
+function cancelModeSelect() {
+  showModeSelect.value = false;
+}
 
 function openEditorSelect() {
-  playMenuMove();
   router.push("/editor-select");
 }
 
 function openOptions() {
-  playMenuMove();
   router.push("/options");
 }
 
@@ -297,32 +402,58 @@ async function exitApp() {
         <div class="menu">
           <Transition name="title-menu-panel" mode="out-in">
             <div v-if="showModeSelect" key="modes" class="menu-panel">
-              <div class="menu-heading-slot">
-                <p class="mode-hint">{{ t('playMode.title') }}</p>
-              </div>
+              <PlayModeStrip
+                layout="title"
+                :current="game.playMode"
+                :disabled="!scanDone"
+                :keyboard-highlight-index="modeMenuFocusIndex < 3 ? modeMenuFocusIndex : null"
+                @pick="selectMode"
+              />
               <button
-                v-for="mode in MODES"
-                :key="mode.key"
-                class="menu-item mode-card"
-                :class="`mode-${mode.key}`"
-                @click="selectMode(mode.key)"
+                class="menu-item back-btn"
+                :class="{ 'menu-keyboard-focus': modeMenuFocusIndex === 3 }"
+                type="button"
+                @click="cancelModeSelect"
               >
-                <span class="mode-label">{{ t(mode.labelKey) }}</span>
-              </button>
-              <button class="menu-item back-btn" @click="cancelModeSelect">
                 {{ t('back') }}
               </button>
             </div>
             <div v-else key="main" class="menu-panel">
               <div class="menu-heading-slot" />
-              <button class="menu-item primary" @click="startGame" :disabled="!scanDone">
+              <button
+                class="menu-item primary"
+                :class="{ 'menu-keyboard-focus': mainMenuFocusIndex === 0 }"
+                type="button"
+                @click="startGame"
+                :disabled="!scanDone"
+              >
                 {{ t('title.gameStart') }}
               </button>
-              <button class="menu-item editor-btn" @click="openEditorSelect" :disabled="!scanDone">
+              <button
+                class="menu-item editor-btn"
+                :class="{ 'menu-keyboard-focus': mainMenuFocusIndex === 1 }"
+                type="button"
+                @click="openEditorSelect"
+                :disabled="!scanDone"
+              >
                 ✎ {{ t('title.editChart') }}
               </button>
-              <button class="menu-item" @click="openOptions">{{ t('title.options') }}</button>
-              <button class="menu-item" @click="exitApp">{{ t('title.exit') }}</button>
+              <button
+                class="menu-item"
+                :class="{ 'menu-keyboard-focus': mainMenuFocusIndex === 2 }"
+                type="button"
+                @click="openOptions"
+              >
+                {{ t('title.options') }}
+              </button>
+              <button
+                class="menu-item"
+                :class="{ 'menu-keyboard-focus': mainMenuFocusIndex === 3 }"
+                type="button"
+                @click="exitApp"
+              >
+                {{ t('title.exit') }}
+              </button>
             </div>
           </Transition>
         </div>
@@ -535,6 +666,21 @@ async function exitApp() {
 .menu-item:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--primary-color) 75%, white);
   outline-offset: 2px;
+}
+.menu-item.menu-keyboard-focus:not(:disabled) {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--primary-color) 75%, white),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.menu-item.primary.menu-keyboard-focus:not(:disabled) {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--primary-color) 75%, white),
+    0 4px 24px var(--primary-color-glow);
+}
+.menu-item.editor-btn.menu-keyboard-focus:not(:disabled) {
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, #ff9800 80%, white),
+    0 4px 24px rgba(255, 152, 0, 0.35);
 }
 .mode-hint {
   margin: 0;

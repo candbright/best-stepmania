@@ -95,6 +95,12 @@ export const useGameStore = defineStore("game", () => {
   const masterVolume = computed({ get: () => settings.masterVolume, set: (v: number) => { settings.masterVolume = v; } });
   const musicVolume = computed({ get: () => settings.musicVolume, set: (v: number) => { settings.musicVolume = v; } });
   const effectVolume = computed({ get: () => settings.effectVolume, set: (v: number) => { settings.effectVolume = v; } });
+  const metronomeSfxEnabled = computed({ get: () => settings.metronomeSfxEnabled, set: (v: boolean) => { settings.metronomeSfxEnabled = v; } });
+  const metronomeSfxVolume = computed({ get: () => settings.metronomeSfxVolume, set: (v: number) => { settings.metronomeSfxVolume = v; } });
+  const metronomeSfxStyle = computed({
+    get: () => settings.metronomeSfxStyle,
+    set: (v) => { settings.metronomeSfxStyle = v; },
+  });
   const rhythmSfxEnabled = computed({ get: () => settings.rhythmSfxEnabled, set: (v: boolean) => { settings.rhythmSfxEnabled = v; } });
   const rhythmSfxVolume = computed({ get: () => settings.rhythmSfxVolume, set: (v: number) => { settings.rhythmSfxVolume = v; } });
   const rhythmSfxStyle = computed({
@@ -258,6 +264,7 @@ export const useGameStore = defineStore("game", () => {
     selectFilterDiffMin, selectFilterDiffMax, selectFilterSearch, selectFilterPack,
     configLoaded,
     masterVolume, musicVolume, effectVolume,
+    metronomeSfxEnabled, metronomeSfxVolume, metronomeSfxStyle,
     rhythmSfxEnabled, rhythmSfxVolume, rhythmSfxStyle,
     uiSfxEnabled, uiSfxVolume, uiSfxStyle,
     audioOffsetMs,

@@ -9,10 +9,15 @@ function getCtx(): AudioContext {
   return audioCtx;
 }
 
-// Gameplay SFX: judgments, countdown, mines, beat tick
+// Gameplay SFX: judgments, countdown, mines
 let gameplaySfxVolume = 0.9;
 let gameplaySfxEnabled = true;
-/** Relative rhythm loudness (0–1), persisted as rhythmSfxVolume; multiplies gameplaySfxVolume for rhythm sounds. */
+/** Relative metronome loudness (0–1), persisted as metronomeSfxVolume; used by beat-line ticks. */
+let metronomeSfxEnabled = true;
+let metronomeSfxGain = 1;
+let metronomeSfxStyle: RhythmSfxStyle = "bright";
+/** Relative rhythm loudness (0–1), persisted as rhythmSfxVolume; used by per-lane approach ticks. */
+let rhythmSfxEnabled = true;
 let rhythmSfxGain = 1;
 let rhythmSfxStyle: RhythmSfxStyle = "bright";
 
@@ -29,6 +34,22 @@ export function setGameplaySfxVolume(v: number) {
 
 export function setGameplaySfxEnabled(enabled: boolean) {
   gameplaySfxEnabled = enabled;
+}
+
+export function setMetronomeSfxEnabled(enabled: boolean) {
+  metronomeSfxEnabled = enabled;
+}
+
+export function setMetronomeSfxGain(v: number) {
+  metronomeSfxGain = Math.max(0, Math.min(1, v));
+}
+
+export function setMetronomeSfxStyle(style: RhythmSfxStyle) {
+  metronomeSfxStyle = style;
+}
+
+export function setRhythmSfxEnabled(enabled: boolean) {
+  rhythmSfxEnabled = enabled;
 }
 
 export function setRhythmSfxGain(v: number) {
@@ -62,8 +83,16 @@ export function isUiSfxEnabled(): boolean {
 /** Extra headroom so rhythm cues read over music at typical effect volume. */
 const RHYTHM_SFX_BASE_BOOST = 1.68;
 
-/** Amplitude multiplier for rhythm-category SFX (countdown, judgments, mines, beat ticks). */
+/** Amplitude multiplier for gameplay-category SFX (countdown, judgments, mines). */
 function gameplayRhythmAmp(mult: number): number {
+  return gameplaySfxVolume * mult * RHYTHM_SFX_BASE_BOOST;
+}
+
+function metronomeAmp(mult: number): number {
+  return gameplaySfxVolume * metronomeSfxGain * mult * RHYTHM_SFX_BASE_BOOST;
+}
+
+function laneRhythmAmp(mult: number): number {
   return gameplaySfxVolume * rhythmSfxGain * mult * RHYTHM_SFX_BASE_BOOST;
 }
 
@@ -104,8 +133,8 @@ type RhythmTickParams = {
   laneMul: number;
 };
 
-function rhythmTickParams(): RhythmTickParams {
-  switch (rhythmSfxStyle) {
+function metronomeTickParams(): RhythmTickParams {
+  switch (metronomeSfxStyle) {
     case "warm":
       return {
         beatFreq: 600,
@@ -142,6 +171,48 @@ function rhythmTickParams(): RhythmTickParams {
         laneDur: 0.035,
         laneWave: "triangle",
         laneMul: 0.24,
+      };
+  }
+}
+
+function laneRhythmTickParams(): RhythmTickParams {
+  switch (rhythmSfxStyle) {
+    case "warm":
+      return {
+        beatFreq: 560,
+        beatDur: 0.04,
+        beatWave: "sine",
+        beatMul: 0.22,
+        laneBase: 520,
+        laneStep: 24,
+        laneDur: 0.04,
+        laneWave: "sine",
+        laneMul: 0.24,
+      };
+    case "crisp":
+      return {
+        beatFreq: 2100,
+        beatDur: 0.024,
+        beatWave: "triangle",
+        beatMul: 0.24,
+        laneBase: 1860,
+        laneStep: 30,
+        laneDur: 0.023,
+        laneWave: "square",
+        laneMul: 0.28,
+      };
+    case "bright":
+    default:
+      return {
+        beatFreq: 1080,
+        beatDur: 0.033,
+        beatWave: "sine",
+        beatMul: 0.24,
+        laneBase: 980,
+        laneStep: 22,
+        laneDur: 0.032,
+        laneWave: "triangle",
+        laneMul: 0.26,
       };
   }
 }
@@ -267,9 +338,9 @@ export function playCountdownGo() {
  * reaches a beat line that has notes (before the player hits them).
  */
 export function playBeatLine() {
-  if (!gameplaySfxEnabled) return;
-  const p = rhythmTickParams();
-  playTone(p.beatFreq, p.beatDur, p.beatWave, gameplayRhythmAmp(p.beatMul));
+  if (!gameplaySfxEnabled || !metronomeSfxEnabled) return;
+  const p = metronomeTickParams();
+  playTone(p.beatFreq, p.beatDur, p.beatWave, metronomeAmp(p.beatMul));
 }
 
 /**
@@ -277,11 +348,11 @@ export function playBeatLine() {
  * simultaneous lanes stay separable; {@link volumeScale} down-weights dense chords.
  */
 export function playRhythmLaneApproach(track: number, volumeScale = 1) {
-  if (!gameplaySfxEnabled) return;
+  if (!gameplaySfxEnabled || !rhythmSfxEnabled) return;
   const s = Math.max(0.35, Math.min(1, volumeScale));
-  const p = rhythmTickParams();
+  const p = laneRhythmTickParams();
   const freq = p.laneBase + (track % 10) * p.laneStep;
-  playTone(freq, p.laneDur, p.laneWave, gameplayRhythmAmp(p.laneMul * s));
+  playTone(freq, p.laneDur, p.laneWave, laneRhythmAmp(p.laneMul * s));
 }
 
 export function previewUiSfx() {
@@ -290,14 +361,19 @@ export function previewUiSfx() {
   playMenuConfirm();
 }
 
-/** Preview beat tick + a second-lane tick (matches in-game rhythm cues). */
-export function previewRhythmSfx() {
-  if (!gameplaySfxEnabled) return;
+/** Preview beat-line metronome tick only. */
+export function previewMetronomeSfx() {
+  if (!gameplaySfxEnabled || !metronomeSfxEnabled) return;
   playBeatLine();
+}
+
+/** Preview per-lane rhythm tick only (matches key-to-receptor cue). */
+export function previewRhythmSfx() {
+  if (!gameplaySfxEnabled || !rhythmSfxEnabled) return;
   setTimeout(() => {
-    if (!gameplaySfxEnabled) return;
+    if (!gameplaySfxEnabled || !rhythmSfxEnabled) return;
     playRhythmLaneApproach(2, 0.88);
-  }, 72);
+  }, 36);
 }
 
 export function previewGameplaySfx() {

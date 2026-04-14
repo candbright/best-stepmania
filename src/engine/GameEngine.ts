@@ -27,6 +27,8 @@ export interface EngineCallbacks {
   onMiss?: (evt: JudgmentEvent) => void;
   onComboBreak?: () => void;
   onMineHit?: (track: number) => void;
+  /** Hold / roll tail scored or dropped — per-player DP changed without a tap judgment. */
+  onHoldScoreTick?: () => void;
   onFinish?: (score: ScoreState) => void;
   onFail?: (score: ScoreState) => void;
   /** Fires when the judgment line reaches a beat line that has notes (before player hits them). */
@@ -121,6 +123,12 @@ export class GameEngine {
     return this.getPlayerConfig(1);
   }
 
+  /** Keep private timeline (`this.audioOffset` seconds) aligned with `config.audioOffset` (ms). */
+  private syncAudioOffsetFromConfig(): void {
+    const ms = this.config.audioOffset;
+    this.audioOffset = Number.isFinite(ms) ? ms / 1000 : 0;
+  }
+
   constructor(config: GameConfig, audioPort: AudioPort | null = null) {
     if (!config || config.numTracks <= 0 || config.numTracks > 10) {
       throw new Error(`Invalid numTracks: ${config?.numTracks}`);
@@ -132,7 +140,7 @@ export class GameEngine {
     this.config = config;
     this.audioPort = audioPort;
     this.keysDown = new Array(config.numTracks).fill(false);
-    this.audioOffset = config.audioOffset / 1000;
+    this.syncAudioOffsetFromConfig();
     this.playbackRate = config.playbackRate ?? 1;
   }
 
@@ -145,6 +153,7 @@ export class GameEngine {
   }
 
   loadChart(noteRows: ChartNoteRow[], songDuration: number) {
+    this.syncAudioOffsetFromConfig();
     this.songDuration = songDuration;
     this.notes = [];
 
@@ -254,6 +263,7 @@ export class GameEngine {
   }
 
   async startPlaying() {
+    this.syncAudioOffsetFromConfig();
     this.gameStartWallMs = performance.now();
     this.playingStartTime = performance.now();
     this.state = "playing";
@@ -265,8 +275,8 @@ export class GameEngine {
     if (L <= 1e-4) {
       this.chartLeadInActive = false;
       this.fallbackStartTime = performance.now();
-      this.currentSecond = 0;
-      this.simulatedSecond = 0;
+      this.currentSecond = this.audioOffset;
+      this.simulatedSecond = this.audioOffset;
       if (this.audioLoaded) {
         this.useAudioSync = true;
         this.audioAnchorSecond = 0;
@@ -306,6 +316,7 @@ export class GameEngine {
    * Used when previewing from the editor's current scroll position.
    */
   async startPlayingFrom(targetSecond: number, leadInSeconds = 2.0) {
+    this.syncAudioOffsetFromConfig();
     const seekTo = Math.max(0, targetSecond - leadInSeconds);
     this.gameStartWallMs = performance.now();
     this.playingStartTime = performance.now();
@@ -606,7 +617,9 @@ export class GameEngine {
       }
     }
 
-    this.judgment.updateHolds(simSecond, this.keysDown);
+    if (this.judgment.updateHolds(simSecond, this.keysDown)) {
+      this.callbacks.onHoldScoreTick?.();
+    }
 
     if (this.judgment.isBothFailed()) {
       this.state = "failed";
@@ -617,6 +630,9 @@ export class GameEngine {
 
   pressKey(track: number) {
     if (track < 0 || track >= this.config.numTracks) return;
+    // Ignore repeated key-down events (browser auto-repeat while held).
+    // A held key must not re-fire judgment logic — only the initial press should score.
+    if (this.keysDown[track]) return;
     this.keysDown[track] = true;
 
     if (this.state !== "playing" || !this.judgment) return;
@@ -630,7 +646,7 @@ export class GameEngine {
     const evt = this.judgment.judgeInput(track, this.currentSecond);
     if (evt) {
       this.callbacks.onJudgment?.(evt);
-      if (evt.judgment === "W5" || evt.judgment === "Miss") {
+      if (evt.judgment === "Miss") {
         this.callbacks.onComboBreak?.();
       }
     }

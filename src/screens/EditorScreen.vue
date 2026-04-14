@@ -18,7 +18,7 @@ import EditorSidebar from "./editor/EditorSidebar.vue";
 import EditorStatusBar from "./editor/EditorStatusBar.vue";
 import { ensureMinElapsed } from "@/utils/loadingGate";
 import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
-import { setGameplaySfxEnabled } from "@/utils/sfx";
+import { setMetronomeSfxEnabled, setRhythmSfxEnabled } from "@/utils/sfx";
 import { routineColorHex } from "@/constants/routinePlayerColors";
 import { logOptionalRejection } from "@/utils/devLog";
 import TwoStepDangerModal from "@/components/TwoStepDangerModal.vue";
@@ -113,10 +113,21 @@ function sc(id: ShortcutId): string {
 }
 
 function toggleRhythmSfx() {
-  const newValue = !game.rhythmSfxEnabled;
-  game.rhythmSfxEnabled = newValue;
-  setGameplaySfxEnabled(newValue);
+  game.rhythmSfxEnabled = !game.rhythmSfxEnabled;
 }
+
+function toggleMetronomeSfx() {
+  game.metronomeSfxEnabled = !game.metronomeSfxEnabled;
+}
+
+watch(
+  () => [game.metronomeSfxEnabled, game.rhythmSfxEnabled] as const,
+  ([metronomeEnabled, rhythmEnabled]) => {
+    setMetronomeSfxEnabled(metronomeEnabled ?? false);
+    setRhythmSfxEnabled(rhythmEnabled ?? true);
+  },
+  { immediate: true },
+);
 
 // Shorthand refs used in template
 const {
@@ -634,6 +645,7 @@ onUnmounted(() => {
       v-model:editor-routine-layer="editorRoutineLayer"
       :song-title="game.currentSong?.title ?? ''"
       :rhythm-sfx-enabled="game.rhythmSfxEnabled"
+      :metronome-sfx-enabled="game.metronomeSfxEnabled"
       :editor-toolbar-editing-enabled="editorToolbarEditingEnabled"
       :playing="playing"
       :can-delete-beat="canDeleteBeatShiftNotesUp()"
@@ -660,6 +672,7 @@ onUnmounted(() => {
       @toggle-playback="togglePlayback"
       @preview-play="previewPlay"
       @toggle-rhythm-sfx="toggleRhythmSfx"
+      @toggle-metronome-sfx="toggleMetronomeSfx"
       @undo="undo"
       @redo="redo"
       @save="saveToFile"

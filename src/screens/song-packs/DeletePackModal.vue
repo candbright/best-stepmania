@@ -62,10 +62,13 @@ async function doDeletePack() {
         <span class="modal-path">{{ pack.path }}</span>
       </p>
       <p class="modal-warning">{{ t('songPacks.confirmDeletePackWarning') }}</p>
-      <label class="modal-toggle-row">
-        <input type="checkbox" v-model="deletePackConfirmChecked" />
+      <div class="modal-toggle-row">
         <span>{{ t('songPacks.confirmDelete') }}</span>
-      </label>
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="deletePackConfirmChecked" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
       <div class="modal-actions">
         <button class="modal-btn" @click="$emit('close')">{{ t('cancel') }}</button>
         <button class="modal-btn danger" :disabled="deletingPack || !deletePackConfirmChecked" @click="doDeletePack">{{ t('songPacks.delete') }}</button>
@@ -109,9 +112,16 @@ async function doDeletePack() {
 }
 .modal-toggle-row {
   display: flex; align-items: center; gap: 0.5rem;
+  justify-content: space-between;
   margin-top: 0.6rem; font-size: 0.78rem;
   color: rgba(220,210,255,0.75); cursor: pointer;
 }
+.toggle-switch { position: relative; width: 36px; height: 20px; cursor: pointer; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: rgba(255,255,255,0.1); border-radius: 22px; transition: 0.2s; }
+.toggle-slider::before { content: ""; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: rgba(255,255,255,0.5); border-radius: 50%; transition: 0.2s; }
+.toggle-switch input:checked + .toggle-slider { background: var(--primary-color); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--text-on-primary); }
 .modal-actions {
   margin-top: 1rem; display: flex; justify-content: flex-end; gap: 0.5rem;
 }

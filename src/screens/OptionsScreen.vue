@@ -7,7 +7,22 @@ import { useGameStore } from "@/stores/game";
 import { useLibraryStore } from "@/stores/library";
 import * as api from "@/utils/api";
 import type { RhythmSfxStyle } from "@/api/config";
-import { previewRhythmSfx, previewUiSfx, setUiSfxEnabled, setUiSfxStyle, setUiSfxVolume } from "@/utils/sfx";
+import {
+  previewMetronomeSfx,
+  previewRhythmSfx,
+  previewUiSfx,
+  setGameplaySfxEnabled,
+  setGameplaySfxVolume,
+  setMetronomeSfxEnabled,
+  setMetronomeSfxGain,
+  setMetronomeSfxStyle,
+  setRhythmSfxEnabled,
+  setRhythmSfxGain,
+  setRhythmSfxStyle,
+  setUiSfxEnabled,
+  setUiSfxStyle,
+  setUiSfxVolume,
+} from "@/utils/sfx";
 import HelpTooltip from "@/components/HelpTooltip.vue";
 import CustomSelect from "@/components/CustomSelect.vue";
 import AppNumberField from "@/components/AppNumberField.vue";
@@ -86,8 +101,6 @@ const SHORTCUT_SECTIONS: {
       { id: "editor.noteType2", labelKey: "settings.keybindings.editorNoteType2" },
       { id: "editor.noteType3", labelKey: "settings.keybindings.editorNoteType3" },
       { id: "editor.noteType4", labelKey: "settings.keybindings.editorNoteType4" },
-      { id: "editor.noteType5", labelKey: "settings.keybindings.editorNoteType5" },
-      { id: "editor.noteType6", labelKey: "settings.keybindings.editorNoteType6" },
     ],
   },
 ];
@@ -109,14 +122,14 @@ function applyShortcut(id: ShortcutId, chords: KeyChord[]) {
 
 function laneChordsForIndex(i: number): KeyChord[] {
   const lanes = resolveGameplayPumpDoubleLanes(game.gameplayPumpDoubleLanes);
-  const fallback = GAMEPLAY_10_LANE_DEFAULT_CODES[i] ?? "KeyQ";
+  const fallback = GAMEPLAY_10_LANE_DEFAULT_CODES[i] ?? "KeyZ";
   return [{ code: lanes[i] ?? fallback }];
 }
 
 function applyLaneCode(i: number, chords: KeyChord[]) {
   const code = chords[0]?.code?.trim() ?? "";
   const base = [...resolveGameplayPumpDoubleLanes(game.gameplayPumpDoubleLanes)];
-  base[i] = code.length > 0 ? code : base[i] ?? "KeyQ";
+  base[i] = code.length > 0 ? code : base[i] ?? "KeyZ";
   game.gameplayPumpDoubleLanes = base;
 }
 
@@ -155,6 +168,12 @@ const uiSfxStyleOptions = computed(() => [
   { label: t("settings.uiSfxStyleOption.arcade"), value: "arcade" },
 ]);
 
+const metronomeSfxStyleOptions = computed(() => [
+  { label: t("settings.metronomeSfxStyleOption.warm"), value: "warm" },
+  { label: t("settings.metronomeSfxStyleOption.bright"), value: "bright" },
+  { label: t("settings.metronomeSfxStyleOption.crisp"), value: "crisp" },
+]);
+
 const rhythmSfxStyleOptions = computed(() => [
   { label: t("settings.rhythmSfxStyleOption.warm"), value: "warm" },
   { label: t("settings.rhythmSfxStyleOption.bright"), value: "bright" },
@@ -182,8 +201,8 @@ const cursorStylePresetOptions = computed(() => [
 ]);
 
 const languageOptions = computed(() => [
-  { label: t("settings.languageOption.en"), value: "en" },
   { label: t("settings.languageOption.zh-CN"), value: "zh-CN" },
+  { label: t("settings.languageOption.en"), value: "en" },
 ]);
 
 const themeOptions = computed(() => APP_THEME_IDS.map((tid) => ({ label: t(`settings.themeOption.${tid}`), value: tid })));
@@ -302,6 +321,10 @@ function onResetClickEffectSettings() {
   openConfirmDialog("reset-click-effect-settings");
 }
 
+function toggleClickEffectEnabledFromSectionHead() {
+  game.cursorRippleEnabled = !(game.cursorRippleEnabled ?? true);
+}
+
 async function confirmDialogAccept() {
   const action = pendingConfirmAction.value;
   if (!action) return;
@@ -345,6 +368,11 @@ function previewRhythmSfxFromSettings() {
   previewRhythmSfx();
 }
 
+function previewMetronomeSfxFromSettings() {
+  if (shouldSkipDuplicatedPreview()) return;
+  previewMetronomeSfx();
+}
+
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 /** All reactive watcher stop handles — cleaned up together in onUnmounted. */
 const watchStops: Array<() => void> = [];
@@ -370,6 +398,9 @@ onMounted(() => {
     game.masterVolume;
     game.musicVolume;
     game.effectVolume;
+    game.metronomeSfxEnabled;
+    game.metronomeSfxVolume;
+    game.metronomeSfxStyle;
     game.rhythmSfxEnabled;
     game.rhythmSfxVolume;
     game.rhythmSfxStyle;
@@ -416,11 +447,33 @@ onMounted(() => {
       { immediate: true },
     ),
     watch(
-      () => [game.effectVolume, game.uiSfxEnabled, game.uiSfxStyle] as const,
-      ([effectVol, enabled, style]) => {
-        setUiSfxVolume((effectVol ?? 90) / 100);
+      () => [game.uiSfxVolume, game.uiSfxEnabled, game.uiSfxStyle] as const,
+      ([uiVol, enabled, style]) => {
+        setUiSfxVolume((uiVol ?? 70) / 100);
         setUiSfxEnabled(enabled ?? true);
         setUiSfxStyle((style ?? "classic") as "classic" | "soft" | "arcade");
+      },
+      { immediate: true },
+    ),
+    watch(
+      () => [
+        game.effectVolume,
+        game.metronomeSfxEnabled,
+        game.metronomeSfxVolume,
+        game.metronomeSfxStyle,
+        game.rhythmSfxEnabled,
+        game.rhythmSfxVolume,
+        game.rhythmSfxStyle,
+      ] as const,
+      ([effectVol, metronomeEnabled, metronomeVol, metronomeStyle, rhythmEnabled, rhythmVol, rhythmStyle]) => {
+        setGameplaySfxVolume((effectVol ?? 90) / 100);
+        setGameplaySfxEnabled(true);
+        setMetronomeSfxEnabled(metronomeEnabled ?? true);
+        setMetronomeSfxGain((metronomeVol ?? 100) / 100);
+        setMetronomeSfxStyle((metronomeStyle ?? "bright") as RhythmSfxStyle);
+        setRhythmSfxEnabled(rhythmEnabled ?? true);
+        setRhythmSfxGain((rhythmVol ?? 100) / 100);
+        setRhythmSfxStyle((rhythmStyle ?? "bright") as RhythmSfxStyle);
       },
       { immediate: true },
     ),
@@ -553,8 +606,61 @@ const activeCategory = ref<SettingsCategoryId>("general");
           <span class="value">{{ game.effectVolume }}%</span>
         </div>
         <div class="setting-row">
-          <label>{{ t('settings.rhythmSfxEnabled') }} <HelpTooltip helpKey="rhythmSfx" /></label>
-          <input type="checkbox" v-model="game.rhythmSfxEnabled" />
+          <label>{{ t('settings.audioOffset') }} <HelpTooltip helpKey="audioOffset" /></label>
+          <AppNumberField
+            v-model="game.audioOffsetMs"
+            input-class="audio-offset-ms-input"
+            :step="1"
+            hide-steppers
+          />
+        </div>
+      </section>
+
+      <section v-show="activeCategory === 'audio'" class="section">
+        <div class="section-head">
+          <h3>{{ t('settings.metronomeSfx') }}</h3>
+          <label class="toggle-switch section-head-toggle" :title="t('settings.metronomeSfxEnabled')">
+            <input type="checkbox" v-model="game.metronomeSfxEnabled" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <label>{{ t('settings.metronomeSfxVolume') }} <HelpTooltip helpKey="metronomeSfxVolume" /></label>
+          <input type="range" min="0" max="100" v-model.number="game.metronomeSfxVolume" :disabled="!game.metronomeSfxEnabled" />
+          <span class="value">{{ game.metronomeSfxVolume }}%</span>
+        </div>
+        <div class="setting-row">
+          <label>
+            {{ t('settings.metronomeSfxStyle') }}
+            <button
+              type="button"
+              class="sfx-preview-icon-btn"
+              data-sfx="off"
+              :disabled="!game.metronomeSfxEnabled"
+              :title="t('settings.sfxPreviewMetronome')"
+              aria-label="preview metronome sfx"
+              @pointerup.stop.prevent="previewMetronomeSfxFromSettings"
+              @mousedown.stop.prevent
+            >
+              ▶
+            </button>
+          </label>
+          <CustomSelect
+            :model-value="game.metronomeSfxStyle"
+            :options="metronomeSfxStyleOptions"
+            :disabled="!game.metronomeSfxEnabled"
+            @update:model-value="(v) => (game.metronomeSfxStyle = v as RhythmSfxStyle)"
+          />
+        </div>
+      </section>
+
+      <section v-show="activeCategory === 'audio'" class="section">
+        <div class="section-head">
+          <h3>{{ t('settings.rhythmSfx') }}</h3>
+          <label class="toggle-switch section-head-toggle" :title="t('settings.rhythmSfxEnabled')">
+            <input type="checkbox" v-model="game.rhythmSfxEnabled" />
+            <span class="toggle-slider"></span>
+          </label>
         </div>
         <div class="setting-row">
           <label>{{ t('settings.rhythmSfxVolume') }} <HelpTooltip helpKey="rhythmSfxVolume" /></label>
@@ -584,6 +690,21 @@ const activeCategory = ref<SettingsCategoryId>("general");
             @update:model-value="(v) => (game.rhythmSfxStyle = v as RhythmSfxStyle)"
           />
         </div>
+      </section>
+
+      <section v-show="activeCategory === 'audio'" class="section">
+        <div class="section-head">
+          <h3>{{ t('settings.uiSfxStyle') }}</h3>
+          <label class="toggle-switch section-head-toggle" :title="t('settings.uiSfxEnabled')">
+            <input type="checkbox" v-model="game.uiSfxEnabled" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <label>{{ t('settings.uiSfxVolume') }}</label>
+          <input type="range" min="0" max="100" v-model.number="game.uiSfxVolume" :disabled="!game.uiSfxEnabled" />
+          <span class="value">{{ game.uiSfxVolume }}%</span>
+        </div>
         <div class="setting-row">
           <label>
             {{ t('settings.uiSfxStyle') }}
@@ -607,15 +728,6 @@ const activeCategory = ref<SettingsCategoryId>("general");
             @update:model-value="(v) => (game.uiSfxStyle = v as 'classic' | 'soft' | 'arcade')"
           />
         </div>
-        <div class="setting-row">
-          <label>{{ t('settings.audioOffset') }} <HelpTooltip helpKey="audioOffset" /></label>
-          <AppNumberField
-            v-model="game.audioOffsetMs"
-            input-class="audio-offset-ms-input"
-            :step="1"
-            hide-steppers
-          />
-        </div>
       </section>
 
       <section v-show="activeCategory === 'display'" class="section">
@@ -630,7 +742,10 @@ const activeCategory = ref<SettingsCategoryId>("general");
         </div>
         <div class="setting-row">
           <label>{{ t('settings.vsync') }} <HelpTooltip helpKey="vsync" /></label>
-          <input type="checkbox" v-model="game.vsync" />
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="game.vsync" />
+            <span class="toggle-slider"></span>
+          </label>
         </div>
         <div class="setting-row">
           <label>{{ t('settings.targetFps') }} <HelpTooltip helpKey="targetFps" /></label>
@@ -649,10 +764,7 @@ const activeCategory = ref<SettingsCategoryId>("general");
 
       <section v-show="activeCategory === 'display'" class="section">
         <div class="section-head">
-          <h3>{{ t('settings.cursorSettings') }}</h3>
-          <button type="button" class="reset-keys-btn" :disabled="!canResetCursorCoreSettings" @click="onResetCursorCoreSettings">
-            {{ t('settings.cursor.resetAll') }}
-          </button>
+          <h3>{{ t('settings.cursor') }}</h3>
         </div>
         <div class="setting-row">
           <label>{{ t('settings.cursorStylePreset') }} <HelpTooltip helpKey="cursorStylePreset" /></label>
@@ -677,18 +789,28 @@ const activeCategory = ref<SettingsCategoryId>("general");
           <input type="range" min="0" max="100" step="1" :value="Math.round(game.cursorGlow * 100)" @input="game.cursorGlow = parseInt(($event.target as HTMLInputElement).value) / 100" />
           <span class="value">{{ Math.round(game.cursorGlow * 100) }}%</span>
         </div>
+        <div class="setting-row card-reset-row">
+          <button type="button" class="reset-keys-btn" :disabled="!canResetCursorCoreSettings" @click="onResetCursorCoreSettings">
+            {{ t('settings.cursor.resetAll') }}
+          </button>
+        </div>
       </section>
 
       <section v-show="activeCategory === 'display'" class="section">
         <div class="section-head">
-          <h3>{{ t('settings.clickEffectSettings') }}</h3>
-          <button type="button" class="reset-keys-btn" :disabled="!canResetClickEffectSettings" @click="onResetClickEffectSettings">
-            {{ t('settings.cursor.resetAll') }}
-          </button>
-        </div>
-        <div class="setting-row">
-          <label>{{ t('settings.cursorRippleEnabled') }} <HelpTooltip helpKey="cursorRippleEnabled" /></label>
-          <input type="checkbox" v-model="game.cursorRippleEnabled" />
+          <h3>{{ t('settings.clickEffect') }}</h3>
+          <div class="section-head-actions">
+            <button
+              type="button"
+              class="toggle-switch ui-sfx-toggle-switch"
+              :class="{ active: game.cursorRippleEnabled }"
+              data-sfx="off"
+              :title="t('settings.cursorRippleEnabled')"
+              @click="toggleClickEffectEnabledFromSectionHead"
+            >
+              <span class="toggle-slider"></span>
+            </button>
+          </div>
         </div>
         <template v-if="game.cursorRippleEnabled">
           <div class="setting-row">
@@ -722,6 +844,11 @@ const activeCategory = ref<SettingsCategoryId>("general");
             <span class="value">{{ Math.round(game.cursorRippleGlow * 100) }}%</span>
           </div>
         </template>
+        <div class="setting-row card-reset-row">
+          <button type="button" class="reset-keys-btn" :disabled="!canResetClickEffectSettings" @click="onResetClickEffectSettings">
+            {{ t('settings.cursor.resetAll') }}
+          </button>
+        </div>
       </section>
 
       <section v-show="activeCategory === 'general'" class="section">
@@ -743,8 +870,7 @@ const activeCategory = ref<SettingsCategoryId>("general");
           />
         </div>
         <div class="reset-all-settings-block">
-          <p class="reset-all-hint">{{ t("settings.resetAllSettingsHint") }}</p>
-          <button type="button" class="reset-all-settings-btn" @click="onResetAllSettings">
+          <button type="button" class="reset-all-settings-btn" :title="t('settings.resetAllSettingsHint')" @click="onResetAllSettings">
             {{ t("settings.resetAllSettings") }}
           </button>
         </div>
@@ -808,7 +934,10 @@ const activeCategory = ref<SettingsCategoryId>("general");
         </div>
         <div class="setting-row">
           <label>{{ t('settings.showOffset') }} <HelpTooltip helpKey="showOffset" /></label>
-          <input type="checkbox" v-model="game.showOffset" />
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="game.showOffset" />
+            <span class="toggle-slider"></span>
+          </label>
         </div>
         <div class="setting-row">
           <label>{{ t('settings.lifeType') }} <HelpTooltip helpKey="lifeType" /></label>
@@ -828,7 +957,10 @@ const activeCategory = ref<SettingsCategoryId>("general");
         </div>
         <div class="setting-row">
           <label>{{ t('playerOpt.showParticles') }}</label>
-          <input type="checkbox" v-model="game.showParticles" />
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="game.showParticles" />
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </section>
 
@@ -986,6 +1118,20 @@ const activeCategory = ref<SettingsCategoryId>("general");
 .section h3 { font-size:0.7rem;letter-spacing:0.2em;color:rgba(255,255,255,0.3);margin-bottom:0.75rem;text-transform:uppercase; }
 .section-head { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.75rem; }
 .section-head h3 { margin:0; }
+.section-head-toggle { margin-left: auto; display: inline-flex; flex: 0 0 auto; }
+.section-head-actions {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.toggle-switch { position: relative; width: 36px; height: 20px; cursor: pointer; flex: 0 0 36px; display: inline-block; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; inset: 0; background: rgba(255,255,255,0.1); border-radius: 22px; transition: 0.2s; }
+.toggle-slider::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: rgba(255,255,255,0.5); border-radius: 50%; transition: 0.2s; }
+.toggle-switch input:checked + .toggle-slider { background: var(--primary-color); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--text-on-primary); }
+.toggle-switch input:disabled + .toggle-slider { opacity: 0.4; cursor: not-allowed; }
 .nav-section { padding:0.75rem; }
 .nav-item { width:100%;display:flex;align-items:center;gap:0.875rem;padding:0.75rem 1rem;background:var(--primary-color-bg);border:1px solid rgba(255,255,255,0.1);border-radius:8px;cursor:pointer;transition:all 0.15s;color:var(--text-color);text-align:left; }
 .nav-item:hover { background:rgba(255,255,255,0.05);border-color:var(--primary-color-hover); }
@@ -1007,9 +1153,9 @@ const activeCategory = ref<SettingsCategoryId>("general");
 .nav-arrow { font-size:1.4rem;color:var(--primary-color-glow); }
 .setting-row { display:flex;align-items:center;gap:0.75rem;padding:0.5rem 0;border-bottom:1px solid var(--border-color); }
 .setting-row:last-child { border-bottom:none; }
-.setting-row label { flex:1;font-size:0.85rem;color:var(--text-color);opacity:0.85;display:flex;align-items:center; }
+.setting-row > label:not(.toggle-switch) { flex:1;font-size:0.85rem;color:var(--text-color);opacity:0.85;display:flex;align-items:center; }
 .setting-row input[type=range] { width:120px;accent-color:var(--primary-color); }
-.setting-row input[type=checkbox] { accent-color:var(--primary-color);width:18px;height:18px; }
+.setting-row > input[type=checkbox] { accent-color:var(--primary-color);width:18px;height:18px; }
 .value { font-size:0.8rem;color:rgba(255,255,255,0.4);min-width:40px;text-align:right;font-variant-numeric:tabular-nums; }
 :deep(.audio-offset-ms-input) { width:80px;min-width:80px;padding:0.3rem 0.45rem;border-radius:4px;border:1px solid var(--border-color);background:rgba(255,255,255,0.04);color:var(--text-color);font-size:0.85rem; }
 :deep(.audio-offset-ms-input .app-number-field-native) { text-align: center; }
@@ -1020,6 +1166,7 @@ const activeCategory = ref<SettingsCategoryId>("general");
 .keybindings-section .subsection-title:first-of-type { margin-top: 0.25rem; }
 .keybind-row label { flex: 1; min-width: 0; }
 .keybindings-reset-row { justify-content: flex-end; border-bottom: none; padding-bottom: 0; }
+.card-reset-row { justify-content: flex-end; border-bottom: none; padding-bottom: 0; }
 .reset-keys-btn {
   padding: 0.35rem 0.75rem;
   font-size: 0.75rem;
@@ -1037,15 +1184,10 @@ const activeCategory = ref<SettingsCategoryId>("general");
 .reset-all-settings-block {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
-}
-.reset-all-hint {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.38);
-  margin: 0 0 0.65rem;
-  line-height: 1.45;
 }
 .reset-all-settings-btn {
+  display: block;
+  margin-left: auto;
   padding: 0.45rem 0.9rem;
   font-size: 0.78rem;
   border-radius: 8px;
@@ -1057,6 +1199,21 @@ const activeCategory = ref<SettingsCategoryId>("general");
 .reset-all-settings-btn:hover {
   border-color: rgba(255, 140, 140, 0.55);
   background: rgba(255, 80, 80, 0.22);
+}
+.ui-sfx-toggle-switch {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+.ui-sfx-toggle-switch:hover .toggle-slider {
+  background: rgba(255, 255, 255, 0.16);
+}
+.ui-sfx-toggle-switch.active .toggle-slider {
+  background: var(--primary-color);
+}
+.ui-sfx-toggle-switch.active .toggle-slider::before {
+  transform: translateX(16px);
+  background: var(--text-on-primary);
 }
 .sfx-preview-icon-btn {
   width: 20px;

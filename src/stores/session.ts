@@ -56,8 +56,10 @@ export const useSessionStore = defineStore("session", () => {
   const needsSongRefresh = ref(false);
   /** Flag: when returning from player options, resume song playback */
   const resumePlaybackOnReturn = ref(false);
-  /** Title → 设置：若进入设置前正在播预览，回主界面时恢复播放（与 stopForGame / resumeAfterGame 配套） */
+  /** Title → 设置：若进入设置前正在播/加载预览，回主界面时恢复播放（与 pauseTitleMusicForOptions / resumeTitleMusicAfterOptions 配套） */
   const resumeTitleMusicAfterOptions = ref(false);
+  /** 游玩选歌页返回主界面时置 true，TitleScreen 下次进入 `/` 时打开模式选择（避免仅依赖 URL query，全局 Esc 也会设此标志） */
+  const openPlayModeSelectAfterTitleEnter = ref(false);
   /** Flag: when returning from editor, play from beginning */
   const resumeFromEditor = ref(false);
   /** SelectMusic filter state should survive gameplay round trips. */
@@ -185,7 +187,7 @@ export const useSessionStore = defineStore("session", () => {
     routineP1ColorId, routineP2ColorId,
     profileId, profileName, topScores, lastResults, lastResults2, lastScoreSaved, previewFromSecond, previewReturnToEditor, editorWarmResume,
     editorPrimedCharts, editorEntryAudioPrimed, clearEditorEntryPrime,
-    needsSongRefresh, resumePlaybackOnReturn, resumeTitleMusicAfterOptions, resumeFromEditor,
+    needsSongRefresh, resumePlaybackOnReturn, resumeTitleMusicAfterOptions, openPlayModeSelectAfterTitleEnter, resumeFromEditor,
     selectFilterDiffMin, selectFilterDiffMax, selectFilterSearch, selectFilterPack,
     currentSong, currentChart, currentDifficulty,
     selectSong, selectChart, initProfile,

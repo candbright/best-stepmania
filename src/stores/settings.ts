@@ -58,6 +58,9 @@ export const useSettingsStore = defineStore("settings", () => {
   const masterVolume = ref(80);
   const musicVolume = ref(70);
   const effectVolume = ref(90);
+  const metronomeSfxEnabled = ref(false);
+  const metronomeSfxVolume = ref(100);
+  const metronomeSfxStyle = ref<RhythmSfxStyle>("bright");
   const rhythmSfxEnabled = ref(true);
   const rhythmSfxVolume = ref(100);
   const rhythmSfxStyle = ref<RhythmSfxStyle>("bright");
@@ -138,6 +141,11 @@ export const useSettingsStore = defineStore("settings", () => {
       document.body.setAttribute('data-theme', theme.value);
       musicVolume.value = Math.round(cfg.musicVolume * 100);
       effectVolume.value = Math.round(cfg.effectVolume * 100);
+      metronomeSfxEnabled.value = cfg.metronomeSfxEnabled ?? cfg.rhythmSfxEnabled ?? false;
+      metronomeSfxVolume.value = Math.round(
+        (cfg.metronomeSfxVolume ?? cfg.rhythmSfxVolume ?? cfg.effectVolume ?? 1) * 100,
+      );
+      metronomeSfxStyle.value = normalizeRhythmSfxStyle(cfg.metronomeSfxStyle ?? cfg.rhythmSfxStyle);
       rhythmSfxEnabled.value = cfg.rhythmSfxEnabled ?? true;
       rhythmSfxVolume.value = Math.round((cfg.rhythmSfxVolume ?? cfg.effectVolume ?? 1) * 100);
       rhythmSfxStyle.value = normalizeRhythmSfxStyle(cfg.rhythmSfxStyle);
@@ -263,6 +271,9 @@ export const useSettingsStore = defineStore("settings", () => {
       masterVolume: masterVolume.value / 100,
       musicVolume: musicVolume.value / 100,
       effectVolume: effectVolume.value / 100,
+      metronomeSfxEnabled: metronomeSfxEnabled.value,
+      metronomeSfxVolume: metronomeSfxVolume.value / 100,
+      metronomeSfxStyle: metronomeSfxStyle.value,
       rhythmSfxEnabled: rhythmSfxEnabled.value,
       rhythmSfxVolume: rhythmSfxVolume.value / 100,
       rhythmSfxStyle: rhythmSfxStyle.value,
@@ -338,6 +349,9 @@ export const useSettingsStore = defineStore("settings", () => {
     masterVolume.value = 80;
     musicVolume.value = 70;
     effectVolume.value = 90;
+    metronomeSfxEnabled.value = false;
+    metronomeSfxVolume.value = 100;
+    metronomeSfxStyle.value = "bright";
     rhythmSfxEnabled.value = true;
     rhythmSfxVolume.value = 100;
     rhythmSfxStyle.value = "bright";
@@ -383,6 +397,7 @@ export const useSettingsStore = defineStore("settings", () => {
   return {
     configLoaded,
     masterVolume, musicVolume, effectVolume,
+    metronomeSfxEnabled, metronomeSfxVolume, metronomeSfxStyle,
     rhythmSfxEnabled, rhythmSfxVolume, rhythmSfxStyle,
     uiSfxEnabled, uiSfxVolume, uiSfxStyle,
     audioOffsetMs,

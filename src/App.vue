@@ -19,6 +19,7 @@ import { useRoute, useRouter } from "vue-router";
 import MusicPlayer from "@/components/MusicPlayer.vue";
 import AppLoadingOverlay from "@/components/AppLoadingOverlay.vue";
 import { useGameStore } from "@/stores/game";
+import { useSessionStore } from "@/stores/session";
 import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
 import type { RhythmSfxStyle } from "@/api/config";
 import {
@@ -27,6 +28,10 @@ import {
   playMenuMove,
   setGameplaySfxEnabled,
   setGameplaySfxVolume,
+  setMetronomeSfxEnabled,
+  setMetronomeSfxGain,
+  setMetronomeSfxStyle,
+  setRhythmSfxEnabled,
   setRhythmSfxGain,
   setRhythmSfxStyle,
   setUiSfxEnabled,
@@ -37,6 +42,7 @@ import {
 const router = useRouter();
 const route = useRoute();
 const game = useGameStore();
+const session = useSessionStore();
 const blockingOverlay = useBlockingOverlayStore();
 
 type CursorRipple = {
@@ -167,9 +173,15 @@ function handleGlobalPointerMove(e: PointerEvent) {
   };
 }
 
-/** 鼠标移出窗口时，保持可见状态以便在按钮悬停时仍显示 */
-function handleGlobalPointerLeave() {
-  // 保留 visible 状态，不设为 false
+/** 鼠标从窗口上边/左边移出时，隐藏自定义光标，避免停在边缘。 */
+function handleGlobalPointerLeave(e: PointerEvent) {
+  if (e.clientX <= 0 || e.clientY <= 0) {
+    cursor.value = {
+      x: -9999,
+      y: -9999,
+      visible: false,
+    };
+  }
 }
 
 function spawnCursorRipple(x: number, y: number) {
@@ -273,13 +285,34 @@ function handleGlobalEsc(e: KeyboardEvent) {
     return;
   }
 
+  if (route.path === "/select-music") {
+    e.preventDefault();
+    playMenuBack();
+    session.openPlayModeSelectAfterTitleEnter = true;
+    void router.push("/");
+    return;
+  }
+
+  if (route.path === "/player-options") {
+    e.preventDefault();
+    playMenuBack();
+    if (game.previewReturnToEditor) {
+      game.editorWarmResume = true;
+      game.previewFromSecond = null;
+      game.previewReturnToEditor = false;
+      void router.push("/editor");
+      return;
+    }
+    game.resumePlaybackOnReturn = true;
+    void router.push("/select-music");
+    return;
+  }
+
   const backMap: Record<string, string> = {
-    "/select-music": "/",
-    "/player-options": "/select-music",
     "/options": "/",
     "/song-packs": "/options",
     "/editor-select": "/",
-    "/evaluation": "/select-music",
+    "/evaluation": "/player-options",
   };
 
   const targetPath = backMap[route.path];
@@ -291,9 +324,9 @@ function handleGlobalEsc(e: KeyboardEvent) {
 }
 
 const stopSfxWatch = watch(
-  () => [game.effectVolume, game.uiSfxEnabled, game.uiSfxStyle] as const,
-  ([effectVolume, enabled, style]) => {
-    setUiSfxVolume((effectVolume ?? 90) / 100);
+  () => [game.uiSfxVolume, game.uiSfxEnabled, game.uiSfxStyle] as const,
+  ([uiVolume, enabled, style]) => {
+    setUiSfxVolume((uiVolume ?? 70) / 100);
     setUiSfxEnabled(enabled ?? true);
     setUiSfxStyle((style ?? "classic") as "classic" | "soft" | "arcade");
   },
@@ -301,12 +334,24 @@ const stopSfxWatch = watch(
 );
 
 const stopGameplayRhythmSfxWatch = watch(
-  () => [game.effectVolume, game.rhythmSfxEnabled, game.rhythmSfxVolume, game.rhythmSfxStyle] as const,
-  ([effectVol, enabled, rhythmVol, style]) => {
+  () => [
+    game.effectVolume,
+    game.metronomeSfxEnabled,
+    game.metronomeSfxVolume,
+    game.metronomeSfxStyle,
+    game.rhythmSfxEnabled,
+    game.rhythmSfxVolume,
+    game.rhythmSfxStyle,
+  ] as const,
+  ([effectVol, metronomeEnabled, metronomeVol, metronomeStyle, rhythmEnabled, rhythmVol, rhythmStyle]) => {
     setGameplaySfxVolume((effectVol ?? 90) / 100);
-    setGameplaySfxEnabled(enabled ?? true);
+    setGameplaySfxEnabled(true);
+    setMetronomeSfxEnabled(metronomeEnabled ?? true);
+    setMetronomeSfxGain((metronomeVol ?? 100) / 100);
+    setMetronomeSfxStyle((metronomeStyle ?? "bright") as RhythmSfxStyle);
+    setRhythmSfxEnabled(rhythmEnabled ?? true);
     setRhythmSfxGain((rhythmVol ?? 100) / 100);
-    setRhythmSfxStyle((style ?? "bright") as RhythmSfxStyle);
+    setRhythmSfxStyle((rhythmStyle ?? "bright") as RhythmSfxStyle);
   },
   { immediate: true },
 );

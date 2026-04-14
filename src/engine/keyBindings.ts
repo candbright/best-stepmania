@@ -40,8 +40,6 @@ export type ShortcutId =
   | "editor.noteType2"
   | "editor.noteType3"
   | "editor.noteType4"
-  | "editor.noteType5"
-  | "editor.noteType6"
   | "editor.clearSelection"
   | "editor.previewPlay"
   | "editor.addBeat"
@@ -49,15 +47,15 @@ export type ShortcutId =
 
 /** 10 键 Pump Double：每轨主键（与 keyMaps 注释顺序一致）。 */
 export const GAMEPLAY_10_LANE_DEFAULT_CODES: readonly string[] = [
-  "KeyQ",
-  "KeyE",
-  "KeyS",
   "KeyZ",
+  "KeyQ",
+  "KeyS",
+  "KeyE",
   "KeyC",
-  "Digit7",
-  "Digit9",
-  "Digit5",
   "Digit1",
+  "Digit7",
+  "Digit5",
+  "Digit9",
   "Digit3",
 ];
 
@@ -91,8 +89,6 @@ export const SHORTCUT_DEFAULTS: Readonly<Record<ShortcutId, KeyBinding>> = {
   "editor.noteType2": [{ code: "Digit2" }],
   "editor.noteType3": [{ code: "Digit3" }],
   "editor.noteType4": [{ code: "Digit4" }],
-  "editor.noteType5": [{ code: "Digit5" }],
-  "editor.noteType6": [{ code: "Digit6" }],
   "editor.clearSelection": [{ code: "Escape" }],
   "editor.previewPlay": [{ code: "KeyP" }],
   "editor.addBeat": [{ code: "ArrowDown", ctrl: true, shift: true }],
@@ -241,10 +237,7 @@ export function resolveGameplayPumpDoubleLanes(stored: string[] | null | undefin
 }
 
 export function resolveGameplayKeyMap10(storedLanes: string[] | null | undefined): Readonly<Record<string, number>> {
-  if (!storedLanes || storedLanes.length !== 10) {
-    return KEY_MAPS[10] as Readonly<Record<string, number>>;
-  }
-  return buildGameplayMapFromLanes(storedLanes);
+  return buildGameplayMapFromLanes(resolveGameplayPumpDoubleLanes(storedLanes));
 }
 
 export function cloneChord(c: KeyChord): KeyChord {

@@ -301,6 +301,19 @@ const chartDifficultySelectOptions = computed(() =>
     <div v-show="sidebarTab === 'bpm'" class="sidebar-content bpm-panel">
       <h4>{{ t('editor.bpmTabTitle') }}</h4>
       <template v-if="allCharts.length">
+        <div class="bpm-add-section">
+          <label class="meta-field">
+            <span>{{ t('editor.bpmNewAnchorBeat') }}</span>
+            <AppNumberField v-model="newBpmBeat" step="0.25" min="0" />
+          </label>
+          <label class="meta-field">
+            <span>{{ t('editor.bpmNewAnchorBpm') }}</span>
+            <AppNumberField v-model="newBpmValue" step="0.01" min="1" />
+          </label>
+          <button type="button" class="tool-btn small accent bpm-add-btn" @click="emit('addBpmChange')">
+            + {{ t('editor.bpmAddChange') }}
+          </button>
+        </div>
         <div class="bpm-list">
           <label v-for="(bc, idx) in bpmChanges" :key="idx" class="meta-field bpm-field">
             <span>{{ t('editor.bpmChangeRowLabel').replace('{0}', bc.beat.toFixed(3)) }}</span>
@@ -321,19 +334,6 @@ const chartDifficultySelectOptions = computed(() =>
               >✕</button>
             </div>
           </label>
-        </div>
-        <div class="bpm-add-section">
-          <label class="meta-field">
-            <span>{{ t('editor.bpmNewAnchorBeat') }}</span>
-            <AppNumberField v-model="newBpmBeat" step="0.25" min="0" />
-          </label>
-          <label class="meta-field">
-            <span>{{ t('editor.bpmNewAnchorBpm') }}</span>
-            <AppNumberField v-model="newBpmValue" step="0.01" min="1" />
-          </label>
-          <button type="button" class="tool-btn small accent bpm-add-btn" @click="emit('addBpmChange')">
-            + {{ t('editor.bpmAddChange') }}
-          </button>
         </div>
       </template>
       <p v-else class="chart-list-empty-hint">{{ t('editor.noChartsHint') }}</p>
@@ -585,7 +585,7 @@ const chartDifficultySelectOptions = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-  margin-bottom: 0.75rem;
+  margin-top: 0.75rem;
 }
 .bpm-field {
   background: rgba(255, 255, 255, 0.02);
@@ -600,9 +600,9 @@ const chartDifficultySelectOptions = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  margin-top: 0.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 0.25rem;
 }
 
 .chart-list {

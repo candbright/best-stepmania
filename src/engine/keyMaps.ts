@@ -39,10 +39,10 @@ export const KEY_MAPS: Readonly<Record<number, Readonly<Record<string, number>>>
   9: { KeyA: 0, KeyS: 1, KeyD: 2, KeyF: 3, Space: 4, KeyJ: 5, KeyK: 6, KeyL: 7, Semicolon: 8 },
 
   // pump-double (10键): P1=列0-4, P2=列5-9
-  // 主键: Q E S Z C 7 9 5 1 3（字母行 + 数字行）
+  // 主键: Z Q S E C 1 7 5 9 3（字母行 + 数字行）
   10: {
-    KeyQ: 0, KeyE: 1, KeyS: 2, KeyZ: 3, KeyC: 4,
-    Digit7: 5, Digit9: 6, Digit5: 7, Digit1: 8, Digit3: 9,
+    KeyZ: 0, KeyQ: 1, KeyS: 2, KeyE: 3, KeyC: 4,
+    Digit1: 5, Digit7: 6, Digit5: 7, Digit9: 8, Digit3: 9,
     // 备用（与 pump-single 类似）；小键盘数字与 Digit* 等同，由 keyMapLookupTrack 互认
     KeyW: 0, KeyR: 1, Space: 2, KeyI: 3, KeyO: 4,
     KeyA: 0, KeyD: 2, KeyF: 3, KeyG: 4,

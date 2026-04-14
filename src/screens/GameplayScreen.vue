@@ -20,6 +20,9 @@ const {
   offsetText,
   lifePercent,
   scoreDisplay,
+  comboDisplay,
+  lastJudgmentText,
+  lastJudgmentColor,
   savingScore,
   devPerf,
   showDevPanel,
@@ -28,6 +31,7 @@ const {
   bgPlaying,
   p2LifePercent,
   p2ScoreDisplay,
+  p2ComboDisplay,
   p2Difficulty,
   p2Meter,
   lifeClass,
@@ -35,6 +39,7 @@ const {
   loadAndStart,
   mountGameplayListeners,
   unmountGameplay,
+  pauseGame,
   resumeGame,
   quitGame,
   quitToSelectMusic,
@@ -74,52 +79,109 @@ onUnmounted(() => {
       />
     </div>
 
-    <!-- ── TOP HUD ── -->
-    <div class="hud-top">
-      <!-- Left: song info -->
-      <div class="hud-song">
-        <div class="hud-song-title">{{ game.currentSong?.title ?? '' }}</div>
-        <div class="hud-song-sub">{{ game.currentDifficulty }} <span class="hud-meter">{{ game.currentChart?.meter ?? '' }}</span></div>
-      </div>
+    <!-- ── HUD：双人时左右分列（仅 UI；谱面位置仍由 panelLayout 居中） ── -->
+    <div
+      class="hud-stack"
+      :class="{
+        'solo-p2-life': game.hasPlayer2 && !game.hasPlayer1,
+        'hud-stack--dual': game.hasPlayer1 && game.hasPlayer2,
+      }"
+    >
+      <template v-if="game.hasPlayer1 && game.hasPlayer2">
+        <div class="hud-dual">
+          <div class="hud-side hud-side--p1">
+            <div class="hud-life-cluster hud-life-p1">
+              <span class="hud-life-who">{{ t('playerOpt.player1') }}</span>
+              <div class="hud-life-wrap hud-life-wrap--top">
+                <div class="hud-life-track">
+                  <div class="hud-life-fill" :style="{ width: lifePercent + '%' }" :class="lifeClass" />
+                  <div class="hud-life-shine" />
+                </div>
+                <div class="hud-life-label">{{ lifePercent }}%</div>
+              </div>
+            </div>
+            <div class="hud-side-meta">
+              <div class="hud-song">
+                <div class="hud-song-title">{{ game.currentSong?.title ?? '' }}</div>
+                <div class="hud-song-sub">
+                  {{ game.currentDifficulty }} <span class="hud-meter">{{ game.currentChart?.meter ?? '' }}</span>
+                </div>
+              </div>
+              <div class="hud-score hud-score--p1">
+                <div class="hud-score-val">{{ scoreDisplay.toLocaleString() }}</div>
+                <div class="hud-score-label">{{ t('gameplay.scoreLabel') }}</div>
+                <div class="hud-combo" v-if="comboDisplay > 0">{{ comboDisplay }}x</div>
+              </div>
+            </div>
+          </div>
 
-      <!-- Center: life bar -->
-      <div class="hud-life-wrap">
-        <div class="hud-life-track">
-          <div class="hud-life-fill" :style="{ width: lifePercent + '%' }" :class="lifeClass" />
-          <div class="hud-life-shine" />
+          <div class="hud-side hud-side--p2">
+            <div class="hud-life-cluster hud-life-p2">
+              <span class="hud-life-who">{{ t('playerOpt.player2') }}</span>
+              <div class="hud-life-wrap hud-life-wrap--top">
+                <div class="hud-life-track">
+                  <div class="hud-life-fill" :style="{ width: p2LifePercent + '%' }" :class="p2LifeClass" />
+                  <div class="hud-life-shine" />
+                </div>
+                <div class="hud-life-label">{{ p2LifePercent }}%</div>
+              </div>
+            </div>
+            <div class="hud-side-meta">
+              <div class="hud-song hud-p2">
+                <div class="hud-song-sub">{{ p2Difficulty }} <span class="hud-meter">{{ p2Meter }}</span></div>
+              </div>
+              <div class="hud-score hud-score--p2">
+                <div class="hud-score-val">{{ p2ScoreDisplay.toLocaleString() }}</div>
+                <div class="hud-score-label">{{ t('gameplay.scoreLabel') }}</div>
+                <div class="hud-combo" v-if="p2ComboDisplay > 0">{{ p2ComboDisplay }}x</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="hud-life-label">{{ lifePercent }}%</div>
-      </div>
+      </template>
 
-      <!-- Right: score -->
-      <div class="hud-score">
-        <div class="hud-score-val">{{ scoreDisplay.toLocaleString() }}</div>
-        <div class="hud-score-label">{{ t('gameplay.scoreLabel') }}</div>
-      </div>
-    </div>
+      <template v-else>
+        <div class="hud-solo">
+          <div class="hud-side hud-side--p1">
+            <div v-if="game.hasPlayer1" class="hud-life-cluster hud-life-p1">
+              <span class="hud-life-who">{{ t('playerOpt.player1') }}</span>
+              <div class="hud-life-wrap hud-life-wrap--top">
+                <div class="hud-life-track">
+                  <div class="hud-life-fill" :style="{ width: lifePercent + '%' }" :class="lifeClass" />
+                  <div class="hud-life-shine" />
+                </div>
+                <div class="hud-life-label">{{ lifePercent }}%</div>
+              </div>
+            </div>
 
-    <!-- ── BOTTOM P2 HUD（双人同屏时；仅 P2 游玩时用顶栏主成绩即可） ── -->
-    <div v-if="game.hasPlayer2 && game.hasPlayer1" class="hud-bottom">
-      <!-- Left: P2 song info -->
-      <div class="hud-song hud-p2">
-        <div class="hud-song-title">{{ t('gameplay.player2Hud') }}</div>
-        <div class="hud-song-sub">{{ p2Difficulty }} <span class="hud-meter">{{ p2Meter }}</span></div>
-      </div>
+            <div v-if="game.hasPlayer2" class="hud-life-cluster hud-life-p1">
+              <span class="hud-life-who">{{ t('playerOpt.player2') }}</span>
+              <div class="hud-life-wrap hud-life-wrap--top">
+                <div class="hud-life-track">
+                  <div class="hud-life-fill" :style="{ width: p2LifePercent + '%' }" :class="p2LifeClass" />
+                  <div class="hud-life-shine" />
+                </div>
+                <div class="hud-life-label">{{ p2LifePercent }}%</div>
+              </div>
+            </div>
 
-      <!-- Center: P2 life bar -->
-      <div class="hud-life-wrap">
-        <div class="hud-life-track">
-          <div class="hud-life-fill" :style="{ width: p2LifePercent + '%' }" :class="p2LifeClass" />
-          <div class="hud-life-shine" />
+            <div class="hud-side-meta">
+              <div class="hud-song">
+                <div class="hud-song-title">{{ game.currentSong?.title ?? '' }}</div>
+                <div class="hud-song-sub">{{ game.currentDifficulty }} <span class="hud-meter">{{ game.currentChart?.meter ?? '' }}</span></div>
+              </div>
+              <div class="hud-score hud-score--p1">
+                <div class="hud-score-val">{{ scoreDisplay.toLocaleString() }}</div>
+                <div class="hud-score-label">{{ t('gameplay.scoreLabel') }}</div>
+                <div class="hud-combo" v-if="comboDisplay > 0">{{ comboDisplay }}x</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pause button: always available for touch/pointer users -->
+          <button class="hud-pause-btn" @click="pauseGame" :aria-label="t('gameplay.paused')">⏸</button>
         </div>
-        <div class="hud-life-label">{{ p2LifePercent }}%</div>
-      </div>
-
-      <!-- Right: P2 score -->
-      <div class="hud-score">
-        <div class="hud-score-val">{{ p2ScoreDisplay.toLocaleString() }}</div>
-        <div class="hud-score-label">{{ t('gameplay.scoreLabel') }}</div>
-      </div>
+      </template>
     </div>
 
     <!-- Dev Performance Panel (F3 to toggle) -->
@@ -132,6 +194,15 @@ onUnmounted(() => {
       <div>{{ t('gameplay.dev.particles') }}: {{ devPerf.particles }}</div>
       <div>{{ t('gameplay.dev.notes') }}: {{ devPerf.notes }}</div>
     </div>
+
+    <!-- Judgment text overlay (DOM layer, centre of screen) -->
+    <transition name="fade-quick">
+      <div
+        v-if="lastJudgmentText"
+        class="judgment-overlay"
+        :style="{ color: lastJudgmentColor }"
+      >{{ lastJudgmentText }}</div>
+    </transition>
 
     <!-- Offset indicator -->
     <transition name="fade-quick">
@@ -183,11 +254,137 @@ onUnmounted(() => {
 }
 .game-area { position: absolute; inset: 0; }
 
+.hud-stack {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.45rem 1.2rem 0.5rem;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55) 0%, transparent 100%);
+  pointer-events: none;
+}
+.hud-stack > * {
+  pointer-events: auto;
+}
+
+.hud-dual {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+}
+.hud-solo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+}
+.hud-solo .hud-life-cluster {
+  width: 100%;
+  max-width: min(42vw, 22rem);
+  flex: 0 1 auto;
+}
+.hud-solo .hud-side-meta {
+  max-width: min(42vw, 22rem);
+}
+.hud-side {
+  flex: 0 1 min(48vw, 24rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.hud-side--p1 {
+  align-items: flex-start;
+}
+.hud-side--p2 {
+  align-items: flex-end;
+  text-align: right;
+}
+.hud-stack--dual .hud-life-cluster {
+  width: 100%;
+  max-width: min(42vw, 22rem);
+  flex: 0 1 auto;
+}
+.hud-side-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  width: 100%;
+  max-width: min(42vw, 22rem);
+}
+.hud-side--p2 .hud-side-meta {
+  align-items: flex-end;
+}
+.hud-stack--dual .hud-song {
+  max-width: 100%;
+}
+.hud-score--p1 {
+  text-align: left;
+  align-self: flex-start;
+}
+.hud-score--p2 {
+  text-align: right;
+  align-self: flex-end;
+}
+
+.hud-life-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+}
+.hud-stack.solo-p2-life .hud-life-row {
+  justify-content: flex-end;
+}
+
+.hud-life-cluster {
+  flex: 0 1 min(42vw, 20rem);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 8rem;
+}
+.hud-life-p2 {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+.hud-life-p2 .hud-life-label {
+  text-align: left;
+}
+.hud-life-who {
+  flex: 0 0 auto;
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.38);
+  text-transform: uppercase;
+  max-width: 4.2rem;
+  line-height: 1.15;
+}
+.hud-life-p1 .hud-life-who {
+  color: color-mix(in srgb, var(--text-color) 55%, transparent);
+}
+.hud-life-p2 .hud-life-who {
+  color: #80deea;
+}
+
 .hud-top {
-  position: absolute; top: 0; left: 0; right: 0; z-index: 20;
-  display: flex; align-items: center; gap: 1rem;
-  padding: 0.6rem 1.2rem;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0;
+}
+.hud-top-spacer {
+  flex: 1;
+  min-width: 0;
 }
 .hud-song {
   flex: 0 0 auto; max-width: 220px; overflow: hidden;
@@ -205,7 +402,14 @@ onUnmounted(() => {
   color: var(--accent-secondary); font-weight: 700; margin-left: 0.25em;
 }
 .hud-life-wrap {
-  flex: 1; display: flex; align-items: center; gap: 0.5rem;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.hud-life-wrap--top {
+  flex: 1;
 }
 .hud-life-track {
   flex: 1; height: 5px; background: rgba(255,255,255,0.06);
@@ -248,12 +452,6 @@ onUnmounted(() => {
   letter-spacing: 0.25em; text-transform: uppercase;
 }
 
-.hud-bottom {
-  position: absolute; bottom: 0; left: 0; right: 0; z-index: 20;
-  display: flex; align-items: center; gap: 1rem;
-  padding: 0.6rem 1.2rem;
-  background: linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 100%);
-}
 .hud-p2 .hud-song-title {
   color: #80deea;
 }
@@ -366,6 +564,39 @@ onUnmounted(() => {
   background: rgba(0,0,0,0.7); display: flex;
   align-items: center; justify-content: center;
 }
+
+/* ── new HUD elements ─────────────────────────────── */
+.hud-combo {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.7rem; font-weight: 700;
+  color: var(--accent-color, #00e5ff);
+  opacity: 0.9;
+  margin-top: 0.1rem;
+}
+.judgment-overlay {
+  position: absolute;
+  left: 50%; top: 42%;
+  transform: translate(-50%, -50%);
+  z-index: 25;
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(1.1rem, 3vw, 1.8rem);
+  font-weight: 900;
+  text-shadow: 0 0 20px currentColor;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.hud-pause-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.55);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  line-height: 1;
+  pointer-events: auto;
+}
+.hud-pause-btn:hover { color: rgba(255,255,255,0.9); }
 
 .dev-perf-panel {
   position: absolute;

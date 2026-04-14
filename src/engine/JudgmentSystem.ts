@@ -35,20 +35,71 @@ export class JudgmentSystem {
   private trackSearchStart: number[] = [];
 
   private getPlayerForNote(note: ChartNote): 1 | 2 {
-    // Routine merged chart: follow `&` layer ownership first.
-    if (this.config.coopMode === "co-op" && (note.routineLayer === 1 || note.routineLayer === 2)) {
-      return note.routineLayer === 2 ? 2 : 1;
+    const mode = this.config.sessionPlayMode;
+    // pump-double: single-player double-panel — all tracks belong to P1.
+    if (mode === "pump-double") return 1;
+    // pump-routine co-op: note ownership is encoded directly in the chart layer.
+    if (mode === "pump-routine") {
+      if (note.routineLayer === 1 || note.routineLayer === 2) {
+        return note.routineLayer === 2 ? 2 : 1;
+      }
     }
-    // Single-mode dual-player and split layouts: left half = P1, right half = P2.
+    // Single-player sessions (solo pump-single, single-player routine, pump-double already handled):
+    // requireBothFailedForGameOver is true ONLY for genuine dual-player sessions
+    // (pump-single co-op, pump-routine co-op).  Everything else is P1 only.
+    if (!this.config.requireBothFailedForGameOver) return 1;
+    // Dual-player: split by track half (for wide charts) or even/odd track index.
     if (this.config.numTracks >= 8) {
       return note.track < this.config.numTracks / 2 ? 1 : 2;
     }
-    // Legacy narrow fallback.
     return note.track % 2 === 0 ? 1 : 2;
+  }
+
+  /** Max dance points one note can contribute (judgment + hold tail bonus), matching aggregate maxPossibleDp math. */
+  private maxDpContributionForNote(n: ChartNote): number {
+    const bestJudgmentDp = this.sc.dpWeights.W1;
+    if (n.noteType === "Tap" || n.noteType === "Lift") return bestJudgmentDp;
+    if (n.noteType === "HoldHead" || n.noteType === "Roll") return bestJudgmentDp + this.sc.holdDpWeights.held;
+    return 0;
+  }
+
+  private assignPerPlayerMaxPossibleDpFrom(filter: (n: ChartNote) => boolean): void {
+    let p1 = 0;
+    let p2 = 0;
+    for (const n of this.notes) {
+      if (!filter(n)) continue;
+      const c = this.maxDpContributionForNote(n);
+      if (c === 0) continue;
+      if (this.getPlayerForNote(n) === 1) p1 += c;
+      else p2 += c;
+    }
+    this.player1Score.maxPossibleDp = p1;
+    this.player2Score.maxPossibleDp = p2;
+  }
+
+  private getPlayerForHold(hold: HoldState): 1 | 2 {
+    const head = this.notes.find(
+      (n) =>
+        (n.noteType === "HoldHead" || n.noteType === "Roll") &&
+        n.track === hold.track &&
+        n.row === hold.startRow,
+    );
+    return head ? this.getPlayerForNote(head) : 1;
   }
 
   private getScoreStateForPlayer(player: 1 | 2): ScoreState {
     return player === 1 ? this.player1Score : this.player2Score;
+  }
+
+  /** Keep aggregate `score.life` / `failed` in sync for game-over checks; per-player bars use player1Score / player2Score. */
+  private syncAggregatedLifeFailed(): void {
+    if (this.config.requireBothFailedForGameOver) {
+      this.score.life = Math.min(this.player1Score.life, this.player2Score.life);
+      this.score.failed = this.player1Score.failed && this.player2Score.failed;
+    } else {
+      this.score.life = this.player1Score.life;
+      this.score.failed = this.player1Score.failed;
+    }
   }
 
   private applyJudgment(evt: JudgmentEvent) {
@@ -59,7 +110,7 @@ export class JudgmentSystem {
     this.events.push(evt);
     this.lastEvent = evt;
 
-    const isMiss = j === "W5" || j === "Miss";
+    const isMiss = j === "Miss";
     if (isMiss) {
       ps.combo = 0;
       if (this.config.lifeType === "battery") {
@@ -87,19 +138,18 @@ export class JudgmentSystem {
       if (ps.life <= 0) ps.failed = true;
     }
 
-    // Sync combined score life/failed from per-player state
-    if (this.config.coopMode === "solo") {
-      this.score.life = this.player1Score.life;
-      this.score.failed = this.player1Score.failed;
-    } else {
-      this.score.life = Math.min(this.player1Score.life, this.player2Score.life);
-      this.score.failed = this.player1Score.failed && this.player2Score.failed;
-    }
+    this.syncAggregatedLifeFailed();
 
     this.score[JUDGMENT_SCORE_KEY[j]]++;
     this.score.dancePoints += this.sc.dpWeights[j];
     if (isMiss) {
-      this.score.combo = 0;
+      // In a dual-player session, a miss by one player must not reset the
+      // aggregate combo if the other player is still building theirs.
+      // Take the surviving player's current combo as the new aggregate.
+      this.score.combo = Math.max(
+        this.player1Score.combo,
+        this.player2Score.combo,
+      );
     } else {
       this.score.combo = Math.max(
         this.score.combo,
@@ -107,16 +157,18 @@ export class JudgmentSystem {
       );
     }
 
-    // Combined `score` is used for evaluation / save — maxCombo must mirror per-player peaks.
-    this.score.maxCombo = Math.max(
-      this.player1Score.maxCombo,
-      this.player2Score.maxCombo,
-    );
+    // Combined score is for evaluation/save; in pump-double only P1 carries chart ownership.
+    this.score.maxCombo =
+      this.config.sessionPlayMode === "pump-double"
+        ? this.player1Score.maxCombo
+        : Math.max(this.player1Score.maxCombo, this.player2Score.maxCombo);
   }
 
   isBothFailed(): boolean {
-    if (this.config.coopMode === "solo") return this.player1Score.failed;
-    return this.player1Score.failed && this.player2Score.failed;
+    if (this.config.requireBothFailedForGameOver) {
+      return this.player1Score.failed && this.player2Score.failed;
+    }
+    return this.player1Score.failed;
   }
 
   constructor(notes: ChartNote[], config: GameConfig, scoringConfig?: ScoringSnapshot) {
@@ -129,7 +181,9 @@ export class JudgmentSystem {
       (n) => n.noteType === "Tap" || n.noteType === "HoldHead" || n.noteType === "Lift" || n.noteType === "Roll",
     );
     const holdCount = notes.filter((n) => n.noteType === "HoldHead" || n.noteType === "Roll").length;
-    const maxDp = scoreable.length * 2 + holdCount * 6;
+    const bestJudgmentDp = this.sc.dpWeights.W1;
+    const heldDp = this.sc.holdDpWeights.held;
+    const maxDp = scoreable.length * bestJudgmentDp + holdCount * heldDp;
 
     this.score = {
       w1: 0, w2: 0, w3: 0, w4: 0, w5: 0, miss: 0,
@@ -142,6 +196,7 @@ export class JudgmentSystem {
     this.player1Score = { ...this.score };
     this.player2Score = { ...this.score };
     this.batteryLives2 = config.batteryLives ?? 3;
+    this.assignPerPlayerMaxPossibleDpFrom((n) => this.maxDpContributionForNote(n) > 0);
 
     this.trackNotes = Array.from({ length: config.numTracks }, () => [] as ChartNote[]);
     this.trackSearchStart = new Array(config.numTracks).fill(0);
@@ -185,11 +240,9 @@ export class JudgmentSystem {
    * so notes before the starting point don't fire as misses.
    */
   skipBefore(skipSecond: number): void {
-    let skippedCount = 0;
     for (const note of this.notes) {
       if (note.second < skipSecond) {
         this.judgedRows.add(this.noteKey(note.track, note.row));
-        skippedCount++;
       }
     }
     
@@ -202,8 +255,13 @@ export class JudgmentSystem {
       (n.noteType === "Tap" || n.noteType === "HoldHead" || n.noteType === "Lift" || n.noteType === "Roll")
     );
     const holdCount = remainingScoreable.filter((n) => n.noteType === "HoldHead" || n.noteType === "Roll").length;
-    this.score.maxPossibleDp = remainingScoreable.length * 2 + holdCount * 6;
-    
+    const bestJudgmentDp = this.sc.dpWeights.W1;
+    const heldDp = this.sc.holdDpWeights.held;
+    this.score.maxPossibleDp = remainingScoreable.length * bestJudgmentDp + holdCount * heldDp;
+    this.assignPerPlayerMaxPossibleDpFrom(
+      (n) => n.second >= skipSecond && this.maxDpContributionForNote(n) > 0,
+    );
+
     while (this.missCursor < this.notes.length && this.notes[this.missCursor]!.second < skipSecond) {
       this.missCursor++;
     }
@@ -259,6 +317,12 @@ export class JudgmentSystem {
       return null;
     }
 
+    const pl = this.getPlayerForNote(bestNote);
+    if (this.getScoreStateForPlayer(pl).failed) {
+      this.handleRollPress(track, currentSecond);
+      return null;
+    }
+
     const judgment = this.offsetToJudgment(bestOffset);
     this.judgedRows.add(this.noteKey(bestNote.track, bestNote.row));
 
@@ -268,7 +332,7 @@ export class JudgmentSystem {
       track: bestNote.track,
       noteRow: bestNote.row,
       time: currentSecond,
-          player: this.getPlayerForNote(bestNote),
+      player: pl,
     };
 
     this.applyJudgment(evt);
@@ -312,6 +376,17 @@ export class JudgmentSystem {
       return this.autoPlayJudge(currentSecond);
     }
 
+    /**
+     * Non-dual-player: once P1 has failed, stop charging DP for any remaining
+     * auto-miss events (positive or negative), to prevent DP going further
+     * negative and then washing back to 0 on evaluation.
+     * Cursors still advance so the game loop doesn't stall.
+     * In dual-player (requireBothFailedForGameOver) the per-player `!ps.failed`
+     * check below silences only the specific dead player's notes.
+     */
+    const skipAllAutoMissDp =
+      !this.config.requireBothFailedForGameOver && this.player1Score.failed;
+
     const missed: JudgmentEvent[] = [];
     while (this.missCursor < this.notes.length) {
       const note = this.notes[this.missCursor]!;
@@ -323,17 +398,21 @@ export class JudgmentSystem {
 
       const offset = currentSecond - note.second;
       if (offset > this.sc.missWindow) {
+        const pl = this.getPlayerForNote(note);
+        const ps = this.getScoreStateForPlayer(pl);
         this.judgedRows.add(this.noteKey(note.track, note.row));
-        const evt: JudgmentEvent = {
-          judgment: "Miss",
-          offset,
-          track: note.track,
-          noteRow: note.row,
-          time: currentSecond,
-          player: this.getPlayerForNote(note),
-        };
-        this.applyJudgment(evt);
-        missed.push(evt);
+        if (!ps.failed && !skipAllAutoMissDp) {
+          const evt: JudgmentEvent = {
+            judgment: "Miss",
+            offset,
+            track: note.track,
+            noteRow: note.row,
+            time: currentSecond,
+            player: pl,
+          };
+          this.applyJudgment(evt);
+          missed.push(evt);
+        }
         this.missCursor++;
         continue;
       }
@@ -385,27 +464,47 @@ export class JudgmentSystem {
     return events;
   }
 
-  updateHolds(currentSecond: number, keysDown: boolean[]) {
+  /**
+   * @returns true if any hold finished this tick in a way that changed score / DP (HUD should refresh).
+   */
+  updateHolds(currentSecond: number, keysDown: boolean[]): boolean {
+    let statsChanged = false;
     for (const hold of this.holds) {
       if (hold.finished) continue;
 
       if (currentSecond >= hold.endSecond) {
         hold.finished = true;
         if (hold.active) {
+          const pl = this.getPlayerForHold(hold);
+          const ps = this.getScoreStateForPlayer(pl);
           if (hold.isRoll) {
             const timeSinceTick = currentSecond - hold.lastRollTick;
             if (timeSinceTick <= ROLL_TICK_INTERVAL * 1.5) {
               this.score.held++;
-              this.score.dancePoints += 6;
+              this.score.dancePoints += this.sc.holdDpWeights.held;
+              ps.held++;
+              ps.dancePoints += this.sc.holdDpWeights.held;
+              statsChanged = true;
             } else {
               this.score.letGo++;
+              this.score.dancePoints += this.sc.holdDpWeights.letGo;
+              ps.letGo++;
+              ps.dancePoints += this.sc.holdDpWeights.letGo;
+              statsChanged = true;
             }
           } else {
             if (hold.held) {
               this.score.held++;
-              this.score.dancePoints += 6;
+              this.score.dancePoints += this.sc.holdDpWeights.held;
+              ps.held++;
+              ps.dancePoints += this.sc.holdDpWeights.held;
+              statsChanged = true;
             } else {
               this.score.letGo++;
+              this.score.dancePoints += this.sc.holdDpWeights.letGo;
+              ps.letGo++;
+              ps.dancePoints += this.sc.holdDpWeights.letGo;
+              statsChanged = true;
             }
           }
         }
@@ -437,6 +536,7 @@ export class JudgmentSystem {
         }
       }
     }
+    return statsChanged;
   }
 
   checkMines(track: number, currentSecond: number): boolean {
@@ -449,9 +549,22 @@ export class JudgmentSystem {
       const diff = Math.abs(currentSecond - note.second);
       if (diff <= 0.09) {
         this.judgedRows.add(this.noteKey(note.track, note.row));
+        const pl = this.getPlayerForNote(note);
+        const ps = this.getScoreStateForPlayer(pl);
+        if (ps.failed) return true;
+        ps.minesHit++;
+        ps.dancePoints += this.sc.holdDpWeights.hitMine;
         this.score.minesHit++;
-        this.score.dancePoints -= 8;
-        this.score.life = Math.max(0, this.score.life - 0.04);
+        this.score.dancePoints += this.sc.holdDpWeights.hitMine;
+        // Apply per-life-type mine drain from the scoring config.
+        // Battery mode has mine delta = 0, so no explicit guard needed.
+        const deltas = this.sc.lifeDeltas[this.config.lifeType] ?? this.sc.lifeDeltas["bar"];
+        const mineDelta = deltas?.mine ?? 0;
+        if (mineDelta !== 0) {
+          ps.life = Math.max(0, Math.min(1, ps.life + mineDelta));
+          if (ps.life <= 0) ps.failed = true;
+        }
+        this.syncAggregatedLifeFailed();
         return true;
       }
       if (note.second > currentSecond + 0.2) break;
@@ -460,13 +573,13 @@ export class JudgmentSystem {
   }
 
   dpPercent(): number {
-    if (this.score.maxPossibleDp === 0) return 1;
+    if (this.score.maxPossibleDp <= 0) return 0;
     return Math.max(0, Math.min(1, this.score.dancePoints / this.score.maxPossibleDp));
   }
 
   dpPercentForPlayer(player: 1 | 2): number {
     const ps = player === 1 ? this.player1Score : this.player2Score;
-    if (ps.maxPossibleDp === 0) return 1;
+    if (ps.maxPossibleDp <= 0) return 0;
     return Math.max(0, Math.min(1, ps.dancePoints / ps.maxPossibleDp));
   }
 
@@ -493,7 +606,7 @@ export class JudgmentSystem {
   }
 
   isFullCombo(): boolean {
-    return this.score.w5 === 0 && this.score.miss === 0;
+    return this.score.miss === 0;
   }
 
   isNoteJudged(track: number, row: number): boolean {

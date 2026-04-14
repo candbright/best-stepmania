@@ -14,7 +14,7 @@ export default {
   "playerOpt.rotate": "旋转",
   "playerOpt.noteScale": "键位大小",
   "playerOpt.autoPlay": "自动游玩",
-  "playerOpt.sfx": "节奏音效",
+  "playerOpt.sfx": "节拍器音效",
   "playerOpt.showParticles": "粒子特效",
   "playerOpt.player1": "玩家1",
   "playerOpt.player2": "玩家2",

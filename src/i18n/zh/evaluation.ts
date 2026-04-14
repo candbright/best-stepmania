@@ -1,4 +1,5 @@
 export default {
+  "eval.judgmentBreakdown": "判定统计",
   "eval.selectMusic": "选择歌曲",
   "eval.maxCombo": "最大连击",
   "eval.totalNotes": "总音符数",

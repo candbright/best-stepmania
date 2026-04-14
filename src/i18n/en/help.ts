@@ -26,11 +26,15 @@ export default {
   "help.musicVolume":
     "Music volume\nControls the volume of background music during gameplay. Adjusts relative to the master volume.",
   "help.effectVolume":
-    "Effect volume\nShared baseline for Click SFX and Rhythm SFX.\n\nClick SFX: button press, back, and menu toggle feedback.\nRhythm SFX: judgment, countdown, beat-line, mines, and editor lane ticks. Rhythm also has its own level slider and an SFX style preset (warm / bright / crisp).\n\nFinal loudness is also affected by Master volume.",
+    "Effect volume\nShared baseline for Click SFX, Metronome SFX, and Rhythm SFX.\n\nClick SFX: button press, back, and menu toggle feedback.\nMetronome SFX: beat-line ticks that fire when a beat reaches the receptor line.\nRhythm SFX: per-lane key approach ticks when each lane reaches the receptor line.\n\nBoth metronome and rhythm groups have their own level slider and style preset (warm / bright / crisp). Final loudness is also affected by Master volume.",
+  "help.metronomeSfx":
+    "Metronome SFX\nControls beat-line tick cues when beats reach the receptor line. Turning this off mutes beat-line ticks but keeps lane approach rhythm cues available.",
+  "help.metronomeSfxVolume":
+    "Metronome SFX level\nScales beat-line metronome ticks relative to Effect volume only.",
   "help.rhythmSfx":
-    "Rhythm SFX\nWhen off, all rhythm-related cues in gameplay and the chart editor are muted (judgments, countdown, beat line, mines, per-lane ticks). Music and UI click sounds are unchanged.",
+    "Rhythm SFX\nControls per-lane approach cues when each lane reaches the receptor line (in gameplay and chart editor). This does not control beat-line metronome ticks.",
   "help.rhythmSfxVolume":
-    "Rhythm SFX level\nScales rhythm sounds relative to Effect volume only. At 100% they match the effect baseline; lower values duck rhythm without quieting menu clicks.",
+    "Rhythm SFX level\nScales per-lane rhythm cues relative to Effect volume only.",
   "help.audioOffset":
     "Audio offset\nCompensates for audio hardware latency. Positive values delay the audio; negative values advance it. Adjust if notes feel consistently early or late. Measured in milliseconds.",
   "help.windowDisplay":

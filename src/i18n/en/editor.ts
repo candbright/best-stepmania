@@ -16,6 +16,8 @@ export default {
   "editor.save": "Save",
   "editor.previewPlay": "Preview from here (launches gameplay)",
   "editor.sfx": "Rhythm SFX",
+  "editor.rhythmSfx": "Rhythm SFX",
+  "editor.metronomeSfx": "Metronome SFX",
   "editor.saved": "Chart saved!",
   "editor.saveError": "Save failed",
   "editor.noteType": "Note Type",

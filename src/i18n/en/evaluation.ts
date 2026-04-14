@@ -1,4 +1,5 @@
 export default {
+  "eval.judgmentBreakdown": "JUDGMENTS",
   "eval.selectMusic": "SELECT MUSIC",
   "eval.maxCombo": "MAX COMBO",
   "eval.totalNotes": "TOTAL NOTES",

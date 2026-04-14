@@ -39,8 +39,7 @@ function closeMenu() {
 function openMenu() {
   if (props.disabled) return;
   open.value = true;
-  const idx = props.options.findIndex((o) => o.value === props.modelValue && !o.disabled);
-  activeIndex.value = idx >= 0 ? idx : props.options.findIndex((o) => !o.disabled);
+  activeIndex.value = enabledSelectedIndex();
 }
 
 function toggleMenu() {
@@ -83,6 +82,22 @@ function onDocumentPointerDown(e: PointerEvent) {
   if (root.contains(target)) return;
   if (menu?.contains(target)) return;
   closeMenu();
+}
+
+function enabledSelectedIndex(): number {
+  const idx = props.options.findIndex((o) => o.value === props.modelValue && !o.disabled);
+  if (idx >= 0) return idx;
+  return props.options.findIndex((o) => !o.disabled);
+}
+
+function onOptionPointerMove(idx: number) {
+  if (props.options[idx]?.disabled) return;
+  activeIndex.value = idx;
+}
+
+/** 指针离开列表时高亮回到当前选中项（与原生 select 一致） */
+function onMenuPointerLeave() {
+  activeIndex.value = enabledSelectedIndex();
 }
 
 function moveActive(delta: number) {
@@ -200,13 +215,13 @@ onUnmounted(() => {
         role="listbox"
         tabindex="-1"
         @keydown="onListKeydown"
+        @pointerleave="onMenuPointerLeave"
       >
         <li
           v-for="(option, idx) in options"
           :key="`${option.value}`"
           class="custom-select-option"
           :class="{
-            'is-selected': option.value === modelValue,
             'is-active': idx === activeIndex,
             'is-disabled': option.disabled,
           }"
@@ -214,7 +229,7 @@ onUnmounted(() => {
           role="option"
           :aria-selected="option.value === modelValue"
           @click="selectOption(option.value, option.disabled)"
-          @mousemove="activeIndex = idx"
+          @pointermove="onOptionPointerMove(idx)"
         >
           {{ option.label }}
         </li>
@@ -327,8 +342,7 @@ onUnmounted(() => {
   font-size: 0.65rem;
 }
 
-.custom-select-option.is-active,
-.custom-select-option.is-selected {
+.custom-select-option.is-active {
   background: color-mix(in srgb, var(--primary-color) 26%, transparent);
   color: color-mix(in srgb, var(--text-color) 88%, var(--primary-color) 12%);
 }

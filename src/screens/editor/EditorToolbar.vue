@@ -22,6 +22,7 @@ const NOTE_TYPE_SHORTCUT_IDS = [
 const props = defineProps<{
   songTitle: string;
   rhythmSfxEnabled: boolean;
+  metronomeSfxEnabled: boolean;
   editorToolbarEditingEnabled: boolean;
   playing: boolean;
   canDeleteBeat: boolean;
@@ -64,6 +65,7 @@ const emit = defineEmits<{
   togglePlayback: [];
   previewPlay: [];
   toggleRhythmSfx: [];
+  toggleMetronomeSfx: [];
   undo: [];
   redo: [];
   save: [];
@@ -244,10 +246,19 @@ const rateSelectOptions = computed(() =>
               type="button"
               class="tool-icon-btn"
               :class="{ 'tool-icon-btn--inactive': !rhythmSfxEnabled }"
-              :title="t('editor.sfx')"
+              :title="t('editor.rhythmSfx')"
               @click="emit('toggleRhythmSfx')"
             >
-              <span class="tool-icon-glyph">{{ rhythmSfxEnabled ? '♫' : '♩' }}</span>
+              <span class="tool-icon-glyph">R</span>
+            </button>
+            <button
+              type="button"
+              class="tool-icon-btn"
+              :class="{ 'tool-icon-btn--inactive': !metronomeSfxEnabled }"
+              :title="t('editor.metronomeSfx')"
+              @click="emit('toggleMetronomeSfx')"
+            >
+              <span class="tool-icon-glyph">M</span>
             </button>
             <button
               type="button"
@@ -289,7 +300,7 @@ const rateSelectOptions = computed(() =>
               @click="emit('deleteBeat')"
             >↑</button>
             <div class="toolbar-divider" />
-            <label class="compact-label" :title="t('editor.quantize')">
+            <label class="compact-label compact-label--wide-select" :title="t('editor.quantize')">
               <CustomSelect
                 v-model="quantize"
                 variant="compact"
@@ -326,7 +337,7 @@ const rateSelectOptions = computed(() =>
                 <span class="diag-slash" />
               </span>
             </button>
-            <label class="compact-label" :title="t('editor.rate')">
+            <label class="compact-label compact-label--wide-select" :title="t('editor.rate')">
               <CustomSelect
                 v-model="editorRate"
                 variant="compact"
@@ -364,7 +375,11 @@ const rateSelectOptions = computed(() =>
   gap: 0;
   align-self: stretch;
   min-height: var(--editor-toolbar-band-h);
-  padding: var(--editor-toolbar-track-pad-y) 0.35rem var(--editor-toolbar-hscroll-pad) 0.55rem;
+  padding:
+    var(--editor-toolbar-track-pad-y)
+    max(0.45rem, 10px)
+    var(--editor-toolbar-hscroll-pad)
+    max(1.4rem, 28px);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   background: var(--bg-color);
   z-index: 2;
@@ -386,11 +401,17 @@ const rateSelectOptions = computed(() =>
   flex-shrink: 0;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: var(--editor-toolbar-track-pad-y) 0.35rem var(--editor-toolbar-hscroll-pad) 0.35rem;
+  padding:
+    var(--editor-toolbar-track-pad-y)
+    max(0.35rem, 10px)
+    var(--editor-toolbar-hscroll-pad)
+    max(0.35rem, 10px);
   min-height: var(--editor-toolbar-band-h);
   max-height: var(--editor-toolbar-band-h);
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  scroll-padding-left: 18px;
+  scroll-padding-right: 18px;
 }
 .toolbar-scroll-icons {
   display: flex;
@@ -400,6 +421,13 @@ const rateSelectOptions = computed(() =>
   width: max-content;
   min-height: var(--editor-toolbar-icons-h);
   max-height: var(--editor-toolbar-icons-h);
+}
+.toolbar-scroll-icons::before,
+.toolbar-scroll-icons::after {
+  content: "";
+  width: 18px;
+  min-width: 18px;
+  flex: 0 0 18px;
 }
 .toolbar-scroll-track::-webkit-scrollbar {
   height: var(--editor-hscrollbar-thick);
@@ -421,7 +449,7 @@ const rateSelectOptions = computed(() =>
   justify-content: center;
   align-self: stretch;
   min-height: var(--editor-toolbar-band-h);
-  padding: 0.4rem 0.5rem;
+  padding: 0.4rem max(1.4rem, 28px);
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(
     180deg,
@@ -635,6 +663,12 @@ const rateSelectOptions = computed(() =>
   font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.35);
   flex-shrink: 0;
+}
+.compact-label--wide-select {
+  min-width: 5.4rem;
+}
+.compact-label--wide-select :deep(.custom-select--compact) {
+  width: 100%;
 }
 .song-name {
   font-family: "Orbitron", "Rajdhani", sans-serif;

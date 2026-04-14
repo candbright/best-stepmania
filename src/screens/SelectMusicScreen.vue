@@ -267,10 +267,9 @@ async function confirmSelection() {
 
 function goBack() {
   playMenuBack();
-  router.push("/");
+  sessionStore.openPlayModeSelectAfterTitleEnter = true;
+  void router.push("/");
 }
-
-
 
 function cycleSortMode() {
   const modes = ["title", "artist", "bpm", "pack"] as const;

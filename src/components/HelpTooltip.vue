@@ -72,11 +72,11 @@ function helpDialogTitle(): string {
 <style scoped>
 .help-wrapper { display: inline-flex; align-items: center; }
 .help-btn {
-  width: 20px; height: 20px; border-radius: 50%;
+  width: 1.25rem; height: 1.25rem; border-radius: 50%;
   background: color-mix(in srgb, var(--primary-color) 15%, transparent); border: 1px solid color-mix(in srgb, var(--primary-color) 30%, transparent);
   color: color-mix(in srgb, var(--primary-color) 80%, var(--text-color)); font-size: 0.7rem; font-weight: 800;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: all 0.15s; margin-left: 6px; flex-shrink: 0;
+  transition: all 0.15s; margin-left: 0.375rem; flex-shrink: 0;
 }
 .help-btn:hover { background: color-mix(in srgb, var(--primary-color) 30%, transparent); color: var(--text-color); }
 

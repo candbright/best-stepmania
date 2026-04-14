@@ -557,10 +557,30 @@ export const usePlayerStore = defineStore("player", () => {
     status.value = "paused";
   }
 
-  /** 游戏结束后恢复播放（重新加载以确保音频引擎状态正确）*/
-  async function resumeAfterGame() {
+  /**
+   * 主界面进入设置：正在播放时用暂停保留进度；加载中仍走 stopForGame，避免设置在后台开始出声。
+   */
+  async function pauseTitleMusicForOptions() {
+    if (isDefaultMusic.value && status.value === "playing") {
+      stopProgressPoll();
+      await pauseDefaultMusic();
+      status.value = "paused";
+      return;
+    }
+    if (!isDefaultMusic.value && status.value === "playing") {
+      stopProgressPoll();
+      await api.audioPause(activeAudioRequestToken ?? undefined)
+        .catch((e) => logOptionalRejection("player.pauseTitleMusicForOptions.audioPause", e));
+      status.value = "paused";
+      return;
+    }
+    await stopForGame();
+  }
+
+  /** 从设置回到主界面：当前曲目从头播放，不保留暂停进度。 */
+  async function resumeTitleMusicAfterOptions() {
     if (isDefaultMusic.value) {
-      await resumeDefaultMusic();
+      await playDefaultMusic();
       status.value = "playing";
       startProgressPoll();
     } else if (queueIndex.value >= 0) {
@@ -629,7 +649,7 @@ export const usePlayerStore = defineStore("player", () => {
     hasPrev, hasNext,
     setQueue, playSongAt, playNext, playPrev,
     syncQueuePreserveCurrent,
-    togglePlayPause, seekTo, stopForGame, resumeAfterGame, cleanup,
+    togglePlayPause, seekTo, stopForGame, pauseTitleMusicForOptions, resumeTitleMusicAfterOptions, cleanup,
     syncWithBackend, preloadAll, playDefaultMusic,
     waitForLoadComplete,
   };

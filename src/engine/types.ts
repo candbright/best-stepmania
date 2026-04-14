@@ -80,6 +80,9 @@ export interface ScoreState {
   failed: boolean;
 }
 
+/** Same three values as session `playMode`; JudgmentSystem uses this (not only coopMode) for P1/P2 note ownership. */
+export type GameSessionPlayMode = "pump-single" | "pump-double" | "pump-routine";
+
 export interface GameConfig {
   audioOffset: number;
   judgmentStyle: "ddr" | "itg";
@@ -91,7 +94,14 @@ export interface GameConfig {
   batteryLives: number;
   showParticles: boolean;
   coopMode: CoopMode;
+  /** Routine '&' charts only; pump-double is always single-player ownership (all lanes = P1). */
+  sessionPlayMode: GameSessionPlayMode;
   playerConfigs: [PerPlayerConfig, PerPlayerConfig];
+  /**
+   * When true, the run only fails once every active player’s life is exhausted
+   * (dual-player wide / double / co-op). When false, only player 1’s life gates failure (single-player).
+   */
+  requireBothFailedForGameOver: boolean;
 }
 
 export type CoopMode = "solo" | "co-op" | "double";
@@ -146,10 +156,16 @@ let DP_WEIGHTS: Record<JudgmentType, number> = {
   Miss: -8,
 };
 
-let LIFE_DELTAS: Record<string, Record<JudgmentType, number>> = {
-  bar: { W1: 0.008, W2: 0.008, W3: 0.004, W4: 0, W5: -0.04, Miss: -0.08 },
-  survival: { W1: 0.004, W2: 0.004, W3: 0.002, W4: 0, W5: -0.06, Miss: -0.12 },
-  battery: { W1: 0, W2: 0, W3: 0, W4: 0, W5: 0, Miss: 0 },
+let HOLD_DP_WEIGHTS = {
+  held: 6,
+  letGo: 0,
+  hitMine: -8,
+};
+
+let LIFE_DELTAS: Record<string, Record<JudgmentType | 'mine', number>> = {
+  bar:      { W1: 0.008, W2: 0.008, W3: 0.004, W4: 0, W5: -0.04, Miss: -0.08, mine: -0.04 },
+  survival: { W1: 0.004, W2: 0.004, W3: 0.002, W4: 0, W5: -0.06, Miss: -0.12, mine: -0.06 },
+  battery:  { W1: 0,     W2: 0,     W3: 0,     W4: 0, W5: 0,     Miss: 0,     mine: 0     },
 };
 
 let GRADE_THRESHOLDS = {
@@ -188,8 +204,14 @@ async function _doInitScoringConfig(): Promise<void> {
       Miss: cfg.dpWeights.miss,
     };
 
-    const mapDeltas = (d: typeof cfg.lifeDeltas.bar): Record<JudgmentType, number> => ({
-      W1: d.w1, W2: d.w2, W3: d.w3, W4: d.w4, W5: d.w5, Miss: d.miss,
+    HOLD_DP_WEIGHTS = {
+      held: cfg.dpWeights.held ?? 6,
+      letGo: cfg.dpWeights.letGo ?? 0,
+      hitMine: cfg.dpWeights.hitMine ?? -8,
+    };
+
+    const mapDeltas = (d: typeof cfg.lifeDeltas.bar): Record<JudgmentType | 'mine', number> => ({
+      W1: d.w1, W2: d.w2, W3: d.w3, W4: d.w4, W5: d.w5, Miss: d.miss, mine: d.mine,
     });
     LIFE_DELTAS = {
       bar: mapDeltas(cfg.lifeDeltas.bar),
@@ -226,8 +248,14 @@ export interface ScoringSnapshot {
   timingWindows: { W1: number; W2: number; W3: number; W4: number; W5: number };
   missWindow: number;
   dpWeights: Record<JudgmentType, number>;
-  /** keyed by lifeType: "bar" | "survival" | "battery" */
-  lifeDeltas: Record<string, Record<JudgmentType, number>>;
+  /** DP weights for hold/roll tails and mines (from backend ScoreWeights). */
+  holdDpWeights: { held: number; letGo: number; hitMine: number };
+  /**
+   * Per life-bar mode, per-judgment life deltas.
+   * Keyed by lifeType: "bar" | "survival" | "battery".
+   * Each entry also has a `mine` key for the mine-hit life drain.
+   */
+  lifeDeltas: Record<string, Record<JudgmentType | 'mine', number>>;
   gradeThresholds: {
     minSss: number;
     ss: number;
@@ -248,6 +276,7 @@ export function captureCurrentScoringConfig(): ScoringSnapshot {
     timingWindows: { ...TIMING_WINDOWS },
     missWindow: MISS_WINDOW,
     dpWeights: { ...DP_WEIGHTS },
+    holdDpWeights: { ...HOLD_DP_WEIGHTS },
     lifeDeltas: Object.fromEntries(
       Object.entries(LIFE_DELTAS).map(([k, v]) => [k, { ...v }])
     ),
@@ -260,10 +289,17 @@ export function captureCurrentScoringConfig(): ScoringSnapshot {
 // Centralised here to avoid the inline anonymous type repeated across stores.
 // ---------------------------------------------------------------------------
 
-/** `dpPercent` is 0–1; UI shows at most 100%. */
+/**
+ * Normalize a stored DP ratio for UI (0–100, capped).
+ * Accepts canonical **0–1** `dpPercent`; also tolerates values already in **0–100** or **×100** (如 HUD 用 9234 表示 92.34%).
+ */
 export function displayPercentFromDpRatio(ratio: number): number {
   if (!Number.isFinite(ratio)) return 0;
-  return Math.min(100, Math.max(0, ratio * 100));
+  if (ratio <= 0) return 0;
+  if (ratio <= 1) return Math.min(100, ratio * 100);
+  if (ratio <= 100) return Math.min(100, ratio);
+  if (ratio <= 100_000) return Math.min(100, ratio / 100);
+  return 100;
 }
 
 export interface PerfState {
@@ -280,6 +316,8 @@ export interface NoteFieldExposed {
 export interface LastResults {
   grade: string;
   dpPercent: number;
+  /** 与 `saveScore` /游玩 HUD 一致：`round(dpPercent * 10000)`，范围约 0–10000。 */
+  score: number;
   maxCombo: number;
   w1: number; w2: number; w3: number; w4: number; w5: number; miss: number;
   held: number; letGo: number; minesHit: number;

@@ -6,7 +6,7 @@ import { BPM_BEAT_MATCH_EPS, COLUMN_WIDTH, NOTE_SIZE, HEADER_HEIGHT, WAVEFORM_WI
 import { useSessionStore } from "@/stores/session";
 import { routineColorHex } from "@/constants/routinePlayerColors";
 import { getThemeBgHex, getThemePrimaryHex } from "@/utils/themeCssBridge";
-import { playRhythmLaneApproach } from "@/utils/sfx";
+import { playBeatLine, playRhythmLaneApproach } from "@/utils/sfx";
 
 export function useEditorCanvas(s: EditorState) {
   const session = useSessionStore();
@@ -570,6 +570,12 @@ export function useEditorCanvas(s: EditorState) {
       } else if (currBeat > prevBeat + 1e-9) {
         const low = prevBeat - eps;
         const high = currBeat + eps;
+        const crossedBeatStart = Math.ceil(prevBeat + eps);
+        const crossedBeatEnd = Math.floor(currBeat + eps);
+        for (let beat = crossedBeatStart; beat <= crossedBeatEnd; beat++) {
+          void beat;
+          playBeatLine();
+        }
         const tracksCrossed = new Set<number>();
         for (const row of s.noteRows.value) {
           const nb = row.beat;
