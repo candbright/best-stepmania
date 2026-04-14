@@ -200,20 +200,17 @@ export function useEditorCanvas(s: EditorState) {
     if (isPump) {
       const dir = PUMP_TRACK_DIRECTIONS[numTracks]?.[track] ?? null;
       if (dir === null) {
-        // Center key → circle outline
-        const radius = recSize * 0.30;
+        // Center key → square outline
+        const half = recSize * 0.30;
         c.save();
         c.shadowColor = color;
         c.shadowBlur = 8;
         c.lineWidth = 2;
         c.strokeStyle = "rgba(255,255,255,0.28)";
-        c.beginPath();
-        c.arc(cx, cy, radius, 0, Math.PI * 2);
-        c.stroke();
+        c.strokeRect(cx - half, cy - half, half * 2, half * 2);
         c.shadowBlur = 0;
         c.restore();
       } else {
-        // Diagonal arrow with neon outline
         const rot = DIRECTION_ROTATIONS[dir] ?? 0;
         c.save();
         c.translate(cx, cy);
@@ -249,7 +246,6 @@ export function useEditorCanvas(s: EditorState) {
         c.shadowBlur = 0;
         c.restore();
       } else {
-        // Fallback: hollow diamond
         c.save();
         c.translate(cx, cy);
         c.rotate(Math.PI / 4);
@@ -265,7 +261,7 @@ export function useEditorCanvas(s: EditorState) {
   }
 
   // --- Note shape drawing (for placed notes on the chart) ---
-  // Matches gameplay drawNote: arrows for dance/PIU directions, circle for PIU center.
+  // Matches gameplay: PIU center = square; other lanes = arrows (dance) / arrows + diamond fallback.
   function drawEditorLaneShape(
     c: CanvasRenderingContext2D,
     cx: number,
@@ -283,25 +279,22 @@ export function useEditorCanvas(s: EditorState) {
     if (isPump) {
       const dir = PUMP_TRACK_DIRECTIONS[numTracks]?.[track] ?? null;
       if (dir === null) {
-        // PIU center: filled circle
-        const radius = NOTE_SIZE * 0.26;
+        // PIU center: filled square
+        const side = NOTE_SIZE * 0.52;
+        const half = side / 2;
         c.save();
         c.translate(cx, cy);
         if (!hollow) {
           c.fillStyle = color + alphaHex;
-          c.beginPath();
-          c.arc(0, 0, radius, 0, Math.PI * 2);
-          c.fill();
+          c.fillRect(-half, -half, side, side);
+          const inner = side * 0.72;
+          const ih = inner / 2;
           c.fillStyle = "rgba(255,255,255,0.22)";
-          c.beginPath();
-          c.arc(-radius * 0.28, -radius * 0.32, radius * 0.38, 0, Math.PI * 2);
-          c.fill();
+          c.fillRect(-ih, -ih, inner, inner);
         }
         c.strokeStyle = hollow ? color : "rgba(255,255,255,0.5)";
         c.lineWidth = hollow ? 2.2 : 1.4;
-        c.beginPath();
-        c.arc(0, 0, radius, 0, Math.PI * 2);
-        c.stroke();
+        c.strokeRect(-half, -half, side, side);
         c.restore();
         return;
       }
@@ -314,7 +307,6 @@ export function useEditorCanvas(s: EditorState) {
       if (!hollow) {
         c.fillStyle = color + alphaHex;
         c.fill();
-        // top highlight
         buildArrowPath(c, noteSize * 0.72);
         c.fillStyle = "rgba(255,255,255,0.22)";
         c.fill();
@@ -349,7 +341,6 @@ export function useEditorCanvas(s: EditorState) {
       c.stroke();
       c.restore();
     } else {
-      // Fallback: hollow diamond
       c.save();
       c.translate(cx, cy);
       c.rotate(Math.PI / 4);

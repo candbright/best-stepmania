@@ -7,6 +7,7 @@ import { keyMapLookupTrack, resolveGameplayKeyMap10 } from "@/engine/keyBindings
 import { JUDGMENT_COLORS, getJudgmentName } from "@/engine/judgmentDisplay";
 import type { JudgmentEvent, GameConfig, ChartNoteRow, NoteFieldExposed } from "@/engine/types";
 import * as api from "@/utils/api";
+import { getIpcInvokeSnapshot } from "@/utils/api";
 import type { TimingDataResponse } from "@/api/editor";
 import type { ChartTimingSlice } from "@/engine/chartTiming";
 import { useNoteSkin } from "@/stores/noteskin";
@@ -56,6 +57,8 @@ const devPerf = ref({
   simSecond: 0,
   audioSync: false,
   notes: 0,
+  ipcTotal: 0,
+  ipcTop: "",
 });
 const devPanelTimer = ref<ReturnType<typeof setInterval> | null>(null);
 const showDevPanel = ref(false);
@@ -152,7 +155,10 @@ const skinConfig2 = ref<Awaited<ReturnType<typeof loadSkin>> | null>(null);
 async function loadSkinForGame() {
   try {
     skinConfig.value = await loadSkin(game.player1Config.noteskin);
-    const p2Noteskin = game.player2Config?.noteskin ?? game.player1Config.noteskin;
+    const p2Noteskin =
+      game.playMode === "pump-double"
+        ? game.player1Config.noteskin
+        : (game.player2Config?.noteskin ?? game.player1Config.noteskin);
     skinConfig2.value = await loadSkin(p2Noteskin);
   } catch {
     skinConfig.value = null;
@@ -162,13 +168,21 @@ async function loadSkinForGame() {
 
 watch(() => [game.player1Config.noteskin, game.player2Config?.noteskin] as const, loadSkinForGame, { immediate: true });
 
+function shouldShowCenterJudgment(): boolean {
+  return !(game.playMode === "pump-double" || (game.hasPlayer1 && game.hasPlayer2));
+}
+
 function onJudgment(evt: JudgmentEvent) {
   const name = getJudgmentName(evt.judgment, p1Config.judgmentStyle);
   const color = JUDGMENT_COLORS[evt.judgment];
-  lastJudgmentText.value = name;
-  lastJudgmentColor.value = color;
-  if (lastJudgmentTimer !== null) clearTimeout(lastJudgmentTimer);
-  lastJudgmentTimer = setTimeout(() => { lastJudgmentText.value = ""; lastJudgmentTimer = null; }, 600);
+  if (shouldShowCenterJudgment()) {
+    lastJudgmentText.value = name;
+    lastJudgmentColor.value = color;
+    if (lastJudgmentTimer !== null) clearTimeout(lastJudgmentTimer);
+    lastJudgmentTimer = setTimeout(() => { lastJudgmentText.value = ""; lastJudgmentTimer = null; }, 600);
+  } else {
+    lastJudgmentText.value = "";
+  }
 
   if (p1Config.showOffset && evt.judgment !== "Miss") {
     const ms = Math.round(evt.offset * 1000);
@@ -179,7 +193,7 @@ function onJudgment(evt: JudgmentEvent) {
   playJudgment(evt.judgment);
   noteFieldRef.value?.showJudgment(name, color, evt.track);
   updateHUD();
-  if (isPerPlayerDualSession()) updateHUD2();
+  if (game.playMode !== "pump-double" && isPerPlayerDualSession()) updateHUD2();
 }
 
 function onMiss(evt: JudgmentEvent) {
@@ -290,36 +304,52 @@ engine.callbacks = {
   onMiss,
   onComboBreak: () => {
     updateHUD();
-    if (isPerPlayerDualSession()) updateHUD2();
+    if (game.playMode !== "pump-double" && isPerPlayerDualSession()) updateHUD2();
   },
   onMineHit: (track: number) => {
     playMineHit();
     noteFieldRef.value?.showJudgment("Mine", "#ff1744", track);
     updateHUD();
-    if (isPerPlayerDualSession()) updateHUD2();
+    if (game.playMode !== "pump-double" && isPerPlayerDualSession()) updateHUD2();
   },
   onBeatLineApproach: (beat: number) => { playBeatLine(); void beat; },
   onFinish: async () => {
+    if (resultNavTimer.value) {
+      clearTimeout(resultNavTimer.value);
+      resultNavTimer.value = null;
+    }
     gameState.value = "finished";
-    game.lastResults = buildResultsObject();
-    const dualPerPlayerResults = isPerPlayerDualSession();
-    game.lastResults2 = dualPerPlayerResults ? buildResultsObject2() : null;
-    await saveScoreToProfile();
-    if (dualPerPlayerResults) await saveScoreToProfile2();
+    try {
+      game.lastResults = buildResultsObject();
+      const dualPerPlayerResults = isPerPlayerDualSession();
+      game.lastResults2 = dualPerPlayerResults ? buildResultsObject2() : null;
+      await saveScoreToProfile();
+      if (dualPerPlayerResults) await saveScoreToProfile2();
+    } catch (err: unknown) {
+      console.error("[Gameplay] onFinish failed:", err);
+    }
     resultNavTimer.value = setTimeout(() => router.push("/evaluation"), 1500);
   },
   onFail: async () => {
+    if (resultNavTimer.value) {
+      clearTimeout(resultNavTimer.value);
+      resultNavTimer.value = null;
+    }
     gameState.value = "failed";
-    game.lastResults = buildResultsObject();
-    const dualPerPlayerResults = isPerPlayerDualSession();
-    game.lastResults2 = dualPerPlayerResults ? buildResultsObject2() : null;
-    await saveScoreToProfile();
-    if (dualPerPlayerResults) await saveScoreToProfile2();
+    try {
+      game.lastResults = buildResultsObject();
+      const dualPerPlayerResults = isPerPlayerDualSession();
+      game.lastResults2 = dualPerPlayerResults ? buildResultsObject2() : null;
+      await saveScoreToProfile();
+      if (dualPerPlayerResults) await saveScoreToProfile2();
+    } catch (err: unknown) {
+      console.error("[Gameplay] onFail failed:", err);
+    }
     resultNavTimer.value = setTimeout(() => router.push("/evaluation"), 2000);
   },
   onHoldScoreTick: () => {
     updateHUD();
-    if (isPerPlayerDualSession()) updateHUD2();
+    if (game.playMode !== "pump-double" && isPerPlayerDualSession()) updateHUD2();
   },
 };
 
@@ -400,7 +430,10 @@ async function loadAndStart() {
     engine.config.sessionPlayMode = game.playMode;
     engine.config.requireBothFailedForGameOver = computeRequireBothFailedForGameOver();
     engine.config.playerConfigs[0] = { ...game.player1Config };
-    engine.config.playerConfigs[1] = { ...game.player2Config };
+    engine.config.playerConfigs[1] =
+      game.playMode === "pump-double"
+        ? { ...game.player1Config }
+        : { ...game.player2Config };
 
     const p2Chart = game.hasPlayer2 ? game.charts[game.p2ChartIndex] : null;
     const p2ChartIdx = p2Chart?.chartIndex ?? game.p2ChartIndex;
@@ -443,45 +476,37 @@ async function loadAndStart() {
       p2Meter.value = String(p2Chart.meter ?? "");
     }
 
-    const fetchPromises: Promise<unknown>[] = [];
+    const chartIndices: number[] = [];
     if (mergedFromSingleWideChart) {
-      fetchPromises.push(
-        api.getChartNotes(song.path, chartIdx),
-        api.getBpmChanges(song.path, chartIdx),
-      );
+      chartIndices.push(chartIdx);
     } else {
-      if (game.hasPlayer1) {
-        fetchPromises.push(
-          api.getChartNotes(song.path, chartIdx),
-          api.getBpmChanges(song.path, chartIdx),
-        );
-      }
-      if (game.hasPlayer2) {
-        fetchPromises.push(
-          api.getChartNotes(song.path, p2ChartIdx),
-          api.getBpmChanges(song.path, p2ChartIdx),
-        );
-      }
+      if (game.hasPlayer1) chartIndices.push(chartIdx);
+      if (game.hasPlayer2) chartIndices.push(p2ChartIdx);
     }
-    const fetchResults = await Promise.all(fetchPromises);
+    const bundles = await api.getChartPlayPayload(song.path, chartIndices);
 
-    let resultIdx = 0;
+    let bundleIdx = 0;
     let p1NoteRows: ChartNoteRow[] = [];
     let timingData: TimingDataResponse = DEFAULT_GAMEPLAY_TIMING;
     let p2NoteRows: ChartNoteRow[] = [];
 
     if (mergedFromSingleWideChart) {
-      p1NoteRows = fetchResults[resultIdx++] as ChartNoteRow[];
-      timingData = fetchResults[resultIdx++] as TimingDataResponse;
+      const b = bundles[0];
+      p1NoteRows = b?.notes ?? [];
+      timingData = b?.timing ?? DEFAULT_GAMEPLAY_TIMING;
     } else {
       if (game.hasPlayer1) {
-        p1NoteRows = fetchResults[resultIdx++] as ChartNoteRow[];
-        timingData = fetchResults[resultIdx++] as TimingDataResponse;
+        const b = bundles[bundleIdx];
+        p1NoteRows = b?.notes ?? [];
+        timingData = b?.timing ?? DEFAULT_GAMEPLAY_TIMING;
+        bundleIdx += 1;
       }
       if (game.hasPlayer2) {
-        p2NoteRows = fetchResults[resultIdx++] as ChartNoteRow[];
-        const p2Timing = fetchResults[resultIdx++] as TimingDataResponse;
-        if (!game.hasPlayer1) timingData = p2Timing;
+        const b = bundles[bundleIdx];
+        p2NoteRows = b?.notes ?? [];
+        const p2Timing = b?.timing;
+        if (!game.hasPlayer1 && p2Timing) timingData = p2Timing;
+        bundleIdx += 1;
       }
     }
 
@@ -717,6 +742,18 @@ function updateDevPerfPanel() {
   const enginePerf = engine.getDebugState();
   if (!fieldPerf || !enginePerf) return;
 
+  let ipcTotal = 0;
+  let ipcTop = "";
+  if (import.meta.env.DEV) {
+    const snap = getIpcInvokeSnapshot();
+    ipcTotal = snap.total;
+    ipcTop = Object.entries(snap.byCommand)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([k, v]) => `${k}:${v}`)
+      .join(" ");
+  }
+
   devPerf.value = {
     qualityLevel: fieldPerf.qualityLevel,
     frameMs: fieldPerf.frameMs,
@@ -725,6 +762,8 @@ function updateDevPerfPanel() {
     simSecond: enginePerf.simulatedSecond,
     audioSync: enginePerf.useAudioSync,
     notes: enginePerf.notesCount,
+    ipcTotal,
+    ipcTop,
   };
 }
 

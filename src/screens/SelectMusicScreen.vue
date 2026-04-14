@@ -27,6 +27,7 @@ const bannerCache = ref<Record<string, string>>({});
 const showFilterModal = ref(false);
 const showClearTopScoresModal = ref(false);
 const clearingTopScores = ref(false);
+const confirmSelectionBusy = ref(false);
 const songScrollRef = ref<HTMLElement | null>(null);
 let loadAbortCtrl: AbortController | null = null;
 
@@ -181,6 +182,46 @@ const canPlayCurrentSong = computed(() => {
   return (game.currentSong.charts?.length ?? 0) > 0;
 });
 
+function focusSongByDelta(delta: number) {
+  if (groupedSongs.value.length === 0) return;
+
+  const currentPath = game.currentSong?.path;
+  const currentGroupIndex = groupedSongs.value.findIndex((group) =>
+    group.songs.some(({ song }) => song.path === currentPath),
+  );
+
+  const fallbackGroupIndex = currentGroupIndex >= 0 ? currentGroupIndex : 0;
+  const targetGroup = groupedSongs.value[fallbackGroupIndex];
+  if (!targetGroup) return;
+
+  const currentSongIndexInGroup = targetGroup.songs.findIndex(({ song }) => song.path === currentPath);
+  const currentIndexInGroup = currentSongIndexInGroup >= 0 ? currentSongIndexInGroup : 0;
+  const nextIndexInGroup = (currentIndexInGroup + delta + targetGroup.songs.length) % targetGroup.songs.length;
+  const nextSong = targetGroup.songs[nextIndexInGroup];
+  if (!nextSong) return;
+
+  if (nextSong.idx !== game.currentSongIndex) {
+    selectSong(nextSong.idx);
+    ensureCurrentSongVisible();
+  }
+}
+
+function activateCurrentSelection() {
+  if (game.currentSongIndex < 0 || !game.currentSong) return;
+  void confirmSelection();
+}
+
+function cycleChartByDelta(delta: number) {
+  if (filteredCharts.value.length === 0) return;
+  const currentIdx = filteredCharts.value.findIndex((chart) => chart.chartIndex === game.currentChartIndex);
+  const baseIdx = currentIdx >= 0 ? currentIdx : 0;
+  const nextIdx = (baseIdx + delta + filteredCharts.value.length) % filteredCharts.value.length;
+  const nextChart = filteredCharts.value[nextIdx];
+  if (!nextChart || nextChart.chartIndex === game.currentChartIndex) return;
+  game.selectChart(nextChart.chartIndex);
+  playMenuMove();
+}
+
 function togglePack(packKey: string) {
   if (collapsedPacks.value.has(packKey)) collapsedPacks.value.delete(packKey);
   else collapsedPacks.value.add(packKey);
@@ -222,9 +263,11 @@ function onFilterApply() {
 }
 
 async function confirmSelection() {
+  if (confirmSelectionBusy.value) return;
   if (!canPlayCurrentSong.value) {
     return;
   }
+  confirmSelectionBusy.value = true;
   loadAbortCtrl = new AbortController();
   blockingOverlay.show({
     message: t("loadingPhase.preparing"),
@@ -258,10 +301,12 @@ async function confirmSelection() {
   } finally {
     if (loadAbortCtrl?.signal.aborted) {
       loadAbortCtrl = null;
+      confirmSelectionBusy.value = false;
       return;
     }
     await ensureMinElapsed(started, 1500);
     loadAbortCtrl = null;
+    confirmSelectionBusy.value = false;
   }
 }
 
@@ -275,6 +320,24 @@ function cycleSortMode() {
   const modes = ["title", "artist", "bpm", "pack"] as const;
   const cur = modes.indexOf(game.sortMode);
   game.setSortMode(modes[(cur + 1) % modes.length]);
+}
+
+function onKeyDown(e: KeyboardEvent) {
+  if (showFilterModal.value || showClearTopScoresModal.value) return;
+  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    e.preventDefault();
+    focusSongByDelta(e.key === "ArrowDown" ? 1 : -1);
+    return;
+  }
+  if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+    e.preventDefault();
+    cycleChartByDelta(e.key === "ArrowRight" ? 1 : -1);
+    return;
+  }
+  if (e.key === "Enter") {
+    e.preventDefault();
+    activateCurrentSelection();
+  }
 }
 
 function loadBannerLazy(idx: number) {
@@ -343,6 +406,7 @@ async function onClearTopScoresConfirmed() {
 onMounted(() => {
   setUiSfxVolume((game.uiSfxVolume ?? 70) / 100);
   void sessionStore.loadTopScores();
+  window.addEventListener("keydown", onKeyDown);
 
   // Check if returning from player options and need to resume playback
   if (game.resumePlaybackOnReturn) {
@@ -377,6 +441,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener("keydown", onKeyDown);
   cancelScreenLoad();
   // 离开选歌界面时不停止播放，让 MusicPlayer 继续
 });
@@ -516,7 +581,7 @@ watch(
           </div>
 
           <div class="action-row">
-            <button class="play-btn" :disabled="!canPlayCurrentSong" @click="confirmSelection">
+            <button class="play-btn" :disabled="!canPlayCurrentSong || confirmSelectionBusy" @click="confirmSelection">
               {{ t('select.play') }} ▶
             </button>
 

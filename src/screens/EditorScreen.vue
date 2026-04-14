@@ -16,6 +16,7 @@ import {
 import EditorToolbar from "./editor/EditorToolbar.vue";
 import EditorSidebar from "./editor/EditorSidebar.vue";
 import EditorStatusBar from "./editor/EditorStatusBar.vue";
+import EditorPromptModals from "./editor/EditorPromptModals.vue";
 import { ensureMinElapsed } from "@/utils/loadingGate";
 import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
 import { setMetronomeSfxEnabled, setRhythmSfxEnabled } from "@/utils/sfx";
@@ -784,29 +785,16 @@ onUnmounted(() => {
       {{ saveMessage }}
     </div>
 
-    <div v-if="showBackupRestoreModal" class="modal-overlay modal-overlay--editor-prompt" @click.self="onBackupRestoreUseDisk">
-      <div class="modal-content editor-prompt-modal" role="dialog" aria-modal="true">
-        <h3 class="editor-prompt-modal__title">{{ t("editor.backupRestoreTitle") }}</h3>
-        <p v-if="String(t('editor.backupRestoreMessage')).trim()" class="modal-desc editor-prompt-modal__desc">{{ t("editor.backupRestoreMessage") }}</p>
-        <div class="modal-actions editor-prompt-modal__actions">
-          <button type="button" class="tool-btn" @click="onBackupRestoreUseDisk">{{ t("editor.backupRestoreUseDisk") }}</button>
-          <button type="button" class="tool-btn accent" @click="onBackupRestoreLoad">{{ t("editor.backupRestoreLoad") }}</button>
-        </div>
-      </div>
-    </div>
-
-    <div v-if="showUnsavedExitModal" class="modal-overlay modal-overlay--editor-prompt" @click.self="onUnsavedCancel">
-      <div class="modal-content editor-prompt-modal" role="dialog" aria-modal="true">
-        <h3 class="editor-prompt-modal__title">{{ t("editor.unsavedExitTitle") }}</h3>
-        <p v-if="String(t('editor.unsavedExitMessage')).trim()" class="modal-desc editor-prompt-modal__desc">{{ t("editor.unsavedExitMessage") }}</p>
-        <div class="modal-actions modal-actions--exit-choice editor-prompt-modal__actions">
-          <button type="button" class="tool-btn" @click="onUnsavedCancel">{{ t("editor.unsavedCancel") }}</button>
-          <button type="button" class="tool-btn danger" @click="onUnsavedDiscardAndLeave">{{ t("editor.unsavedDontSave") }}</button>
-          <button type="button" class="tool-btn" :title="t('editor.unsavedStashHint')" @click="onUnsavedStashAndLeave">{{ t("editor.unsavedStash") }}</button>
-          <button type="button" class="tool-btn accent save-btn" @click="onUnsavedSaveAndLeave">{{ t("editor.unsavedSave") }}</button>
-        </div>
-      </div>
-    </div>
+    <EditorPromptModals
+      :show-backup-restore="showBackupRestoreModal"
+      :show-unsaved-exit="showUnsavedExitModal"
+      @backup-use-disk="onBackupRestoreUseDisk"
+      @backup-load="onBackupRestoreLoad"
+      @unsaved-cancel="onUnsavedCancel"
+      @unsaved-discard="onUnsavedDiscardAndLeave"
+      @unsaved-stash="onUnsavedStashAndLeave"
+      @unsaved-save="onUnsavedSaveAndLeave"
+    />
 
     <TwoStepDangerModal
       v-model="showDeleteChartModal"
@@ -983,64 +971,6 @@ onUnmounted(() => {
 }
 .save-toast.error { background: rgba(255,23,68,0.15); border-color: rgba(255,23,68,0.3); color: #ff1744; }
 @keyframes slideIn { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-
-/* ===== Modal ===== */
-.modal-overlay {
-  position: fixed; inset: 0; z-index: 200;
-  background: rgba(0,0,0,0.92);
-  display: flex; align-items: center; justify-content: center;
-  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  animation: fadeIn 0.15s ease;
-}
-.modal-overlay--editor-prompt {
-  padding: 1.25rem;
-}
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-.modal-content {
-  background: var(--bg-color); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 10px; padding: 1.5rem; min-width: 320px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-}
-.modal-content h3 { font-size: 1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-color); }
-
-/* Centered prompt dialogs (backup / unsaved exit) — larger tap targets, readable width */
-.editor-prompt-modal {
-  width: min(100%, 28rem);
-  min-width: min(100%, 17.5rem);
-  max-width: 32rem;
-  padding: 1.85rem 2rem 1.65rem;
-  box-sizing: border-box;
-  text-align: center;
-}
-.editor-prompt-modal__title {
-  font-size: 1.2rem;
-  font-weight: 700;
-  line-height: 1.35;
-  margin: 0 0 0.75rem;
-  text-align: center;
-  color: var(--text-color);
-}
-.editor-prompt-modal__desc {
-  margin: 0 auto 1.1rem;
-  max-width: 26em;
-  text-align: center;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  color: rgba(255, 255, 255, 0.78);
-}
-.editor-prompt-modal__actions {
-  justify-content: center !important;
-  margin-top: 0.25rem;
-  gap: 0.55rem !important;
-}
-.editor-prompt-modal__actions .tool-btn {
-  min-height: 2.5rem;
-  padding: 0.5rem 1rem;
-  font-size: 0.9rem;
-}
-.modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; flex-wrap: wrap; }
-.modal-actions--exit-choice { justify-content: flex-end; gap: 0.4rem; }
-.modal-desc { margin: 0 0 0.75rem; font-size: 0.85rem; line-height: 1.45; color: rgba(255, 255, 255, 0.72); }
 
 /* ===== Inline BPM Editor ===== */
 .bpm-inline-editor {

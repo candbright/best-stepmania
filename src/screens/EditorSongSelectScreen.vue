@@ -207,6 +207,23 @@ const canEditCurrentSong = computed(() => {
   return game.currentSong != null;
 });
 
+function focusSongByDelta(delta: number) {
+  if (filteredSongs.value.length === 0) return;
+  const currentPath = game.currentSong?.path;
+  const currentFilteredIndex = currentPath
+    ? filteredSongs.value.findIndex((s) => s.path === currentPath)
+    : -1;
+  const baseIndex = currentFilteredIndex >= 0 ? currentFilteredIndex : 0;
+  const nextFilteredIndex = (baseIndex + delta + filteredSongs.value.length) % filteredSongs.value.length;
+  const nextSong = filteredSongs.value[nextFilteredIndex];
+  if (!nextSong) return;
+  const nextIndex = game.songs.findIndex((s) => s.path === nextSong.path);
+  if (nextIndex >= 0 && nextIndex !== game.currentSongIndex) {
+    selectSong(nextIndex);
+    ensureCurrentSongVisible();
+  }
+}
+
 function togglePack(packKey: string) {
   if (collapsedPacks.value.has(packKey)) collapsedPacks.value.delete(packKey);
   else collapsedPacks.value.add(packKey);
@@ -304,6 +321,19 @@ function cycleSortMode() {
   const modes = ["title", "artist", "bpm", "pack"] as const;
   const cur = modes.indexOf(game.sortMode);
   game.setSortMode(modes[(cur + 1) % modes.length]);
+}
+
+function onKeyDown(e: KeyboardEvent) {
+  if (showFilterModal.value || confirmDeleteSong.value) return;
+  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+    e.preventDefault();
+    focusSongByDelta(e.key === "ArrowDown" ? 1 : -1);
+    return;
+  }
+  if (e.key === "Enter") {
+    e.preventDefault();
+    void openEditor();
+  }
 }
 
 function loadBannerLazy(idx: number) {
@@ -406,6 +436,7 @@ function stepsTypeLabel(stepsType: string) {
 
 onMounted(async () => {
   setUiSfxVolume((game.uiSfxVolume ?? 70) / 100);
+  window.addEventListener("keydown", onKeyDown);
 
   if (game.resumeFromEditor) {
     game.resumeFromEditor = false;
@@ -445,6 +476,7 @@ watch(
 );
 
 onUnmounted(() => {
+  window.removeEventListener("keydown", onKeyDown);
   editorLoadAbortCtrl?.abort();
   editorLoadAbortCtrl = null;
   if (editorNavHandoffToEditor.value) {

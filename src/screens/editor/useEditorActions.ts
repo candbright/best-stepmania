@@ -484,37 +484,59 @@ export function useEditorActions(
   async function loadWaveformData(expectedSongPath?: string) {
     const song = game.currentSong;
     if (!song) return;
-    
+
     if (expectedSongPath && song.path !== expectedSongPath) return;
     const currentSongPath = song.path;
-    
+
+    const yieldToMain = (): Promise<void> =>
+      new Promise((resolve) => {
+        setTimeout(resolve, 0);
+      });
+
     s.waveformMinMax.value = new Float32Array(0);
     s.waveformDuration.value = 0;
     try {
       const musicPath = await api.getSongMusicPath(currentSongPath);
       if (game.currentSong?.path !== currentSongPath) return;
-      
+
       const dataUrl = await api.readFileBase64(musicPath);
       if (game.currentSong?.path !== currentSongPath) return;
-      
+
       const base64 = dataUrl.replace(/^data:[^;]+;base64,/, "");
       const binary = atob(base64);
       const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+        if ((i & 0xfffff) === 0xfffff && i > 0) {
+          if (game.currentSong?.path !== currentSongPath) return;
+          await yieldToMain();
+        }
+      }
+      if (game.currentSong?.path !== currentSongPath) return;
+
       const audioCtx = new AudioContext();
       try {
         const audioBuffer = await audioCtx.decodeAudioData(bytes.buffer.slice(0));
         if (game.currentSong?.path !== currentSongPath) return;
-        
+
         const numChannels = audioBuffer.numberOfChannels;
         const length = audioBuffer.length;
         const mono = new Float32Array(length);
+        const channelData: Float32Array[] = [];
         for (let ch = 0; ch < numChannels; ch++) {
-          const chData = audioBuffer.getChannelData(ch);
-          for (let j = 0; j < length; j++) mono[j] += chData[j];
+          channelData.push(audioBuffer.getChannelData(ch));
         }
-        if (numChannels > 1) {
-          for (let j = 0; j < length; j++) mono[j] /= numChannels;
+        const yieldEveryMono = 131072;
+        for (let j = 0; j < length; j++) {
+          let sum = 0;
+          for (let ch = 0; ch < numChannels; ch++) {
+            sum += channelData[ch]?.[j] ?? 0;
+          }
+          mono[j] = numChannels > 1 ? sum / numChannels : sum;
+          if (j > 0 && (j & (yieldEveryMono - 1)) === yieldEveryMono - 1) {
+            if (game.currentSong?.path !== currentSongPath) return;
+            await yieldToMain();
+          }
         }
         const bucketCount = Math.min(65536, Math.max(12288, Math.ceil(length / 128)));
         const blockSize = Math.max(1, Math.floor(length / bucketCount));
@@ -535,6 +557,10 @@ export function useEditorActions(
           }
           mm[i * 2] = mn;
           mm[i * 2 + 1] = mx;
+          if (i > 0 && (i & 0x1ff) === 0x1ff) {
+            if (game.currentSong?.path !== currentSongPath) return;
+            await yieldToMain();
+          }
         }
         s.waveformMinMax.value = mm;
         s.waveformDuration.value = audioBuffer.duration;

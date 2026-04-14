@@ -75,8 +75,6 @@ function syncMenuFocusToEnabledState() {
     if (isModeActionDisabled(modeMenuFocusIndex.value)) {
       modeMenuFocusIndex.value = firstEnabledModeIndex();
     }
-  } else if (isMainActionDisabled(mainMenuFocusIndex.value)) {
-    mainMenuFocusIndex.value = firstEnabledMainIndex();
   }
 }
 
@@ -84,12 +82,15 @@ watch(
   showModeSelect,
   (m) => {
     if (m) modeMenuFocusIndex.value = firstEnabledModeIndex();
-    else mainMenuFocusIndex.value = firstEnabledMainIndex();
+    else mainMenuFocusIndex.value = 0;
   },
   { immediate: true },
 );
 
 watch(scanDone, () => {
+  if (scanDone.value && !showModeSelect.value) {
+    mainMenuFocusIndex.value = 0;
+  }
   syncMenuFocusToEnabledState();
 });
 
