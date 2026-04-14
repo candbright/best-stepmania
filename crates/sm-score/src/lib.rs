@@ -130,7 +130,7 @@ pub struct ScoreWeights {
 impl Default for ScoreWeights {
     fn default() -> Self {
         Self {
-            dp: [2, 2, 1, 0, -4, -8],
+            dp: [2, 2, 1, 0, 0, 0],
             held: 6,
             let_go: 0,
             hit_mine: -8,
