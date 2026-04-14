@@ -126,7 +126,7 @@ pub fn save_score(state: State<AppState>, req: SaveScoreRequest) -> Result<(), S
         played_at: chrono::Utc::now(),
     };
     db.save_high_score(&hs).map_err(|e| e.to_string())?;
-    db.update_profile_stats(&profile_id, req.dp_percent as i64, 0.0)
+    db.update_profile_stats(&profile_id, req.score, 0.0)
         .map_err(|e| e.to_string())?;
     Ok(())
 }

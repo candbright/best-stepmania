@@ -33,6 +33,6 @@ impl HighScore {
     }
 
     pub fn full_combo(&self) -> bool {
-        self.w5 == 0 && self.miss == 0
+        self.miss == 0
     }
 }

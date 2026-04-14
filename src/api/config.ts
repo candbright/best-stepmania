@@ -38,6 +38,9 @@ export interface AppConfig {
   masterVolume: number;
   musicVolume: number;
   effectVolume: number;
+  metronomeSfxEnabled?: boolean;
+  metronomeSfxVolume?: number;
+  metronomeSfxStyle?: RhythmSfxStyle;
   rhythmSfxEnabled?: boolean;
   rhythmSfxVolume?: number;
   rhythmSfxStyle?: RhythmSfxStyle;

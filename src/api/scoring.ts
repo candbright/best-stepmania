@@ -30,6 +30,7 @@ export interface ScoringLifeDeltaSet {
   w4: number;
   w5: number;
   miss: number;
+  mine: number;
 }
 
 export interface ScoringGradeThresholds {

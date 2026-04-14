@@ -56,7 +56,7 @@ impl Judgment {
     }
 
     pub fn is_combo_breaking(&self) -> bool {
-        matches!(self, Self::W5 | Self::Miss)
+        matches!(self, Self::Miss)
     }
 }
 
@@ -114,10 +114,17 @@ impl TimingWindows {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScoreWeights {
+    /// DP deltas for W1–W5 and Miss (index 0–5).
     pub dp: [i32; 6],
+    /// DP bonus for a completed hold/roll tail.
     pub held: i32,
+    /// DP delta when a hold is let go early (typically 0 — no penalty).
     pub let_go: i32,
+    /// DP penalty for hitting a mine.
     pub hit_mine: i32,
+    /// Life drain when a mine is hit (positive value, subtracted from life).
+    /// Only applied in Bar and Survival modes; Battery mode ignores this.
+    pub mine_life_drain: f64,
 }
 
 impl Default for ScoreWeights {
@@ -127,6 +134,7 @@ impl Default for ScoreWeights {
             held: 6,
             let_go: 0,
             hit_mine: -8,
+            mine_life_drain: 0.04,
         }
     }
 }
@@ -200,7 +208,8 @@ impl Grade {
 /// Minimum `dp_percent()` (0.0–1.0) to earn each grade; compare from SSS down to D.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GradeThresholds {
-    pub sss: f64,
+    /// Renamed `min_sss` (serialises as `minSss`) so it is unambiguous at the IPC boundary.
+    pub min_sss: f64,
     pub ss: f64,
     pub s: f64,
     pub a: f64,
@@ -212,7 +221,7 @@ pub struct GradeThresholds {
 impl Default for GradeThresholds {
     fn default() -> Self {
         Self {
-            sss: 1.0,
+            min_sss: 1.0,
             ss: 0.93,
             s: 0.80,
             a: 0.65,
@@ -242,9 +251,13 @@ pub struct ScoreState {
     pub weights: ScoreWeights,
     pub thresholds: GradeThresholds,
     pub failed: bool,
+    /// 0.0–1.0; for Battery this is `battery_lives / battery_max_lives`.
     pub life: f64,
     pub life_type: LifeType,
+    /// Remaining battery lives (Battery mode only).
     pub battery_lives: u32,
+    /// Initial battery lives — used as the denominator for the `life` percentage.
+    pub battery_max_lives: u32,
     pub timing_offsets: Vec<f64>,
 }
 
@@ -264,25 +277,25 @@ impl ScoreState {
             weights,
             thresholds: GradeThresholds::default(),
             failed: false,
-            life: 0.5,
+            life: 1.0,
             life_type: LifeType::Bar,
-            battery_lives: 4,
+            battery_lives: 3,
+            battery_max_lives: 3,
             timing_offsets: Vec::new(),
         }
     }
 
     pub fn with_life_type(mut self, lt: LifeType) -> Self {
         self.life_type = lt;
-        match lt {
-            LifeType::Bar => { self.life = 0.5; }
-            LifeType::Battery => { self.life = 1.0; }
-            LifeType::Survival => { self.life = 1.0; }
-        }
+        // All modes start at 1.0: Bar/Survival represent a 0–1 health ratio,
+        // Battery represents remaining_lives / total_lives (also 1.0 at start).
+        self.life = 1.0;
         self
     }
 
     pub fn with_battery_lives(mut self, lives: u32) -> Self {
         self.battery_lives = lives;
+        self.battery_max_lives = lives;
         self
     }
 
@@ -314,36 +327,31 @@ impl ScoreState {
         self.update_life(judgment);
     }
 
+    /// Update the life bar after a tap judgment, delegating deltas to `LifeConfig`
+    /// so that `sm-score/src/life.rs` remains the single source of truth for all
+    /// life-change constants.
     fn update_life(&mut self, judgment: Judgment) {
+        use crate::life::LifeConfig;
         match self.life_type {
             LifeType::Bar => {
-                let delta = match judgment {
-                    Judgment::W1 | Judgment::W2 => 0.008,
-                    Judgment::W3 => 0.004,
-                    Judgment::W4 => 0.0,
-                    Judgment::W5 => -0.04,
-                    Judgment::Miss => -0.08,
-                };
+                let delta = LifeConfig::default().delta_for(judgment);
                 self.life = (self.life + delta).clamp(0.0, 1.0);
                 if self.life <= 0.0 { self.failed = true; }
             }
             LifeType::Battery => {
+                // Only a Miss (is_combo_breaking) consumes a battery life.
+                // is_combo_breaking() is already Miss-only after the refactor.
                 if judgment.is_combo_breaking() {
                     if self.battery_lives > 0 {
                         self.battery_lives -= 1;
                     }
-                    self.life = self.battery_lives as f64 / 4.0;
+                    let max = self.battery_max_lives.max(1);
+                    self.life = self.battery_lives as f64 / max as f64;
                     if self.battery_lives == 0 { self.failed = true; }
                 }
             }
             LifeType::Survival => {
-                let delta = match judgment {
-                    Judgment::W1 | Judgment::W2 => 0.004,
-                    Judgment::W3 => 0.002,
-                    Judgment::W4 => 0.0,
-                    Judgment::W5 => -0.06,
-                    Judgment::Miss => -0.12,
-                };
+                let delta = LifeConfig::survival().delta_for(judgment);
                 self.life = (self.life + delta).clamp(0.0, 1.0);
                 if self.life <= 0.0 { self.failed = true; }
             }
@@ -363,7 +371,13 @@ impl ScoreState {
     pub fn record_mine_hit(&mut self) {
         self.judgments.mines_hit += 1;
         self.dance_points += self.weights.hit_mine;
-        self.life = (self.life - 0.04).max(0.0);
+        // Battery mode does not drain life directly on mine hits.
+        if self.life_type != LifeType::Battery {
+            self.life = (self.life - self.weights.mine_life_drain).max(0.0);
+            if self.life <= 0.0 {
+                self.failed = true;
+            }
+        }
     }
 
     pub fn dp_percent(&self) -> f64 {
@@ -379,7 +393,7 @@ impl ScoreState {
         }
         let pct = self.dp_percent();
         let t = &self.thresholds;
-        if pct >= t.sss {
+        if pct >= t.min_sss {
             Grade::SSS
         } else if pct >= t.ss {
             Grade::SS
@@ -399,7 +413,7 @@ impl ScoreState {
     }
 
     pub fn is_full_combo(&self) -> bool {
-        self.judgments.w5 == 0 && self.judgments.miss == 0
+        self.judgments.miss == 0
     }
 
     pub fn mean_offset(&self) -> f64 {
@@ -465,14 +479,42 @@ mod tests {
 
     #[test]
     fn test_battery_life() {
-        let mut state = ScoreState::new(10, 0).with_life_type(LifeType::Battery).with_battery_lives(4);
+        // Default battery lives = 3.
+        let mut state = ScoreState::new(10, 0).with_life_type(LifeType::Battery).with_battery_lives(3);
         state.record_judgment(Judgment::Miss);
-        assert_eq!(state.battery_lives, 3);
+        assert_eq!(state.battery_lives, 2);
         assert!(!state.failed);
         state.record_judgment(Judgment::Miss);
         state.record_judgment(Judgment::Miss);
-        state.record_judgment(Judgment::Miss);
         assert!(state.failed);
+    }
+
+    #[test]
+    fn test_battery_w5_no_drain() {
+        // W5 must NOT drain a battery life (only Miss does).
+        let mut state = ScoreState::new(10, 0).with_life_type(LifeType::Battery).with_battery_lives(3);
+        for _ in 0..5 { state.record_judgment(Judgment::W5); }
+        assert_eq!(state.battery_lives, 3);
+        assert!(!state.failed);
+    }
+
+    #[test]
+    fn test_w5_keeps_combo() {
+        // W5 no longer resets the combo.
+        let mut state = ScoreState::new(10, 0);
+        state.record_judgment(Judgment::W1);
+        state.record_judgment(Judgment::W5);
+        assert_eq!(state.combo, 2);
+    }
+
+    #[test]
+    fn test_fc_miss_only() {
+        // FC requires zero misses; W5 alone does not break FC.
+        let mut state = ScoreState::new(5, 0);
+        for _ in 0..4 { state.record_judgment(Judgment::W5); }
+        assert!(state.is_full_combo());
+        state.record_judgment(Judgment::Miss);
+        assert!(!state.is_full_combo());
     }
 
     #[test]

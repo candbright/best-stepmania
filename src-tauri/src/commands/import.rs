@@ -1136,20 +1136,6 @@ fn write_default_banner_bmp(path: &std::path::Path, width: u32, height: u32) -> 
     std::fs::write(path, out).map_err(|e| e.to_string())
 }
 
-fn copy_song_folder(src: &Path, dest_base: &Path) -> Result<bool, String> {
-    let folder_name = src
-        .file_name()
-        .ok_or_else(|| "Invalid source folder".to_string())?;
-    let dest = dest_base.join(folder_name);
-
-    if dest.exists() {
-        return Ok(false);
-    }
-
-    copy_dir_recursive(src, &dest).map_err(|e| format!("{}: {}", src.display(), e))?;
-    Ok(true)
-}
-
 fn copy_song_folder_with_defaults(
     src: &Path,
     dest_base: &Path,

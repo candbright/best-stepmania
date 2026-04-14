@@ -41,10 +41,11 @@ impl Default for LifeDeltas {
 
 impl Default for LifeConfig {
     fn default() -> Self {
+        // Bar: full life at start (1.0), matching frontend behavior.
         Self {
             life_type: LifeType::Bar,
-            initial_life: 0.5,
-            battery_lives: 4,
+            initial_life: 1.0,
+            battery_lives: 3,
             deltas: LifeDeltas::default(),
         }
     }

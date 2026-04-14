@@ -155,10 +155,24 @@ pub struct AppConfig {
     pub music_volume: f32,
     #[serde(default = "default_effect_volume")]
     pub effect_volume: f32,
+    #[serde(
+        default = "default_false",
+        alias = "gameplay_sfx_enabled",
+        alias = "gameplaySfxEnabled"
+    )]
+    pub metronome_sfx_enabled: bool,
+    #[serde(
+        default = "default_effect_volume",
+        alias = "gameplay_sfx_volume",
+        alias = "gameplaySfxVolume"
+    )]
+    pub metronome_sfx_volume: f32,
+    #[serde(default = "default_rhythm_sfx_style")]
+    pub metronome_sfx_style: String,
     #[serde(default = "default_true")]
-    pub gameplay_sfx_enabled: bool,
+    pub rhythm_sfx_enabled: bool,
     #[serde(default = "default_effect_volume")]
-    pub gameplay_sfx_volume: f32,
+    pub rhythm_sfx_volume: f32,
     #[serde(default = "default_true")]
     pub ui_sfx_enabled: bool,
     #[serde(default = "default_ui_sfx_volume")]
@@ -259,6 +273,9 @@ fn default_rhythm_sfx_style() -> String {
 fn default_true() -> bool {
     true
 }
+fn default_false() -> bool {
+    false
+}
 fn default_fps() -> u32 {
     144
 }
@@ -344,8 +361,11 @@ impl Default for AppConfig {
             master_volume: default_master_volume(),
             music_volume: default_music_volume(),
             effect_volume: default_effect_volume(),
-            gameplay_sfx_enabled: true,
-            gameplay_sfx_volume: default_effect_volume(),
+            metronome_sfx_enabled: false,
+            metronome_sfx_volume: default_effect_volume(),
+            metronome_sfx_style: default_rhythm_sfx_style(),
+            rhythm_sfx_enabled: true,
+            rhythm_sfx_volume: default_effect_volume(),
             ui_sfx_enabled: true,
             ui_sfx_volume: default_ui_sfx_volume(),
             ui_sfx_style: default_ui_sfx_style(),
