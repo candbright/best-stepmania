@@ -137,23 +137,28 @@ export interface PerPlayerConfig {
 // The Rust sm-score crate is the single source of truth.
 
 // Private — only mutated by initScoringConfig(); read via captureCurrentScoringConfig()
+/** Mirrors `sm_score::TimingWindows::default()`; extended with mine/hold/roll for JudgmentSystem. */
 let TIMING_WINDOWS = {
   W1: 0.0225,
   W2: 0.045,
   W3: 0.090,
   W4: 0.135,
   W5: 0.180,
+  mine: 0.09,
+  hold: 0.25,
+  roll: 0.5,
 };
 
 let MISS_WINDOW = 0.180;
 
+/** Mirrors `sm_score::ScoreWeights::default().dp` (W1–W5 + Miss). */
 let DP_WEIGHTS: Record<JudgmentType, number> = {
   W1: 2,
   W2: 2,
   W3: 1,
   W4: 0,
-  W5: -4,
-  Miss: -8,
+  W5: 0,
+  Miss: 0,
 };
 
 let HOLD_DP_WEIGHTS = {
@@ -192,6 +197,9 @@ async function _doInitScoringConfig(): Promise<void> {
       W3: cfg.timingWindows.w3,
       W4: cfg.timingWindows.w4,
       W5: cfg.timingWindows.w5,
+      mine: cfg.timingWindows.mine,
+      hold: cfg.timingWindows.hold,
+      roll: cfg.timingWindows.roll,
     };
     MISS_WINDOW = cfg.missWindow;
 
@@ -245,7 +253,16 @@ export function initScoringConfig(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export interface ScoringSnapshot {
-  timingWindows: { W1: number; W2: number; W3: number; W4: number; W5: number };
+  timingWindows: {
+    W1: number;
+    W2: number;
+    W3: number;
+    W4: number;
+    W5: number;
+    mine: number;
+    hold: number;
+    roll: number;
+  };
   missWindow: number;
   dpWeights: Record<JudgmentType, number>;
   /** DP weights for hold/roll tails and mines (from backend ScoreWeights). */

@@ -16,15 +16,6 @@ const JUDGMENT_SCORE_KEY: Readonly<Record<JudgmentType, keyof Pick<ScoreState, "
   W1: "w1", W2: "w2", W3: "w3", W4: "w4", W5: "w5", Miss: "miss",
 } as const;
 
-const JUDGMENT_DP_DELTA: Readonly<Record<JudgmentType, number>> = {
-  W1: 1,
-  W2: 1,
-  W3: 1,
-  W4: 0,
-  W5: -4,
-  Miss: 0,
-} as const;
-
 export class JudgmentSystem {
   private notes: ChartNote[] = [];
   private judgedRows: Set<number> = new Set();
@@ -115,7 +106,7 @@ export class JudgmentSystem {
     const j = evt.judgment;
     const ps = this.getScoreStateForPlayer(evt.player);
     ps[JUDGMENT_SCORE_KEY[j]]++;
-    ps.dancePoints += JUDGMENT_DP_DELTA[j] ?? 0;
+    ps.dancePoints += this.sc.dpWeights[j];
     this.events.push(evt);
     this.lastEvent = evt;
 
@@ -150,7 +141,7 @@ export class JudgmentSystem {
     this.syncAggregatedLifeFailed();
 
     this.score[JUDGMENT_SCORE_KEY[j]]++;
-    this.score.dancePoints += JUDGMENT_DP_DELTA[j] ?? 0;
+    this.score.dancePoints += this.sc.dpWeights[j];
     if (isMiss) {
       // In a dual-player session, a miss by one player must not reset the
       // aggregate combo if the other player is still building theirs.
@@ -255,10 +246,8 @@ export class JudgmentSystem {
       }
     }
     
-    // Adjust max possible DP so we don't penalize skipped notes
-    // Every basic note skipped is worth 2 DP.
-    // If it's a HoldHead or Roll, we shouldn't add 6 for the hold either.
-    // Let's just reset the maxPossibleDp calculation based on the remaining unskipped notes.
+    // Adjust max possible DP so skipped notes are not counted toward the denominator.
+    // Uses configured W1 weight and hold tail bonus (same basis as constructor / maxDpContributionForNote).
     const remainingScoreable = this.notes.filter(
       (n) => n.second >= skipSecond && 
       (n.noteType === "Tap" || n.noteType === "HoldHead" || n.noteType === "Lift" || n.noteType === "Roll")
@@ -551,12 +540,13 @@ export class JudgmentSystem {
   checkMines(track: number, currentSecond: number): boolean {
     const notes = this.trackNotes[track] ?? [];
     const start = Math.max(0, (this.trackSearchStart[track] ?? 0) - 4);
+    const mineWin = this.sc.timingWindows.mine;
     for (let i = start; i < notes.length; i++) {
       const note = notes[i]!;
       if (note.noteType !== "Mine") continue;
       if (this.judgedRows.has(this.noteKey(note.track, note.row))) continue;
       const diff = Math.abs(currentSecond - note.second);
-      if (diff <= 0.09) {
+      if (diff <= mineWin) {
         this.judgedRows.add(this.noteKey(note.track, note.row));
         const pl = this.getPlayerForNote(note);
         const ps = this.getScoreStateForPlayer(pl);
@@ -576,7 +566,8 @@ export class JudgmentSystem {
         this.syncAggregatedLifeFailed();
         return true;
       }
-      if (note.second > currentSecond + 0.2) break;
+      // Stop scanning once mines are beyond the hit window (matches legacy +0.2 when mine is 0.09).
+      if (note.second > currentSecond + mineWin + 0.11) break;
     }
     return false;
   }
