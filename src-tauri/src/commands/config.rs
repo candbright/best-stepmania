@@ -185,6 +185,10 @@ pub struct AppConfig {
     pub audio_offset_ms: i32,
     #[serde(default)]
     pub fullscreen: bool,
+    #[serde(default)]
+    pub window_width: Option<u32>,
+    #[serde(default)]
+    pub window_height: Option<u32>,
     #[serde(default = "default_window_display_preset")]
     pub window_display_preset: String,
     #[serde(default = "default_true")]
@@ -372,6 +376,8 @@ impl Default for AppConfig {
             rhythm_sfx_style: default_rhythm_sfx_style(),
             audio_offset_ms: 0,
             fullscreen: false,
+            window_width: Some(1280),
+            window_height: Some(720),
             window_display_preset: default_window_display_preset(),
             vsync: true,
             target_fps: default_fps(),
@@ -416,6 +422,12 @@ pub fn load_config(app: AppHandle, state: State<AppState>) -> Result<AppConfig, 
         let mut config: AppConfig = toml::from_str(&content).unwrap_or_default();
         if config.window_display_preset == "normal" && config.fullscreen {
             config.window_display_preset = "exclusiveFullscreen".to_string();
+        }
+        if config.window_display_preset == "normal"
+            && (config.window_width.is_none() || config.window_height.is_none())
+        {
+            config.window_width = Some(1280);
+            config.window_height = Some(720);
         }
         Ok(config)
     } else {

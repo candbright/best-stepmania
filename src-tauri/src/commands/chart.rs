@@ -241,16 +241,7 @@ pub fn load_chart(state: State<'_, AppState>, song_path: String) -> Result<Vec<C
         .collect())
 }
 
-#[tauri::command]
-pub fn get_chart_notes(
-    state: State<'_, AppState>,
-    song_path: String,
-    chart_index: usize,
-) -> Result<Vec<ChartNoteRow>, String> {
-    let chart_path = resolve_chart_path(&state, &song_path)?;
-    let song = parse_chart_cached(&state, &chart_path)?;
-
-    // 使用全部谱面列表（与 load_chart 一致，不过滤）
+fn extract_chart_note_rows(song: &sm_chart::SongFile, chart_index: usize) -> Result<Vec<ChartNoteRow>, String> {
     let chart = song.charts.get(chart_index).ok_or_else(|| {
         format!(
             "Chart index {} out of range (total charts: {})",
@@ -318,6 +309,17 @@ pub fn get_chart_notes(
     }
 
     Ok(result)
+}
+
+#[tauri::command]
+pub fn get_chart_notes(
+    state: State<'_, AppState>,
+    song_path: String,
+    chart_index: usize,
+) -> Result<Vec<ChartNoteRow>, String> {
+    let chart_path = resolve_chart_path(&state, &song_path)?;
+    let song = parse_chart_cached(&state, &chart_path)?;
+    extract_chart_note_rows(&song, chart_index)
 }
 
 #[derive(Debug, Deserialize)]
@@ -730,26 +732,22 @@ pub struct TimingDataResponse {
     pub offset: f64,
 }
 
-#[tauri::command]
-pub fn get_bpm_changes(
-    state: State<'_, AppState>,
-    song_path: String,
+fn resolve_chart_timing_ref<'a>(
+    song: &'a sm_chart::SongFile,
     chart_index: Option<usize>,
-) -> Result<TimingDataResponse, String> {
-    let chart_path = resolve_chart_path(&state, &song_path)?;
-    let song = parse_chart_cached(&state, &chart_path)?;
-
-    // Use chart-specific timing if available, otherwise use song timing
-    let timing = if let Some(idx) = chart_index {
-        song.charts
+) -> &'a sm_timing::TimingData {
+    match chart_index {
+        Some(idx) => song
+            .charts
             .get(idx)
             .and_then(|c| c.chart_timing.as_ref())
-            .unwrap_or(&song.timing)
-    } else {
-        &song.timing
-    };
+            .unwrap_or(&song.timing),
+        None => &song.timing,
+    }
+}
 
-    Ok(TimingDataResponse {
+fn timing_data_to_response(timing: &sm_timing::TimingData) -> TimingDataResponse {
+    TimingDataResponse {
         bpms: timing
             .bpms
             .iter()
@@ -817,7 +815,55 @@ pub fn get_bpm_changes(
             })
             .collect(),
         offset: timing.offset,
-    })
+    }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChartPlayBundle {
+    pub notes: Vec<ChartNoteRow>,
+    pub timing: TimingDataResponse,
+}
+
+/// One IPC round-trip: note rows + timing for each chart index (same order as `chart_indices`).
+#[tauri::command]
+pub fn get_chart_play_payload(
+    state: State<'_, AppState>,
+    song_path: String,
+    chart_indices: Vec<usize>,
+) -> Result<Vec<ChartPlayBundle>, String> {
+    if chart_indices.is_empty() {
+        return Err("chart_indices must not be empty".to_string());
+    }
+    let chart_path = resolve_chart_path(&state, &song_path)?;
+    let song = parse_chart_cached(&state, &chart_path)?;
+    let mut out = Vec::with_capacity(chart_indices.len());
+    for &idx in &chart_indices {
+        if idx >= song.charts.len() {
+            return Err(format!(
+                "Chart index {} out of range (total charts: {})",
+                idx,
+                song.charts.len()
+            ));
+        }
+        let notes = extract_chart_note_rows(&song, idx)?;
+        let timing_ref = resolve_chart_timing_ref(&song, Some(idx));
+        let timing = timing_data_to_response(timing_ref);
+        out.push(ChartPlayBundle { notes, timing });
+    }
+    Ok(out)
+}
+
+#[tauri::command]
+pub fn get_bpm_changes(
+    state: State<'_, AppState>,
+    song_path: String,
+    chart_index: Option<usize>,
+) -> Result<TimingDataResponse, String> {
+    let chart_path = resolve_chart_path(&state, &song_path)?;
+    let song = parse_chart_cached(&state, &chart_path)?;
+    let timing = resolve_chart_timing_ref(&song, chart_index);
+    Ok(timing_data_to_response(timing))
 }
 
 #[derive(Debug, Deserialize)]

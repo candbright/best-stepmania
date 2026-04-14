@@ -149,6 +149,23 @@ pub fn audio_get_duration(state: State<AppState>) -> Result<f64, String> {
     Ok(engine.duration())
 }
 
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioPlaybackState {
+    pub time: f64,
+    pub duration: f64,
+}
+
+/// Single IPC round-trip for menu progress UI (replaces separate get_time + get_duration polls).
+#[tauri::command]
+pub fn audio_get_playback_state(state: State<AppState>) -> Result<AudioPlaybackState, String> {
+    let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    Ok(AudioPlaybackState {
+        time: engine.current_time(),
+        duration: engine.duration(),
+    })
+}
+
 #[tauri::command]
 pub fn audio_is_playing(state: State<AppState>) -> Result<bool, String> {
     let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
