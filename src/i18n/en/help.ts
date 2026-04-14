@@ -85,6 +85,8 @@ export default {
     "Life bar type\nDetermines how your life bar behaves. Normal Bar: fills and drains gradually. Battery: you have a fixed number of lives, each combo break costs one. Survival: life drains much faster from misses, harder to recover.",
   "help.autoPlay":
     "Auto Play\nWhen enabled, the game automatically hits all judgeable notes at the best timing (W1 / Marvelous or Fantastic). Useful for chart preview and demo play.",
+  "help.showParticles":
+    "Particle effects\nShows particle animations in hit effects, feedback, and some UI flourishes. Turn it off to reduce visual clutter and save a bit of performance.",
   "help.routineLayerP1":
     "Routine layer 1 color\nOnly in Pump Routine mode. Chart note data is often split by '&' into two layers on the same timeline. This sets the display color for notes from the first block (before the first '&'). Not tied to left/right panel. With the default note shape, this tint applies; custom NoteSkins usually follow the skin's own colors.",
   "help.routineLayerP2":

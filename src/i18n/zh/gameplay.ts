@@ -19,5 +19,7 @@ export default {
   "gameplay.dev.off": "关",
   "gameplay.dev.particles": "粒子",
   "gameplay.dev.notes": "音符数",
+  "gameplay.dev.ipcTotal": "IPC 总计",
+  "gameplay.dev.ipcTop": "IPC Top",
   "gameplay.countdownGo": "开始！",
 } as const;

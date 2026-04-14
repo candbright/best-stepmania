@@ -19,5 +19,7 @@ export default {
   "gameplay.dev.off": "OFF",
   "gameplay.dev.particles": "Particles",
   "gameplay.dev.notes": "Notes",
+  "gameplay.dev.ipcTotal": "IPC total",
+  "gameplay.dev.ipcTop": "IPC top",
   "gameplay.countdownGo": "GO!",
 } as const;
