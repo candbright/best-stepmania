@@ -151,9 +151,32 @@ function isCenterColumn(col: number): boolean {
 
 // ── Panel layout ──────────────────────────────────────────────────────────────
 
+let cachedPanels: PanelConfig[] = [];
+let panelsLayoutKey = "";
+
 function computePanels(w: number, h: number): PanelConfig[] {
   const engine = props.engine;
-  return buildPanels({
+  const [p1, p2] = engine.config.playerConfigs;
+  const key = [
+    w,
+    h,
+    props.doublePanelGapPx,
+    props.playMode,
+    engine.config.numTracks,
+    engine.config.coopMode,
+    props.skinConfig?.name ?? "",
+    props.skinConfig2?.name ?? "",
+    p1?.noteskin ?? "",
+    String(p1?.noteScale ?? 1),
+    p2?.noteskin ?? "",
+    String(p2?.noteScale ?? 1),
+  ].join("\0");
+
+  if (key === panelsLayoutKey && cachedPanels.length > 0) {
+    return cachedPanels;
+  }
+  panelsLayoutKey = key;
+  cachedPanels = buildPanels({
     width: w,
     height: h,
     numTracks: engine.config.numTracks,
@@ -163,6 +186,7 @@ function computePanels(w: number, h: number): PanelConfig[] {
     skinConfig2: props.skinConfig2 ?? null,
     gap: clampDoublePanelGapPx(props.doublePanelGapPx),
   });
+  return cachedPanels;
 }
 
 function getRenderDrawerDeps(): RenderDrawerDeps {
