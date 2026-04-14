@@ -1,4 +1,30 @@
-import { invoke, type InvokeArgs } from "@tauri-apps/api/core";
+import { invoke as tauriInvoke, type InvokeArgs } from "@tauri-apps/api/core";
+
+/** Dev-only IPC invoke counts (per command). */
+const ipcInvokeCounts = new Map<string, number>();
+let ipcInvokeTotal = 0;
+
+function recordIpcInvoke(cmd: string): void {
+  ipcInvokeCounts.set(cmd, (ipcInvokeCounts.get(cmd) ?? 0) + 1);
+  ipcInvokeTotal += 1;
+}
+
+/** Snapshot for dev HUD / Performance tooling. */
+export function getIpcInvokeSnapshot(): { total: number; byCommand: Record<string, number> } {
+  return { total: ipcInvokeTotal, byCommand: Object.fromEntries(ipcInvokeCounts) };
+}
+
+export function resetIpcInvokeStats(): void {
+  ipcInvokeCounts.clear();
+  ipcInvokeTotal = 0;
+}
+
+export async function invoke<T>(cmd: string, args: InvokeArgs = {}): Promise<T> {
+  if (import.meta.env.DEV) {
+    recordIpcInvoke(cmd);
+  }
+  return tauriInvoke<T>(cmd, args);
+}
 
 export interface CommandError {
   code: string;
@@ -52,5 +78,3 @@ export async function invokeWithRetry<T>(
   }
   throw new Error("IPC failed after retries");
 }
-
-export { invoke };

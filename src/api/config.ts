@@ -49,6 +49,9 @@ export interface AppConfig {
   uiSfxStyle?: UiSfxStyle;
   audioOffsetMs: number;
   fullscreen: boolean;
+  /** Persisted custom window size used when `windowDisplayPreset` is `normal`. */
+  windowWidth?: number;
+  windowHeight?: number;
   /** Window layout: normal, fixed aspect sizes, borderless, or fullscreen. */
   windowDisplayPreset?: string;
   vsync: boolean;

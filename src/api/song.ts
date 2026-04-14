@@ -1,4 +1,5 @@
 import { invokeWithRetry } from "./core";
+import type { TimingDataResponse } from "./editor";
 
 export interface ChartInfoItem {
   stepsType: string;
@@ -80,6 +81,19 @@ export async function getChartNotes(
   chartIndex: number,
 ): Promise<ChartNoteRow[]> {
   return invokeWithRetry<ChartNoteRow[]>("get_chart_notes", { songPath, chartIndex });
+}
+
+/** One IPC round-trip per load: notes + timing for each chart index (gameplay). */
+export interface ChartPlayBundle {
+  notes: ChartNoteRow[];
+  timing: TimingDataResponse;
+}
+
+export async function getChartPlayPayload(
+  songPath: string,
+  chartIndices: number[],
+): Promise<ChartPlayBundle[]> {
+  return invokeWithRetry<ChartPlayBundle[]>("get_chart_play_payload", { songPath, chartIndices });
 }
 
 export async function getSongMusicPath(songPath: string): Promise<string> {

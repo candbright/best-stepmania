@@ -29,6 +29,15 @@ export async function audioGetDuration(): Promise<number> {
   return invoke<number>("audio_get_duration");
 }
 
+export interface AudioPlaybackState {
+  time: number;
+  duration: number;
+}
+
+export async function audioGetPlaybackState(): Promise<AudioPlaybackState> {
+  return invoke<AudioPlaybackState>("audio_get_playback_state");
+}
+
 export async function audioIsPlaying(): Promise<boolean> {
   return invokeWithRetry<boolean>("audio_is_playing");
 }
