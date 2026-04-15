@@ -55,7 +55,7 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
         game.selectChart(newIndex);
       }
       s.saveMessage.value = t("editor.chartCreated");
-      setSaveMessage(String(t("editor.chartCreated")));
+      setSaveMessage(t("editor.chartCreated"));
     } catch (e: unknown) {
       setSaveMessage(String(e));
     }
@@ -88,7 +88,7 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
         );
       }
       s.saveMessage.value = t("editor.chartDeleted");
-      setSaveMessage(String(t("editor.chartDeleted")));
+      setSaveMessage(t("editor.chartDeleted"));
     } catch (e: unknown) {
       setSaveMessage(String(e));
     }
@@ -103,7 +103,7 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
     const prevTracks = chart.numTracks;
     const nextTracks = STEPS_TYPE_NUM_TRACKS[s.editChartStepsType.value] ?? prevTracks;
     if (nextTracks !== prevTracks) {
-      if (!window.confirm(String(t("editor.chartPropertiesConfirmResize")))) {
+      if (!window.confirm(t("editor.chartPropertiesConfirmResize"))) {
         return;
       }
     }
@@ -129,7 +129,7 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
         await game.selectSong(refreshedIdx);
         game.selectChart(s.activeChartIndex.value);
       }
-      setSaveMessage(String(t("editor.chartPropertiesSaved")));
+      setSaveMessage(t("editor.chartPropertiesSaved"));
     } catch (e: unknown) {
       setSaveMessage(String(e));
     } finally {
@@ -187,7 +187,7 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
       const refreshedSongs = await api.getSongList(game.sortMode);
       game.songs = refreshedSongs;
       game.needsSongRefresh = true;
-      setSaveMessage(String(t("editor.chartDuplicated")));
+      setSaveMessage(t("editor.chartDuplicated"));
     } catch (e: unknown) {
       setSaveMessage(t("editor.saveError") + ": " + String(e));
     } finally {

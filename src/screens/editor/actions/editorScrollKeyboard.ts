@@ -67,6 +67,12 @@ export function createEditorScrollKeyboard(deps: {
     return el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable;
   }
 
+  function allowsEditorShortcutsInEditable(target: EventTarget | null): boolean {
+    const el = target as HTMLElement | null;
+    if (!el) return false;
+    return el.closest("[data-editor-shortcuts='allow']") !== null;
+  }
+
   function handleScroll(e: WheelEvent) {
     e.preventDefault();
     if (s.allCharts.value.length === 0) return;
@@ -89,7 +95,10 @@ export function createEditorScrollKeyboard(deps: {
 
   function handleKeyDown(e: KeyboardEvent) {
     if (s.showNewChartModal.value) return;
-    if (isEditableTarget(e.target)) return;
+    if (isEditableTarget(e.target)) {
+      if (!allowsEditorShortcutsInEditable(e.target)) return;
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) return;
+    }
     if (s.allCharts.value.length === 0) {
       if (game.shortcutMatches(e, "editor.back")) {
         if (s.holdStartRow.value !== null) {

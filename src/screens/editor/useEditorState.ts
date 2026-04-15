@@ -45,10 +45,14 @@ export interface LabelChange {
   label: string;
 }
 
-/** Single editor history frame: notes + BPM list (undo/redo). */
+/** Single editor history frame: notes + BPM list + selected editable numeric metadata/chart fields (undo/redo). */
 export interface EditorUndoSnapshot {
   notes: ChartNoteRow[];
   bpms: BpmChange[];
+  offset: number;
+  chartMeter: number;
+  sampleStart: number;
+  sampleLength: number;
 }
 
 /** Chart beat at elapsed chart-time seconds (multi-BPM); mirrors useEditorCanvas.timeToBeat. */
@@ -127,6 +131,11 @@ export function useEditorState() {
   const editingBpmChangeIndex = ref(-1);
   /** Temporary input value while editing a BPM change inline */
   const editingBpmInputValue = ref("");
+  /** Offset editing state: tracks when user starts editing offset so we can push undo on commit */
+  const offsetEditing = ref<{ active: boolean; previousValue: number }>({ active: false, previousValue: 0 });
+  const chartMeterEditing = ref<{ active: boolean; previousValue: number }>({ active: false, previousValue: 0 });
+  const sampleStartEditing = ref<{ active: boolean; previousValue: number }>({ active: false, previousValue: 0 });
+  const sampleLengthEditing = ref<{ active: boolean; previousValue: number }>({ active: false, previousValue: 0 });
 
   // --- Other timing segments ---
   const timeSignatures = ref<TimeSignatureChange[]>([{ beat: 0, numerator: 4, denominator: 4 }]);
@@ -343,6 +352,10 @@ export function useEditorState() {
     newBpmValue,
     editingBpmChangeIndex,
     editingBpmInputValue,
+    offsetEditing,
+    chartMeterEditing,
+    sampleStartEditing,
+    sampleLengthEditing,
     // Other timing segments
     timeSignatures,
     tickcounts,

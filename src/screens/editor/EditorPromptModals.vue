@@ -26,7 +26,7 @@ const emit = defineEmits<{
   >
     <div class="modal-content editor-prompt-modal" role="dialog" aria-modal="true">
       <h3 class="editor-prompt-modal__title">{{ t("editor.backupRestoreTitle") }}</h3>
-      <p v-if="String(t('editor.backupRestoreMessage')).trim()" class="modal-desc editor-prompt-modal__desc">
+      <p v-if="t('editor.backupRestoreMessage').trim()" class="modal-desc editor-prompt-modal__desc">
         {{ t("editor.backupRestoreMessage") }}
       </p>
       <div class="modal-actions editor-prompt-modal__actions">
@@ -47,7 +47,7 @@ const emit = defineEmits<{
   >
     <div class="modal-content editor-prompt-modal" role="dialog" aria-modal="true">
       <h3 class="editor-prompt-modal__title">{{ t("editor.unsavedExitTitle") }}</h3>
-      <p v-if="String(t('editor.unsavedExitMessage')).trim()" class="modal-desc editor-prompt-modal__desc">
+      <p v-if="t('editor.unsavedExitMessage').trim()" class="modal-desc editor-prompt-modal__desc">
         {{ t("editor.unsavedExitMessage") }}
       </p>
       <div class="modal-actions modal-actions--exit-choice editor-prompt-modal__actions">

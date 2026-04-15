@@ -369,6 +369,10 @@
 .chart-properties-form {
   margin-bottom: 0.35rem;
 }
+.chart-properties-form .custom-select--form .custom-select-trigger,
+.chart-properties-form .custom-select--form .custom-select-label {
+  color: color-mix(in srgb, var(--text-color) 90%, white 10%);
+}
 .chart-properties-apply {
   width: 100%;
   margin-top: 0.15rem;

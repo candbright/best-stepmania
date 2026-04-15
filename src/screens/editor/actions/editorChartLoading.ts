@@ -188,6 +188,10 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
 
     if (game.currentSong?.path !== currentSongPath) return;
     await loadMetadata(currentSongPath);
+    if (game.currentSong?.path !== currentSongPath) return;
+    s.undoStack.value = [];
+    s.redoStack.value = [];
+    pushUndo();
     s.afterChartNotesLoaded.value?.();
   }
 

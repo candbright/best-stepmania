@@ -8,6 +8,7 @@ export interface EditorCanvasPointerDeps {
   s: EditorState;
   canvas: EditorCanvas;
   pushUndo: () => void;
+  commitOffsetEditIfActive: () => void;
   pointerToCanvasCss: (clientX: number, clientY: number) => { x: number; y: number };
   clampWaveformPanelOffset: (offset: number) => number;
   routineLayerForNewNote: () => { routineLayer: 1 | 2 } | Record<string, never>;
@@ -30,6 +31,7 @@ export function createEditorCanvasPointer(deps: EditorCanvasPointerDeps) {
     s,
     canvas,
     pushUndo,
+    commitOffsetEditIfActive,
     pointerToCanvasCss,
     clampWaveformPanelOffset,
     routineLayerForNewNote,
@@ -42,6 +44,7 @@ export function createEditorCanvasPointer(deps: EditorCanvasPointerDeps) {
 
   function handleCanvasClick(e: MouseEvent) {
     if (!s.canvasRef.value || s.playing.value) return;
+    commitOffsetEditIfActive();
     if (suppressNextClick) {
       suppressNextClick = false;
       return;
@@ -113,6 +116,7 @@ export function createEditorCanvasPointer(deps: EditorCanvasPointerDeps) {
 
   function handleMouseDown(e: MouseEvent) {
     if (!s.canvasRef.value || s.playing.value || s.allCharts.value.length === 0) return;
+    commitOffsetEditIfActive();
 
     if (s.isWaveformPanelDragging.value) {
       return;

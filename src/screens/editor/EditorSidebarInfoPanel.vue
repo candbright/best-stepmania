@@ -21,6 +21,18 @@ const metaSampleLength = defineModel<number>("metaSampleLength", { required: tru
 
 const emit = defineEmits<{
   saveMetadata: [];
+  startOffsetEdit: [];
+  offsetValueChanged: [];
+  commitOffsetEdit: [];
+  cancelOffsetEdit: [];
+  startSampleStartEdit: [];
+  sampleStartValueChanged: [];
+  commitSampleStartEdit: [];
+  cancelSampleStartEdit: [];
+  startSampleLengthEdit: [];
+  sampleLengthValueChanged: [];
+  commitSampleLengthEdit: [];
+  cancelSampleLengthEdit: [];
 }>();
 </script>
 
@@ -58,15 +70,43 @@ const emit = defineEmits<{
       </label>
       <label class="meta-field">
         <span>{{ t('editor.metaOffset') }}</span>
-        <AppNumberField v-model="metaOffset" inputmode="decimal" step="0.001" />
+        <AppNumberField
+          v-model="metaOffset"
+          data-editor-shortcuts="allow"
+          inputmode="decimal"
+          step="0.001"
+          @step="emit('startOffsetEdit')"
+          @focus="emit('startOffsetEdit')"
+          @update:model-value="emit('offsetValueChanged')"
+          @blur="emit('commitOffsetEdit')"
+          @keydown.escape="emit('cancelOffsetEdit')"
+        />
       </label>
       <label class="meta-field">
         <span>{{ t('editor.metaSampleStart') }}</span>
-        <AppNumberField v-model="metaSampleStart" step="0.1" />
+        <AppNumberField
+          v-model="metaSampleStart"
+          data-editor-shortcuts="allow"
+          step="0.1"
+          @step="emit('startSampleStartEdit')"
+          @focus="emit('startSampleStartEdit')"
+          @update:model-value="emit('sampleStartValueChanged')"
+          @blur="emit('commitSampleStartEdit')"
+          @keydown.escape="emit('cancelSampleStartEdit')"
+        />
       </label>
       <label class="meta-field">
         <span>{{ t('editor.metaSampleLength') }}</span>
-        <AppNumberField v-model="metaSampleLength" step="0.1" />
+        <AppNumberField
+          v-model="metaSampleLength"
+          data-editor-shortcuts="allow"
+          step="0.1"
+          @step="emit('startSampleLengthEdit')"
+          @focus="emit('startSampleLengthEdit')"
+          @update:model-value="emit('sampleLengthValueChanged')"
+          @blur="emit('commitSampleLengthEdit')"
+          @keydown.escape="emit('cancelSampleLengthEdit')"
+        />
       </label>
       <button type="button" class="tool-btn save-btn meta-save" @click="emit('saveMetadata')" :disabled="metaSaving">
         {{ t('editor.save') }}

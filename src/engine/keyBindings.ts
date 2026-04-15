@@ -95,11 +95,6 @@ export const SHORTCUT_DEFAULTS: Readonly<Record<ShortcutId, KeyBinding>> = {
   "editor.deleteBeat": [{ code: "ArrowUp", ctrl: true, shift: true }],
 };
 
-export interface KeyBindingsConfig {
-  gameplayPumpDoubleLanes?: string[] | null;
-  shortcuts?: Partial<Record<ShortcutId, KeyChord[]>> | null;
-}
-
 function chordCtrl(e: KeyboardEvent): boolean {
   return e.ctrlKey || e.metaKey;
 }

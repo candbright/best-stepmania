@@ -47,7 +47,7 @@ export function createEditorSave(deps: EditorSaveDeps) {
       refreshEditorMetaBaseline();
       clearEditorChartBackup(song.path, s.activeChartIndex.value);
       s.saveMessage.value = t("editor.saved");
-      setSaveMessage(String(t("editor.saved")));
+      setSaveMessage(t("editor.saved"));
       return true;
     } catch (e: unknown) {
       setSaveMessage(t("editor.saveError") + ": " + String(e));
@@ -87,7 +87,7 @@ export function createEditorSave(deps: EditorSaveDeps) {
       }
       refreshEditorMetaBaseline();
       s.saveMessage.value = t("editor.metaSaved");
-      setSaveMessage(String(t("editor.metaSaved")));
+      setSaveMessage(t("editor.metaSaved"));
       return true;
     } catch (e: unknown) {
       setSaveMessage(String(e));

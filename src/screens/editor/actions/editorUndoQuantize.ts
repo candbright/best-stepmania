@@ -6,6 +6,10 @@ export function createEditorUndoQuantize(s: EditorState) {
     const snap: EditorUndoSnapshot = {
       notes: JSON.parse(JSON.stringify(s.noteRows.value)),
       bpms: JSON.parse(JSON.stringify(s.bpmChanges.value)),
+      offset: s.metaOffset.value,
+      chartMeter: s.editChartMeter.value,
+      sampleStart: s.metaSampleStart.value,
+      sampleLength: s.metaSampleLength.value,
     };
     s.undoStack.value.push(snap);
     if (s.undoStack.value.length > MAX_UNDO_STACK) s.undoStack.value.shift();
@@ -16,6 +20,10 @@ export function createEditorUndoQuantize(s: EditorState) {
     s.noteRows.value = JSON.parse(JSON.stringify(snap.notes));
     s.bpmChanges.value = JSON.parse(JSON.stringify(snap.bpms));
     s.bpm.value = s.bpmChanges.value[0]?.bpm ?? s.bpm.value;
+    s.metaOffset.value = snap.offset;
+    s.editChartMeter.value = snap.chartMeter;
+    s.metaSampleStart.value = snap.sampleStart;
+    s.metaSampleLength.value = snap.sampleLength;
     s.editingBpmChangeIndex.value = -1;
   }
 

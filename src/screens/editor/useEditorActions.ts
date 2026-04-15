@@ -18,6 +18,7 @@ import { createEditorChartLoading } from "./actions/editorChartLoading";
 import { createEditorChartCrud } from "./actions/editorChartCrud";
 import { createEditorBpmActions } from "./actions/editorBpmActions";
 import { createEditorSave } from "./actions/editorSave";
+import { createEditorOffsetActions } from "./actions/editorOffsetActions";
 import { createEditorPlaybackNav } from "./actions/editorPlaybackNav";
 import { createEditorScrollbar } from "./actions/editorScrollbar";
 import { createEditorSelectionCore } from "./actions/editorSelectionCore";
@@ -114,9 +115,9 @@ export function useEditorActions(
   function setSaveMessage(msg: string, errorMs = 5000, successMs = 3000) {
     s.saveMessage.value = msg;
     if (_saveMessageTimer !== null) clearTimeout(_saveMessageTimer);
-    const delay = msg.startsWith(String(t("editor.saved"))) || msg === String(t("editor.metaSaved"))
-      || msg === String(t("editor.chartCreated")) || msg === String(t("editor.chartDeleted"))
-      || msg === String(t("editor.chartPropertiesSaved"))
+    const delay = msg.startsWith(t("editor.saved")) || msg === t("editor.metaSaved")
+      || msg === t("editor.chartCreated") || msg === t("editor.chartDeleted")
+      || msg === t("editor.chartPropertiesSaved")
       ? successMs : errorMs;
     _saveMessageTimer = setTimeout(() => {
       _saveMessageTimer = null;
@@ -210,6 +211,25 @@ export function useEditorActions(
     refreshEditorMetaBaseline,
   });
 
+  const {
+    startEditingOffset,
+    commitOffsetChange,
+    cancelOffsetEdit,
+    onOffsetValueChanged,
+    startEditingChartMeter,
+    commitChartMeterChange,
+    cancelChartMeterEdit,
+    onChartMeterValueChanged,
+    startEditingSampleStart,
+    commitSampleStartChange,
+    cancelSampleStartEdit,
+    onSampleStartValueChanged,
+    startEditingSampleLength,
+    commitSampleLengthChange,
+    cancelSampleLengthEdit,
+    onSampleLengthValueChanged,
+  } = createEditorOffsetActions({ s, pushUndo });
+
   const { togglePlayback, goBackNow, goBack, previewPlay } = createEditorPlaybackNav({
     s,
     canvas,
@@ -256,6 +276,7 @@ export function useEditorActions(
     s,
     canvas,
     pushUndo,
+    commitOffsetEditIfActive: commitOffsetChange,
     pointerToCanvasCss,
     clampWaveformPanelOffset,
     routineLayerForNewNote,
@@ -343,6 +364,23 @@ export function useEditorActions(
     // Save
     saveToFile,
     saveMetadata,
+    // Offset
+    startEditingOffset,
+    commitOffsetChange,
+    cancelOffsetEdit,
+    onOffsetValueChanged,
+    startEditingChartMeter,
+    commitChartMeterChange,
+    cancelChartMeterEdit,
+    onChartMeterValueChanged,
+    startEditingSampleStart,
+    commitSampleStartChange,
+    cancelSampleStartEdit,
+    onSampleStartValueChanged,
+    startEditingSampleLength,
+    commitSampleLengthChange,
+    cancelSampleLengthEdit,
+    onSampleLengthValueChanged,
     // Scroll / Keyboard
     handleScroll,
     handleKeyDown,

@@ -30,6 +30,10 @@ const emit = defineEmits<{
   duplicateChart: [];
   openDeleteChart: [];
   applyChartProperties: [];
+  startMeterEdit: [];
+  meterValueChanged: [];
+  commitMeterEdit: [];
+  cancelMeterEdit: [];
 }>();
 
 const chartStepsTypeSelectOptions = computed(() =>
@@ -133,9 +137,15 @@ const chartDifficultySelectOptions = computed(() =>
           <span>{{ t('editor.meter') }}</span>
           <AppNumberField
             v-model="editChartMeter"
+            data-editor-shortcuts="allow"
             :min="1"
             :max="99"
             :disabled="chartPropertiesSaving"
+            @step="emit('startMeterEdit')"
+            @focus="emit('startMeterEdit')"
+            @update:model-value="emit('meterValueChanged')"
+            @blur="emit('commitMeterEdit')"
+            @keydown.escape="emit('cancelMeterEdit')"
           />
         </label>
         <button

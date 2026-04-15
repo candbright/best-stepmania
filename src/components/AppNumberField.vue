@@ -30,6 +30,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   "update:modelValue": [value: number | null];
+  step: [direction: 1 | -1];
 }>();
 
 const isFocused = ref(false);
@@ -90,6 +91,7 @@ function baseForStep(): number {
 function onStepPointerDown(e: PointerEvent, direction: 1 | -1) {
   e.preventDefault();
   e.stopPropagation();
+  emit("step", direction);
   stepBy(direction);
 }
 

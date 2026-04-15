@@ -122,6 +122,10 @@ const {
   switchChart, createNewChart, duplicateCurrentChart, performDeleteCurrentChart, applyChartProperties,
   addBpmChangeFromInput, updateBpmChange, deleteBpmChange,
   commitBpmEdit, cancelBpmEdit,
+  startEditingOffset, commitOffsetChange, cancelOffsetEdit, onOffsetValueChanged,
+  startEditingChartMeter, commitChartMeterChange, cancelChartMeterEdit, onChartMeterValueChanged,
+  startEditingSampleStart, commitSampleStartChange, cancelSampleStartEdit, onSampleStartValueChanged,
+  startEditingSampleLength, commitSampleLengthChange, cancelSampleLengthEdit, onSampleLengthValueChanged,
   getBpmAtBeat, loadAllCharts,
   handleMouseMove, handleMouseUp, handleKeyDown,
   previewPlay,
@@ -204,7 +208,7 @@ function translateChartDifficulty(d: string): string {
 const newChartModalStepsOptions = computed(() =>
   STEPS_TYPES.map((st) => ({
     value: st.value,
-    label: String(t(st.labelKey)),
+    label: t(st.labelKey),
   })),
 );
 
@@ -227,7 +231,7 @@ async function onDeleteChartConfirmed() {
 
 function stepsTypePropertyLabel(st: string): string {
   const row = STEPS_TYPES.find((o) => o.value === st);
-  return row ? String(t(row.labelKey)) : translateChartStepsType(st);
+  return row ? t(row.labelKey) : translateChartStepsType(st);
 }
 
 /** 谱面属性里与新建谱面一致，仅三种 pump 模式；非支持类型时保留当前值一项以免下拉空白。 */
@@ -586,10 +590,26 @@ onUnmounted(() => {
         @duplicate-chart="duplicateCurrentChart"
         @open-delete-chart="showDeleteChartModal = true"
         @apply-chart-properties="applyChartProperties"
+        @start-meter-edit="startEditingChartMeter"
+        @meter-value-changed="onChartMeterValueChanged"
+        @commit-meter-edit="commitChartMeterChange"
+        @cancel-meter-edit="cancelChartMeterEdit"
         @save-metadata="saveMetadata"
         @update-bpm-change="(i, b) => updateBpmChange(i, b)"
         @delete-bpm-change="deleteBpmChange"
         @add-bpm-change="addBpmChangeFromInput"
+        @start-offset-edit="startEditingOffset"
+        @offset-value-changed="onOffsetValueChanged"
+        @commit-offset-edit="commitOffsetChange"
+        @cancel-offset-edit="cancelOffsetEdit"
+        @start-sample-start-edit="startEditingSampleStart"
+        @sample-start-value-changed="onSampleStartValueChanged"
+        @commit-sample-start-edit="commitSampleStartChange"
+        @cancel-sample-start-edit="cancelSampleStartEdit"
+        @start-sample-length-edit="startEditingSampleLength"
+        @sample-length-value-changed="onSampleLengthValueChanged"
+        @commit-sample-length-edit="commitSampleLengthChange"
+        @cancel-sample-length-edit="cancelSampleLengthEdit"
       />
     </div>
 

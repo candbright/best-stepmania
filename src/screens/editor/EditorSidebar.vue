@@ -64,6 +64,22 @@ const emit = defineEmits<{
   updateBpmChange: [idx: number, bpm: number];
   deleteBpmChange: [idx: number];
   addBpmChange: [];
+  startMeterEdit: [];
+  meterValueChanged: [];
+  commitMeterEdit: [];
+  cancelMeterEdit: [];
+  startOffsetEdit: [];
+  offsetValueChanged: [];
+  commitOffsetEdit: [];
+  cancelOffsetEdit: [];
+  startSampleStartEdit: [];
+  sampleStartValueChanged: [];
+  commitSampleStartEdit: [];
+  cancelSampleStartEdit: [];
+  startSampleLengthEdit: [];
+  sampleLengthValueChanged: [];
+  commitSampleLengthEdit: [];
+  cancelSampleLengthEdit: [];
 }>();
 </script>
 
@@ -96,6 +112,10 @@ const emit = defineEmits<{
         @duplicate-chart="emit('duplicateChart')"
         @open-delete-chart="emit('openDeleteChart')"
         @apply-chart-properties="emit('applyChartProperties')"
+        @start-meter-edit="emit('startMeterEdit')"
+        @meter-value-changed="emit('meterValueChanged')"
+        @commit-meter-edit="emit('commitMeterEdit')"
+        @cancel-meter-edit="emit('cancelMeterEdit')"
       />
 
       <EditorSidebarInfoPanel
@@ -112,6 +132,18 @@ const emit = defineEmits<{
         v-model:meta-sample-length="metaSampleLength"
         :meta-saving="props.metaSaving"
         @save-metadata="emit('saveMetadata')"
+        @start-offset-edit="emit('startOffsetEdit')"
+        @offset-value-changed="emit('offsetValueChanged')"
+        @commit-offset-edit="emit('commitOffsetEdit')"
+        @cancel-offset-edit="emit('cancelOffsetEdit')"
+        @start-sample-start-edit="emit('startSampleStartEdit')"
+        @sample-start-value-changed="emit('sampleStartValueChanged')"
+        @commit-sample-start-edit="emit('commitSampleStartEdit')"
+        @cancel-sample-start-edit="emit('cancelSampleStartEdit')"
+        @start-sample-length-edit="emit('startSampleLengthEdit')"
+        @sample-length-value-changed="emit('sampleLengthValueChanged')"
+        @commit-sample-length-edit="emit('commitSampleLengthEdit')"
+        @cancel-sample-length-edit="emit('cancelSampleLengthEdit')"
       />
 
       <EditorSidebarStatsPanel
