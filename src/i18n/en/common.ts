@@ -10,6 +10,14 @@ export default {
   "loadingOverlay.retry": "Retry",
   "loadingOverlay.failed":
     "Something went wrong. Check the song files and try again.",
+  "loadingOverlay.bootstrapFailed":
+    "Could not start the app. Check permissions and disk, then retry.",
+  "loadingPhase.appEnter": "Entering game…",
+  "loadingPhase.appConfig": "Loading settings…",
+  "loadingPhase.appAudio": "Initializing audio and display…",
+  "loadingPhase.appScoring": "Loading judgment config…",
+  "loadingPhase.appProfile": "Loading player profile…",
+  "loadingPhase.appLibrary": "Scanning song library…",
   "loadingPhase.preparing": "Preparing…",
   "loadingPhase.audio": "Finishing audio preview…",
   "loadingPhase.navigate": "Opening…",

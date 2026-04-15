@@ -2,14 +2,7 @@ import { watch, watchEffect, type WatchStopHandle } from "vue";
 import { currentLocale } from "@/i18n";
 import type { RhythmSfxStyle } from "@/api/config";
 import {
-  setGameplaySfxEnabled,
-  setGameplaySfxVolume,
-  setMetronomeSfxEnabled,
-  setMetronomeSfxGain,
-  setMetronomeSfxStyle,
-  setRhythmSfxEnabled,
-  setRhythmSfxGain,
-  setRhythmSfxStyle,
+  applyGameplayRhythmSfxSettings,
   setUiSfxEnabled,
   setUiSfxStyle,
   setUiSfxVolume,
@@ -114,14 +107,15 @@ export function useAppSettingsSync(game: GameStore, scheduleSave: () => void): A
           game.rhythmSfxStyle,
         ] as const,
       ([effectVol, metronomeEnabled, metronomeVol, metronomeStyle, rhythmEnabled, rhythmVol, rhythmStyle]) => {
-        setGameplaySfxVolume((effectVol ?? 90) / 100);
-        setGameplaySfxEnabled(true);
-        setMetronomeSfxEnabled(metronomeEnabled ?? true);
-        setMetronomeSfxGain((metronomeVol ?? 100) / 100);
-        setMetronomeSfxStyle((metronomeStyle ?? "bright") as RhythmSfxStyle);
-        setRhythmSfxEnabled(rhythmEnabled ?? true);
-        setRhythmSfxGain((rhythmVol ?? 100) / 100);
-        setRhythmSfxStyle((rhythmStyle ?? "bright") as RhythmSfxStyle);
+        applyGameplayRhythmSfxSettings({
+          effectVolume: effectVol ?? 90,
+          metronomeSfxEnabled: metronomeEnabled ?? true,
+          metronomeSfxVolume: metronomeVol ?? 100,
+          metronomeSfxStyle: (metronomeStyle ?? "bright") as RhythmSfxStyle,
+          rhythmSfxEnabled: rhythmEnabled ?? true,
+          rhythmSfxVolume: rhythmVol ?? 100,
+          rhythmSfxStyle: (rhythmStyle ?? "bright") as RhythmSfxStyle,
+        });
       },
       { immediate: true },
     ),

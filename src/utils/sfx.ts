@@ -60,6 +60,28 @@ export function setRhythmSfxStyle(style: RhythmSfxStyle) {
   rhythmSfxStyle = style;
 }
 
+/** Snapshot of persisted options (audio) — keep gameplay / editor / bridge on one code path. */
+export interface GameplayRhythmSfxSettingsSnapshot {
+  effectVolume: number;
+  metronomeSfxEnabled: boolean;
+  metronomeSfxVolume: number;
+  metronomeSfxStyle: RhythmSfxStyle;
+  rhythmSfxEnabled: boolean;
+  rhythmSfxVolume: number;
+  rhythmSfxStyle: RhythmSfxStyle;
+}
+
+export function applyGameplayRhythmSfxSettings(s: GameplayRhythmSfxSettingsSnapshot): void {
+  setGameplaySfxVolume((s.effectVolume ?? 90) / 100);
+  setGameplaySfxEnabled(true);
+  setMetronomeSfxEnabled(s.metronomeSfxEnabled ?? true);
+  setMetronomeSfxGain((s.metronomeSfxVolume ?? 100) / 100);
+  setMetronomeSfxStyle(s.metronomeSfxStyle ?? "bright");
+  setRhythmSfxEnabled(s.rhythmSfxEnabled ?? true);
+  setRhythmSfxGain((s.rhythmSfxVolume ?? 100) / 100);
+  setRhythmSfxStyle(s.rhythmSfxStyle ?? "bright");
+}
+
 export function setUiSfxVolume(v: number) {
   uiSfxVolume = Math.max(0, Math.min(1, v));
 }
