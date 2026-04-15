@@ -1,16 +1,12 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useI18n } from "@/i18n";
 import { useModalBottomHintLayout } from "@/composables/useModalBottomHintLayout";
 import CustomSelect from "@/components/CustomSelect.vue";
 import AppNumberField from "@/components/AppNumberField.vue";
 
 /** Same three modes as TitleScreen → enter game (pump only; no dance charts in this flow). */
-const STEPS_TYPE_OPTIONS = [
-  "pump-single",
-  "pump-double",
-  "pump-routine",
-] as const;
+const STEPS_TYPE_OPTIONS = ["pump-single", "pump-double", "pump-routine"] as const;
 
 const props = withDefaults(
   defineProps<{
@@ -24,11 +20,13 @@ const props = withDefaults(
     filterStepsType?: string;
     /** Shown below the dialog card, above the screen bottom (e.g. keyboard hint). */
     bottomHint?: string;
+    showFavoritesOnly?: boolean;
   }>(),
   {
     showStepsTypeFilter: false,
     filterStepsType: "",
     bottomHint: "",
+    showFavoritesOnly: false,
   },
 );
 
@@ -38,6 +36,7 @@ const emit = defineEmits<{
   (e: "update:searchQuery", v: string): void;
   (e: "update:filterPack", v: string): void;
   (e: "update:filterStepsType", v: string): void;
+  (e: "update:showFavoritesOnly", v: boolean): void;
   (e: "apply"): void;
   (e: "clear"): void;
   (e: "close"): void;
@@ -58,27 +57,27 @@ const localDiffMax = ref<number | null>(props.diffMax);
 const localSearch = ref(props.searchQuery);
 const localPack = ref(props.filterPack);
 const localStepsType = ref(props.filterStepsType);
+const localShowFavoritesOnly = ref(props.showFavoritesOnly);
 
 const hasActiveFilter = computed(() => {
-  const steps =
-    props.showStepsTypeFilter && localStepsType.value.trim() !== "";
+  const steps = props.showStepsTypeFilter && localStepsType.value.trim() !== "";
   return (
     localDiffMin.value !== null ||
     localDiffMax.value !== null ||
     localSearch.value.trim() !== "" ||
     localPack.value !== "" ||
-    steps
+    steps ||
+    localShowFavoritesOnly.value
   );
 });
 
-// Real-time updates - emit changes immediately
-watch(localSearch, (v) => emit("update:searchQuery", v.trim()));
-watch(localPack, (v) => emit("update:filterPack", v));
-watch(localDiffMin, (v) => emit("update:diffMin", v));
-watch(localDiffMax, (v) => emit("update:diffMax", v));
-watch(localStepsType, (v) => emit("update:filterStepsType", v.trim()));
-
 function apply() {
+  emit("update:diffMin", localDiffMin.value);
+  emit("update:diffMax", localDiffMax.value);
+  emit("update:searchQuery", localSearch.value.trim());
+  emit("update:filterPack", localPack.value);
+  emit("update:filterStepsType", localStepsType.value.trim());
+  emit("update:showFavoritesOnly", localShowFavoritesOnly.value);
   emit("apply");
   emit("close");
 }
@@ -89,6 +88,7 @@ function clearAll() {
   localSearch.value = "";
   localPack.value = "";
   localStepsType.value = "";
+  localShowFavoritesOnly.value = false;
   emit("clear");
 }
 
@@ -111,7 +111,6 @@ const stepsTypeFilterOptions = computed(() => [
   })),
 ]);
 
-/** 捕获阶段优先于 App 全局 Esc，只关弹框不触发选歌页返回 */
 function onEscKey(e: KeyboardEvent) {
   if (e.key !== "Escape") return;
   e.preventDefault();
@@ -119,13 +118,8 @@ function onEscKey(e: KeyboardEvent) {
   emit("close");
 }
 
-onMounted(() => {
-  window.addEventListener("keydown", onEscKey, true);
-});
-
-onUnmounted(() => {
-  window.removeEventListener("keydown", onEscKey, true);
-});
+onMounted(() => window.addEventListener("keydown", onEscKey, true));
+onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
 </script>
 
 <template>
@@ -172,6 +166,14 @@ onUnmounted(() => {
             <label class="form-modal-label">{{ t('select.filterPack') }}</label>
             <CustomSelect v-model="localPack" variant="form" :options="packFilterOptions" />
 
+            <label class="form-modal-label form-modal-label--switch">{{ t('select.onlyFavorites') }}</label>
+            <label class="slide-switch slide-switch--spaced">
+              <input v-model="localShowFavoritesOnly" type="checkbox" class="slide-switch-input" />
+              <span class="slide-switch-track">
+                <span class="slide-switch-thumb" />
+              </span>
+            </label>
+
             <template v-if="showStepsTypeFilter">
               <label class="form-modal-label">{{ t('select.filterStepsType') }}</label>
               <CustomSelect v-model="localStepsType" variant="form" :options="stepsTypeFilterOptions" />
@@ -194,3 +196,62 @@ onUnmounted(() => {
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.form-modal-label--switch {
+  margin-top: 0.25rem;
+}
+.slide-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 44px;
+  height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.slide-switch--spaced {
+  margin-bottom: 0.25rem;
+}
+.slide-switch-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.slide-switch-track {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-color) 78%, var(--section-bg));
+  border: 1px solid var(--border-color);
+  transition: background 0.18s, border-color 0.18s, box-shadow 0.18s;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+  box-sizing: border-box;
+}
+.slide-switch-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.32);
+  transform: translateX(0);
+  transition: transform 0.18s, background 0.18s, box-shadow 0.18s;
+}
+.slide-switch-input:checked + .slide-switch-track {
+  background: color-mix(in srgb, var(--primary-color) 26%, var(--section-bg));
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 18%, transparent);
+}
+.slide-switch-input:checked + .slide-switch-track .slide-switch-thumb {
+  transform: translateX(20px);
+  background: var(--primary-color);
+  box-shadow: 0 0 10px var(--primary-color-glow);
+}
+.slide-switch-input:focus-visible + .slide-switch-track {
+  box-shadow: var(--focus-ring);
+}
+</style>
