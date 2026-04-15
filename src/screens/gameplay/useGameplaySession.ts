@@ -12,19 +12,10 @@ import type { TimingDataResponse } from "@/api/editor";
 import type { ChartTimingSlice } from "@/engine/chartTiming";
 import { useNoteSkin } from "@/stores/noteskin";
 import {
-  playJudgment,
-  playMineHit,
+  applyGameplayRhythmSfxSettings,
   playCountdown,
   playCountdownGo,
-  setGameplaySfxVolume,
-  playBeatLine,
-  setGameplaySfxEnabled,
-  setMetronomeSfxEnabled,
-  setMetronomeSfxGain,
-  setMetronomeSfxStyle,
-  setRhythmSfxEnabled,
-  setRhythmSfxGain,
-  setRhythmSfxStyle,
+  playRhythmLaneApproach,
 } from "@/utils/sfx";
 import { devWarn, logOptionalRejection } from "@/utils/devLog";
 import { useI18n } from "@/i18n";
@@ -40,6 +31,8 @@ const gameState = ref<string>("loading");
 const countdown = ref(3);
 const cdText = ref("");
 const showPauseMenu = ref(false);
+/** True when launched from editor preview; suppress non-rhythm gameplay SFX. */
+const editorPreviewMode = ref(false);
 const lastJudgmentText = ref("");
 const lastJudgmentColor = ref("");
 /** Cancellable handle for the judgment-text clear timer — prevents rapid-fire notes clearing each other's text early. */
@@ -190,7 +183,6 @@ function onJudgment(evt: JudgmentEvent) {
     setTimeout(() => { offsetText.value = ""; }, 800);
   }
 
-  playJudgment(evt.judgment);
   noteFieldRef.value?.showJudgment(name, color, evt.track);
   updateHUD();
   if (game.playMode !== "pump-double" && isPerPlayerDualSession()) updateHUD2();
@@ -307,12 +299,19 @@ engine.callbacks = {
     if (game.playMode !== "pump-double" && isPerPlayerDualSession()) updateHUD2();
   },
   onMineHit: (track: number) => {
-    playMineHit();
     noteFieldRef.value?.showJudgment("Mine", "#ff1744", track);
     updateHUD();
     if (game.playMode !== "pump-double" && isPerPlayerDualSession()) updateHUD2();
   },
-  onBeatLineApproach: (beat: number) => { playBeatLine(); void beat; },
+  onBeatLineApproach: (beat: number) => {
+    // Remove gameplay default metronome cue in both preview and normal play.
+    void beat;
+  },
+  onRhythmLanesApproach: (tracks, scale) => {
+    for (const tr of tracks) {
+      playRhythmLaneApproach(tr, scale);
+    }
+  },
   onFinish: async () => {
     if (resultNavTimer.value) {
       clearTimeout(resultNavTimer.value);
@@ -584,14 +583,15 @@ async function loadAndStart() {
     updateHUD();
     if (isPerPlayerDualSession()) updateHUD2();
 
-    setGameplaySfxVolume((game.effectVolume ?? 90) / 100);
-    setGameplaySfxEnabled(true);
-    setMetronomeSfxEnabled(game.metronomeSfxEnabled ?? true);
-    setMetronomeSfxGain((game.metronomeSfxVolume ?? 100) / 100);
-    setMetronomeSfxStyle(game.metronomeSfxStyle ?? "bright");
-    setRhythmSfxEnabled(game.rhythmSfxEnabled ?? true);
-    setRhythmSfxGain((game.rhythmSfxVolume ?? 100) / 100);
-    setRhythmSfxStyle(game.rhythmSfxStyle ?? "bright");
+    applyGameplayRhythmSfxSettings({
+      effectVolume: game.effectVolume ?? 90,
+      metronomeSfxEnabled: game.metronomeSfxEnabled ?? true,
+      metronomeSfxVolume: game.metronomeSfxVolume ?? 100,
+      metronomeSfxStyle: game.metronomeSfxStyle ?? "bright",
+      rhythmSfxEnabled: game.rhythmSfxEnabled ?? true,
+      rhythmSfxVolume: game.rhythmSfxVolume ?? 100,
+      rhythmSfxStyle: game.rhythmSfxStyle ?? "bright",
+    });
     // 同步音量到音频引擎
     await api.audioSetVolume(
       (game.musicVolume ?? 70) / 100,
@@ -603,6 +603,7 @@ async function loadAndStart() {
     // Check preview mode (started from editor at a specific beat)
     const previewSec = game.previewFromSecond;
     const isEditorPreview = previewSec !== null && game.previewReturnToEditor;
+    editorPreviewMode.value = isEditorPreview;
     game.previewFromSecond = null; // consume once
     if (!isEditorPreview) game.previewReturnToEditor = false;
 

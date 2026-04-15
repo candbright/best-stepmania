@@ -41,13 +41,25 @@ export function drawBeatLines(
     : Math.max(speed * 0.25, 40);
 
   const visibleSpan = (panelReverse ? receptorY : canvasH - receptorY) / pixelsPerBeat;
-  const currentBeat = engine.timeToBeat(engine.getChartPlayheadSeconds());
+  // Same beat as getNoteY (updated in engine.update this frame); avoids extra timeToBeat(playhead).
+  const currentBeat = engine.currentBeat;
   const startBeat = Math.floor((currentBeat - visibleSpan - 2) * 4) / 4;
   const endBeat = Math.ceil((currentBeat + visibleSpan + 4) * 4) / 4;
 
   for (let b = startBeat; b <= endBeat; b += 0.25) {
-    const chartSec = engine.beatToTime(b);
-    const y = engine.getNoteY(chartSec, receptorY, canvasH, panelSpeedMod, panelReverse);
+    let y: number;
+    if (panelSpeedMod.startsWith("C")) {
+      const speedC = parseInt(panelSpeedMod.slice(1), 10) || 500;
+      const pixelsPerBeatC = (speedC * 60) / refBpm;
+      const pixelOffset = (b - currentBeat) * pixelsPerBeatC;
+      y = panelReverse ? receptorY - pixelOffset : receptorY + pixelOffset;
+    } else {
+      // Match getNoteY(beatToTime(b)): scroll uses timeToBeat(chart second), not raw grid index `b`.
+      const chartSec = engine.beatToTime(b);
+      const beatAtNote = engine.timeToBeat(chartSec);
+      const pixelOffset = engine.getVisualBeatDistance(currentBeat, beatAtNote, panelSpeedMod);
+      y = panelReverse ? receptorY - pixelOffset : receptorY + pixelOffset;
+    }
     if (y < -4 || y > canvasH + 4) continue;
 
     const q = Math.round(b * 4);

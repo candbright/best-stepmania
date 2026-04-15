@@ -33,6 +33,8 @@ export interface EngineCallbacks {
   onFail?: (score: ScoreState) => void;
   /** Fires when the judgment line reaches a beat line that has notes (before player hits them). */
   onBeatLineApproach?: (beat: number) => void;
+  /** Per-lane rhythm cues when the playhead crosses a row (same idea as editor playback). */
+  onRhythmLanesApproach?: (tracks: readonly number[], volumeScale: number) => void;
 }
 
 const SIMULATION_HZ = 240;
@@ -105,6 +107,8 @@ export class GameEngine {
 
   /** Tracks the last integer beat position checked for beat line SFX triggering. */
   private lastBeatLineSfxBeat = -1;
+  /** Previous-frame chart beat for per-lane rhythm SFX (fractional; null = establish baseline). */
+  private lastRhythmLaneSfxBeat: number | null = null;
 
   /**
    * Align rhythm-SFX cursor with the current chart clock. Without this, {@link lastBeatLineSfxBeat}
@@ -113,6 +117,7 @@ export class GameEngine {
   private resetBeatLineSfxCursor() {
     this.currentBeat = this.computeCurrentBeatFromTiming();
     this.lastBeatLineSfxBeat = this.currentBeat;
+    this.lastRhythmLaneSfxBeat = null;
   }
 
   private getPlayerConfig(player: 1 | 2) {
@@ -366,6 +371,7 @@ export class GameEngine {
       const pauseDuration = performance.now() - this.pauseTime;
       this.fallbackStartTime += pauseDuration;
       this.state = "playing";
+      this.lastRhythmLaneSfxBeat = null;
       if (this.audioLoaded) {
         this.audioAnchorPerfMs = performance.now();
         this.audioAnchorSecond = this.simulatedSecond - this.audioOffset;
@@ -556,6 +562,7 @@ export class GameEngine {
 
     // Check for beat line SFX: fire when crossing integer beats that have notes
     this.checkBeatLineSfx();
+    this.checkRhythmLaneSfx();
 
     if (
       this.chartLeadInActive &&
@@ -700,6 +707,24 @@ export class GameEngine {
   }
 
   /**
+   * `notes` is sorted by `second` after {@link loadChart}. Matches former `notes.some` with
+   * `Math.abs(note.second - chartTime) < tol` (strict interval).
+   */
+  private hasNoteNearChartTime(chartTime: number, tolSec: number): boolean {
+    const notes = this.notes;
+    const loT = chartTime - tolSec;
+    const hiT = chartTime + tolSec;
+    let lo = 0;
+    let hi = notes.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (notes[mid]!.second <= loT) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo < notes.length && notes[lo]!.second < hiT;
+  }
+
+  /**
    * Check if we've crossed any integer beat positions that have notes, and fire beat line SFX.
    * Called once per update tick after currentBeat is computed.
    */
@@ -712,19 +737,52 @@ export class GameEngine {
 
     if (currentBeat <= lastBeat) return;
 
+    const tolSec = 0.25;
     // Check each integer beat from lastBeat + 1 to currentBeat
     for (let beat = lastBeat + 1; beat <= currentBeat; beat++) {
-      // Check if there's a note at or near this beat (within 0.25 beat tolerance for quantization)
       const beatTime = this.beatToTime(beat);
-      const hasNoteAtBeat = this.notes.some(
-        (note) => Math.abs(note.second - beatTime) < 0.25,
-      );
-      if (hasNoteAtBeat) {
+      if (this.hasNoteNearChartTime(beatTime, tolSec)) {
         cb(beat);
       }
     }
 
     this.lastBeatLineSfxBeat = this.currentBeat;
+  }
+
+  /**
+   * Per-lane rhythm SFX when the chart beat advances across rows (matches editor canvas playback).
+   */
+  private checkRhythmLaneSfx() {
+    const cb = this.callbacks.onRhythmLanesApproach;
+    if (!cb || this.notes.length === 0) return;
+
+    const currBeat = this.currentBeat;
+    const prevBeat = this.lastRhythmLaneSfxBeat;
+    const eps = 1e-5;
+
+    if (prevBeat === null) {
+      this.lastRhythmLaneSfxBeat = currBeat;
+      return;
+    }
+    if (currBeat <= prevBeat + 1e-9) {
+      this.lastRhythmLaneSfxBeat = currBeat;
+      return;
+    }
+
+    const low = prevBeat - eps;
+    const high = currBeat + eps;
+    const tracksCrossed = new Set<number>();
+    for (const n of this.notes) {
+      if (n.noteType === "Fake") continue;
+      const nb = n.beat;
+      if (nb <= low || nb > high) continue;
+      tracksCrossed.add(n.track);
+    }
+    if (tracksCrossed.size > 0) {
+      const scale = 1 / Math.sqrt(tracksCrossed.size);
+      cb([...tracksCrossed], scale);
+    }
+    this.lastRhythmLaneSfxBeat = currBeat;
   }
 
   /**
