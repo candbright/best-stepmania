@@ -14,6 +14,11 @@ export default {
   "select.charts": "CHARTS",
   "select.selectSong": "Select a song",
   "select.filter": "FILTER",
+  "select.sort.title": "Title",
+  "select.sort.artist": "Artist",
+  "select.sort.bpm": "BPM",
+  "select.sort.pack": "Pack",
+  "select.sort.default": "Sort",
   "select.filterDifficulty": "DIFF",
   "select.clearFilter": "Clear",
   "select.filterPack": "Song Pack",
@@ -54,5 +59,5 @@ export default {
   "select.filterDiffMaxPlaceholder": "max",
   "select.fullComboBadge": "FC",
   "select.bpmUnit": "BPM",
-  "select.favorites": "Favorites",
+  "select.onlyFavorites": "Only favorites",
 } as const;
