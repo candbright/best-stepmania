@@ -1,7 +1,8 @@
 import { createRouter, createWebHashHistory, createWebHistory } from "vue-router";
 import { isTauri } from "@/utils/platform";
-import { usePlayerStore } from "@/stores/player";
-import { useSessionStore } from "@/stores/session";
+import { titleOptionsMusicGuard } from "@/router/titleOptionsMusicGuard";
+/** 首屏同步打包，避免懒加载 chunk 未到时的空窗黑屏 */
+import TitleScreen from "./screens/TitleScreen.vue";
 
 const router = createRouter({
   history: isTauri() ? createWebHashHistory() : createWebHistory(),
@@ -9,7 +10,7 @@ const router = createRouter({
     {
       path: "/",
       name: "title",
-      component: () => import("./screens/TitleScreen.vue"),
+      component: TitleScreen,
     },
     {
       path: "/select-music",
@@ -58,25 +59,7 @@ const router = createRouter({
   ],
 });
 
-router.beforeEach((to, from) => {
-  if (from.path === "/" && to.path === "/options") {
-    const player = usePlayerStore();
-    const session = useSessionStore();
-    session.resumeTitleMusicAfterOptions =
-      player.status === "playing" || player.status === "loading";
-    void player.pauseTitleMusicForOptions();
-    return;
-  }
-  if (from.path === "/options" && to.path === "/") {
-    const player = usePlayerStore();
-    const session = useSessionStore();
-    const shouldResume = session.resumeTitleMusicAfterOptions;
-    session.resumeTitleMusicAfterOptions = false;
-    if (shouldResume) {
-      void player.resumeTitleMusicAfterOptions();
-    }
-  }
-});
+router.beforeEach(titleOptionsMusicGuard);
 
 router.onError((error) => {
   console.error("Router navigation failed:", error);
