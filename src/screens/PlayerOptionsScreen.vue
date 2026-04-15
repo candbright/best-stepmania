@@ -217,6 +217,12 @@ watch(
 );
 
 function onKeyDown(e: KeyboardEvent) {
+  if (game.shortcutMatches(e, "title.confirm")) {
+    if (!canStart()) return;
+    e.preventDefault();
+    confirm();
+    return;
+  }
   if (game.shortcutMatches(e, "global.back")) {
     e.preventDefault();
     goBack();
@@ -260,7 +266,7 @@ onUnmounted(() => {
     <header class="top-bar">
       <button class="back-btn" @click="goBack">&larr;</button>
       <h2>{{ t('playerOpt.title') }}</h2>
-      <button class="confirm-btn" :disabled="!canStart()" @click="confirm">{{ t('playerOpt.ready') }} &rarr;</button>
+      <button class="confirm-btn" :disabled="!canStart()" @click="confirm">{{ t('playerOpt.ready') }}</button>
     </header>
 
     <div class="options-scroll">

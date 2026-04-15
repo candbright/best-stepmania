@@ -4,12 +4,13 @@ import { useI18n } from "@/i18n";
 import { useGameStore } from "@/stores/game";
 import { useSessionStore } from "@/stores/session";
 import { usePlayerStore } from "@/stores/player";
-import { onMounted, onUnmounted, ref, watch, nextTick, computed } from "vue";
-import { playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/utils/sfx";
+import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
+import { onBeforeMount, onMounted, onUnmounted, ref, watch, nextTick, computed } from "vue";
+import { applyGameplayRhythmSfxSettings, playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/utils/sfx";
 import * as api from "@/utils/api";
 import { initScoringConfig } from "@/engine/types";
 import { isTauri } from "@/utils/platform";
-import { applyWindowDisplayPreset } from "@/utils/applyWindowDisplay";
+import { applyWindowPreset, closeTauriMainWindow, tryCloseWebTab } from "@/services/tauri/window";
 import { applyPlayModeSelection } from "@/utils/applyPlayModeSelection";
 import PlayModeStrip from "@/components/PlayModeStrip.vue";
 import type { SessionPlayMode } from "@/utils/chartPlayMode";
@@ -20,6 +21,7 @@ const { t } = useI18n();
 const game = useGameStore();
 const session = useSessionStore();
 const player = usePlayerStore();
+const blockingOverlay = useBlockingOverlayStore();
 
 const hasCachedSongs = game.songs.length > 0;
 const scanDone = ref(hasCachedSongs);
@@ -219,47 +221,107 @@ function stopPolling() {
   }
 }
 
-onMounted(async () => {
-  try {
-    await game.loadAppConfig();
-    // 首次进入时立即把配置里的音量同步到音频后端，避免“设置值”与“实际音量”不一致。
-    await api.audioSetVolume((game.musicVolume ?? 70) / 100, (game.masterVolume ?? 80) / 100);
-    await applyWindowDisplayPreset(game.windowDisplayPreset);
-    setUiSfxVolume((game.uiSfxVolume ?? 70) / 100);
-    // Apply saved theme
-    document.body.setAttribute('data-theme', game.theme || 'default');
-    // Apply saved UI scale
-    document.documentElement.style.fontSize = `${(game.uiScale ?? 1) * 16}px`;
-    // Load scoring constants from Rust backend (single source of truth)
-    await initScoringConfig();
-    await game.initProfile();
+/** Core startup work (config, profile, first library poll). Throws on failure. */
+async function runTitleBootstrap(): Promise<void> {
+  blockingOverlay.updateMessage(t("loadingPhase.appConfig"));
+  blockingOverlay.setProgress(10);
+  await game.loadAppConfig();
+  applyGameplayRhythmSfxSettings({
+    effectVolume: game.effectVolume ?? 90,
+    metronomeSfxEnabled: game.metronomeSfxEnabled ?? true,
+    metronomeSfxVolume: game.metronomeSfxVolume ?? 100,
+    metronomeSfxStyle: game.metronomeSfxStyle ?? "bright",
+    rhythmSfxEnabled: game.rhythmSfxEnabled ?? true,
+    rhythmSfxVolume: game.rhythmSfxVolume ?? 100,
+    rhythmSfxStyle: game.rhythmSfxStyle ?? "bright",
+  });
+  // normal：须传入持久化宽高才会 setSize（与 useAppSettingsSync 一致）
+  await applyWindowPreset(
+    game.windowDisplayPreset,
+    game.windowDisplayPreset === "normal" && game.windowWidth != null && game.windowHeight != null
+      ? { width: game.windowWidth, height: game.windowHeight }
+      : null,
+  );
+  blockingOverlay.updateMessage(t("loadingPhase.appAudio"));
+  blockingOverlay.setProgress(22);
+  // 首次进入时立即把配置里的音量同步到音频后端，避免“设置值”与“实际音量”不一致。
+  await api.audioSetVolume((game.musicVolume ?? 70) / 100, (game.masterVolume ?? 80) / 100);
+  setUiSfxVolume((game.uiSfxVolume ?? 70) / 100);
+  // Apply saved theme
+  document.body.setAttribute("data-theme", game.theme || "default");
+  // Apply saved UI scale
+  document.documentElement.style.fontSize = `${(game.uiScale ?? 1) * 16}px`;
+  blockingOverlay.updateMessage(t("loadingPhase.appScoring"));
+  blockingOverlay.setProgress(38);
+  // Load scoring constants from Rust backend (single source of truth)
+  await initScoringConfig();
+  blockingOverlay.updateMessage(t("loadingPhase.appProfile"));
+  blockingOverlay.setProgress(55);
+  await game.initProfile();
 
-    // 已有曲库缓存时，回到主界面不再重新触发扫描/加载流程。
-    if (game.songs.length > 0) {
-      scanDone.value = true;
-      scanning.value = false;
-      scanCount.value = game.songs.length;
-    } else {
-      await pollScanStatus();
-      if (!scanDone.value) {
-        pollTimer = setInterval(pollScanStatus, 300);
-      }
-    }
-  } catch (error) {
-    console.error("Title screen bootstrap failed:", error);
-    scanError.value = error instanceof Error ? error.message : String(error);
+  // 已有曲库缓存时，回到主界面不再重新触发扫描/加载流程。
+  if (game.songs.length > 0) {
+    scanDone.value = true;
     scanning.value = false;
+    scanCount.value = game.songs.length;
+    blockingOverlay.setProgress(100);
+  } else {
+    blockingOverlay.updateMessage(t("loadingPhase.appLibrary"));
+    blockingOverlay.setProgress(72);
+    await pollScanStatus();
+    blockingOverlay.setProgress(scanDone.value ? 100 : 88);
+    if (!scanDone.value) {
+      pollTimer = setInterval(pollScanStatus, 300);
+    }
   }
+}
 
+async function bootstrapTitleScreen(): Promise<void> {
+  try {
+    await runTitleBootstrap();
+    blockingOverlay.hide();
+  } catch (error: unknown) {
+    console.error("Title screen bootstrap failed:", error);
+    const msg = error instanceof Error ? error.message : String(error);
+    scanError.value = msg;
+    scanning.value = false;
+    blockingOverlay.setFailed(t("loadingOverlay.bootstrapFailed"), () => {
+      blockingOverlay.clearError();
+      blockingOverlay.show({
+        message: t("loadingPhase.appEnter"),
+        onCancel: () => {},
+        showCancel: false,
+      });
+      scanError.value = null;
+      void bootstrapTitleScreen();
+    });
+    blockingOverlay.patchHandlers({
+      onCancel: () => {
+        blockingOverlay.hide();
+      },
+    });
+  }
+}
+
+onBeforeMount(() => {
+  blockingOverlay.show({
+    message: t("loadingPhase.appEnter"),
+    onCancel: () => {},
+    showCancel: false,
+  });
+  blockingOverlay.setProgress(3);
+});
+
+onMounted(() => {
+  void bootstrapTitleScreen();
   applyPlayModeSelectReturnIntent();
-
-  // Add keyboard listener
   window.addEventListener("keydown", onKeyDown);
 });
 
 onUnmounted(() => {
   teardownTitleHintLayout();
   stopPolling();
+  blockingOverlay.hide();
   window.removeEventListener("keydown", onKeyDown);
 });
 
@@ -345,22 +407,13 @@ function openOptions() {
 async function exitApp() {
   if (isTauri()) {
     try {
-      const { getCurrentWindow } = await import("@tauri-apps/api/window");
-      await getCurrentWindow().close();
+      await closeTauriMainWindow();
     } catch (e: unknown) {
       console.error("Failed to close Tauri window:", e);
     }
     return;
   }
-  // Browser: try closing only when the tab was opened by script; otherwise hint user.
-  try {
-    window.close();
-    if (!window.closed) {
-      alert(t("title.webExitUnavailable"));
-    }
-  } catch {
-    alert(t("title.webExitUnavailable"));
-  }
+  tryCloseWebTab(t("title.webExitUnavailable"));
 }
 </script>
 
