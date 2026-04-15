@@ -2,11 +2,27 @@
 // All canvas rendering logic for the chart editor.
 
 import type { EditorState } from "./useEditorState";
-import { BPM_BEAT_MATCH_EPS, COLUMN_WIDTH, NOTE_SIZE, HEADER_HEIGHT, WAVEFORM_WIDTH, WAVEFORM_FIELD_GAP } from "./constants";
+import { BPM_BEAT_MATCH_EPS, COLUMN_WIDTH, NOTE_SIZE, HEADER_HEIGHT, WAVEFORM_WIDTH } from "./constants";
+import {
+  beatToRowFromState,
+  beatToTimeFromState,
+  beatToYFromState,
+  marqueePreviewRowTrackRectFromState,
+  snapBeatFromState,
+  timeToBeatFromState,
+  yToBeatFromState,
+} from "./editorCanvasMath";
 import { useSessionStore } from "@/stores/session";
-import { routineColorHex } from "@/constants/routinePlayerColors";
-import { getThemeBgHex, getThemePrimaryHex } from "@/utils/themeCssBridge";
+import { getThemeBgHex } from "@/utils/themeCssBridge";
 import { playBeatLine, playRhythmLaneApproach } from "@/utils/sfx";
+import { drawEditorLaneShape, drawEditorReceptor } from "./editorCanvasNoteShapes";
+import {
+  drawEditorWaveformPanel,
+  getEditorWaveformPanelOffsetBounds,
+  isPointInEditorWaveformPanel,
+  waveformPanelLeftX,
+} from "./editorCanvasWaveform";
+import { editorCanvasNoteColor } from "./editorCanvasNoteColor";
 
 export function useEditorCanvas(s: EditorState) {
   const session = useSessionStore();
@@ -30,20 +46,19 @@ export function useEditorCanvas(s: EditorState) {
 
   // --- Coordinate helpers ---
   function beatToY(beat: number): number {
-    return (beat - s.scrollBeat.value) * s.zoom.value + HEADER_HEIGHT + 2;
+    return beatToYFromState(beat, s.scrollBeat.value, s.zoom.value);
   }
 
   function yToBeat(y: number): number {
-    return (y - HEADER_HEIGHT - 2) / s.zoom.value + s.scrollBeat.value;
+    return yToBeatFromState(y, s.scrollBeat.value, s.zoom.value);
   }
 
   function snapBeat(beat: number): number {
-    const step = 4 / s.quantize.value;
-    return Math.round(beat / step) * step;
+    return snapBeatFromState(beat, s.quantize.value);
   }
 
   function beatToRow(beat: number): number {
-    return Math.round(beat * 48);
+    return beatToRowFromState(beat);
   }
 
   function getCanvasFieldX(): number {
@@ -58,451 +73,48 @@ export function useEditorCanvas(s: EditorState) {
     minTrack: number;
     maxTrack: number;
   } | null {
-    const rb = s.selectionRubberBand.value;
-    if (!rb) return null;
-    const fieldX = getCanvasFieldX();
-    const fieldW = s.FIELD_WIDTH.value;
-    const nT = s.NUM_TRACKS.value;
-    const ax = fieldX + rb.anchorTrackT * COLUMN_WIDTH;
-    const ay = beatToY(rb.anchorBeat);
-    const ex = fieldX + rb.endTrackT * COLUMN_WIDTH;
-    const ey = beatToY(rb.endBeat);
-    const rx0 = Math.min(ax, ex);
-    const rx1 = Math.max(ax, ex);
-    const ry0 = Math.min(ay, ey);
-    const ry1 = Math.max(ay, ey);
-    const ix0 = Math.max(rx0, fieldX);
-    const ix1 = Math.min(rx1, fieldX + fieldW);
-    if (ix1 <= fieldX || ix0 >= fieldX + fieldW) return null;
-    const chartY0 = Math.max(ry0, HEADER_HEIGHT);
-    const chartY1 = Math.max(ry1, HEADER_HEIGHT);
-    const b0 = yToBeat(chartY0);
-    const b1 = yToBeat(chartY1);
-    const bLo = Math.min(b0, b1);
-    const bHi = Math.max(b0, b1);
-    let minRow = Math.floor(bLo * 48);
-    let maxRow = Math.ceil(bHi * 48) - 1;
-    if (maxRow < minRow) maxRow = minRow;
-    minRow = Math.max(0, minRow);
-    let minTrack = Math.max(0, Math.min(nT - 1, Math.floor((ix0 - fieldX) / COLUMN_WIDTH)));
-    let maxTrack = Math.max(0, Math.min(nT - 1, Math.floor((ix1 - fieldX - Number.EPSILON) / COLUMN_WIDTH)));
-    if (maxTrack < minTrack) {
-      const swap = minTrack;
-      minTrack = maxTrack;
-      maxTrack = swap;
-    }
-    return { minRow, maxRow, minTrack, maxTrack };
-  }
-
-  function getWaveformPanelX(fieldX: number): number {
-    return Math.max(14, fieldX - WAVEFORM_WIDTH - WAVEFORM_FIELD_GAP);
+    return marqueePreviewRowTrackRectFromState({
+      rubberBand: s.selectionRubberBand.value,
+      fieldX: getCanvasFieldX(),
+      fieldWidth: s.FIELD_WIDTH.value,
+      numTracks: s.NUM_TRACKS.value,
+      beatToY,
+      yToBeat,
+    });
   }
 
   function beatToTime(beat: number): number {
-    const bpm0 = s.bpmChanges.value[0]?.bpm ?? s.bpm.value;
-    if (beat < 0) {
-      return (beat * 60) / bpm0;
-    }
-    if (s.bpmChanges.value.length <= 1) return (beat * 60) / s.bpm.value;
-    let time = 0;
-    let prevBeat = 0;
-    let prevBpm = s.bpmChanges.value[0]?.bpm || s.bpm.value;
-    for (let i = 1; i < s.bpmChanges.value.length; i++) {
-      const change = s.bpmChanges.value[i];
-      if (change.beat >= beat) break;
-      time += ((change.beat - prevBeat) * 60) / prevBpm;
-      prevBeat = change.beat;
-      prevBpm = change.bpm;
-    }
-    time += ((beat - prevBeat) * 60) / prevBpm;
-    return time;
+    return beatToTimeFromState(beat, s.bpmChanges.value, s.bpm.value);
   }
 
   /** Inverse of beatToTime: given elapsed seconds, return the beat position (multi-BPM aware) */
   function timeToBeat(seconds: number): number {
-    const bpm0 = s.bpmChanges.value[0]?.bpm ?? s.bpm.value;
-    if (seconds < 0) {
-      return (seconds * bpm0) / 60;
-    }
-    if (s.bpmChanges.value.length <= 1) return (seconds * s.bpm.value) / 60;
-    let remaining = seconds;
-    let prevBeat = 0;
-    let prevBpm = s.bpmChanges.value[0]?.bpm || s.bpm.value;
-    for (let i = 1; i < s.bpmChanges.value.length; i++) {
-      const change = s.bpmChanges.value[i];
-      const segDuration = ((change.beat - prevBeat) * 60) / prevBpm;
-      if (remaining <= segDuration) break;
-      remaining -= segDuration;
-      prevBeat = change.beat;
-      prevBpm = change.bpm;
-    }
-    return prevBeat + (remaining * prevBpm) / 60;
+    return timeToBeatFromState(seconds, s.bpmChanges.value, s.bpm.value);
   }
 
-  // --- Shape drawing helpers (matching NoteField.vue gameplay style) ---
-
-  const DANCE_TRACK_DIRECTIONS: Record<number, string[]> = {
-    3: ["left", "down", "right"],
-    4: ["left", "down", "up", "right"],
-  };
-  const PUMP_TRACK_DIRECTIONS: Record<number, Array<string | null>> = {
-    5:  ["downLeft", "upLeft", null, "upRight", "downRight"],
-    10: ["downLeft", "upLeft", null, "upRight", "downRight",
-         "downLeft", "upLeft", null, "upRight", "downRight"],
-  };
-  const DIRECTION_ROTATIONS: Record<string, number> = {
-    up:        0,
-    upRight:   Math.PI / 4,
-    right:     Math.PI / 2,
-    downRight: (Math.PI * 3) / 4,
-    down:      Math.PI,
-    downLeft: -(Math.PI * 3) / 4,
-    left:     -Math.PI / 2,
-    upLeft:   -Math.PI / 4,
-  };
-
-  function buildArrowPath(c: CanvasRenderingContext2D, size: number) {
-    const s2 = size * 0.5;
-    c.beginPath();
-    c.moveTo(0, -s2);
-    c.lineTo(s2 * 0.88,  s2 * 0.15);
-    c.lineTo(s2 * 0.40, -s2 * 0.05);
-    c.lineTo(s2 * 0.40,  s2 * 0.72);
-    c.lineTo(-s2 * 0.40, s2 * 0.72);
-    c.lineTo(-s2 * 0.40, -s2 * 0.05);
-    c.lineTo(-s2 * 0.88,  s2 * 0.15);
-    c.closePath();
-  }
-
-  function buildDiamondPath(c: CanvasRenderingContext2D, size: number) {
-    const half = size / 2;
-    c.beginPath();
-    c.moveTo(0, -half);
-    c.lineTo(half, 0);
-    c.lineTo(0, half);
-    c.lineTo(-half, 0);
-    c.closePath();
-  }
-
-  /** Draw a receptor key in the gameplay "default / neon" style. */
-  function drawEditorReceptor(
-    c: CanvasRenderingContext2D,
-    cx: number,
-    cy: number,
-    track: number,
-    color: string,
-    iconSize?: number,
-  ) {
-    const numTracks = s.NUM_TRACKS.value;
-    const isPump = numTracks === 5 || numTracks === 10;
-    const recSize = iconSize ?? NOTE_SIZE * 0.88;
-
-    if (isPump) {
-      const dir = PUMP_TRACK_DIRECTIONS[numTracks]?.[track] ?? null;
-      if (dir === null) {
-        // Center key → square outline
-        const half = recSize * 0.30;
-        c.save();
-        c.shadowColor = color;
-        c.shadowBlur = 8;
-        c.lineWidth = 2;
-        c.strokeStyle = "rgba(255,255,255,0.28)";
-        c.strokeRect(cx - half, cy - half, half * 2, half * 2);
-        c.shadowBlur = 0;
-        c.restore();
-      } else {
-        const rot = DIRECTION_ROTATIONS[dir] ?? 0;
-        c.save();
-        c.translate(cx, cy);
-        c.rotate(rot);
-        buildArrowPath(c, recSize);
-        c.shadowColor = color;
-        c.shadowBlur = 8;
-        c.strokeStyle = "rgba(255,255,255,0.28)";
-        c.lineWidth = 1.8;
-        c.stroke();
-        c.fillStyle = color + "12";
-        c.fill();
-        c.shadowBlur = 0;
-        c.restore();
-      }
-    } else {
-      // Dance mode: directional arrows
-      const dirs = DANCE_TRACK_DIRECTIONS[numTracks];
-      const dir = dirs?.[track] ?? null;
-      if (dir) {
-        const rot = DIRECTION_ROTATIONS[dir] ?? 0;
-        c.save();
-        c.translate(cx, cy);
-        c.rotate(rot);
-        buildArrowPath(c, recSize);
-        c.shadowColor = color;
-        c.shadowBlur = 8;
-        c.strokeStyle = "rgba(255,255,255,0.28)";
-        c.lineWidth = 1.8;
-        c.stroke();
-        c.fillStyle = color + "10";
-        c.fill();
-        c.shadowBlur = 0;
-        c.restore();
-      } else {
-        c.save();
-        c.translate(cx, cy);
-        c.rotate(Math.PI / 4);
-        buildDiamondPath(c, NOTE_SIZE * 0.7);
-        c.strokeStyle = "rgba(255,255,255,0.28)";
-        c.lineWidth = 1.8;
-        c.stroke();
-        c.fillStyle = color + "10";
-        c.fill();
-        c.restore();
-      }
-    }
-  }
-
-  // --- Note shape drawing (for placed notes on the chart) ---
-  // Matches gameplay: PIU center = square; other lanes = arrows (dance) / arrows + diamond fallback.
-  function drawEditorLaneShape(
-    c: CanvasRenderingContext2D,
-    cx: number,
-    cy: number,
-    track: number,
-    color: string,
-    fillAlpha = 1,
-    hollow = false,
-  ) {
-    const numTracks = s.NUM_TRACKS.value;
-    const isPump = numTracks === 5 || numTracks === 10;
-    const alphaHex = fillAlpha < 1 ? Math.round(fillAlpha * 255).toString(16).padStart(2, "0") : "";
-    const noteSize = NOTE_SIZE * 0.88;
-
-    if (isPump) {
-      const dir = PUMP_TRACK_DIRECTIONS[numTracks]?.[track] ?? null;
-      if (dir === null) {
-        // PIU center: filled square
-        const side = NOTE_SIZE * 0.52;
-        const half = side / 2;
-        c.save();
-        c.translate(cx, cy);
-        if (!hollow) {
-          c.fillStyle = color + alphaHex;
-          c.fillRect(-half, -half, side, side);
-          const inner = side * 0.72;
-          const ih = inner / 2;
-          c.fillStyle = "rgba(255,255,255,0.22)";
-          c.fillRect(-ih, -ih, inner, inner);
-        }
-        c.strokeStyle = hollow ? color : "rgba(255,255,255,0.5)";
-        c.lineWidth = hollow ? 2.2 : 1.4;
-        c.strokeRect(-half, -half, side, side);
-        c.restore();
-        return;
-      }
-      // PIU directional: filled arrow
-      const rot = DIRECTION_ROTATIONS[dir] ?? 0;
-      c.save();
-      c.translate(cx, cy);
-      c.rotate(rot);
-      buildArrowPath(c, noteSize);
-      if (!hollow) {
-        c.fillStyle = color + alphaHex;
-        c.fill();
-        buildArrowPath(c, noteSize * 0.72);
-        c.fillStyle = "rgba(255,255,255,0.22)";
-        c.fill();
-      }
-      c.strokeStyle = hollow ? color : "rgba(255,255,255,0.45)";
-      c.lineWidth = hollow ? 2.2 : 1.4;
-      buildArrowPath(c, noteSize);
-      c.stroke();
-      c.restore();
-      return;
-    }
-
-    // Dance mode: directional arrow
-    const dirs = DANCE_TRACK_DIRECTIONS[numTracks];
-    const dir = dirs?.[track] ?? null;
-    if (dir) {
-      const rot = DIRECTION_ROTATIONS[dir] ?? 0;
-      c.save();
-      c.translate(cx, cy);
-      c.rotate(rot);
-      buildArrowPath(c, noteSize);
-      if (!hollow) {
-        c.fillStyle = color + alphaHex;
-        c.fill();
-        buildArrowPath(c, noteSize * 0.72);
-        c.fillStyle = "rgba(255,255,255,0.22)";
-        c.fill();
-      }
-      c.strokeStyle = hollow ? color : "rgba(255,255,255,0.45)";
-      c.lineWidth = hollow ? 2.2 : 1.4;
-      buildArrowPath(c, noteSize);
-      c.stroke();
-      c.restore();
-    } else {
-      c.save();
-      c.translate(cx, cy);
-      c.rotate(Math.PI / 4);
-      buildDiamondPath(c, noteSize * 0.8);
-      if (!hollow) {
-        c.fillStyle = color + alphaHex;
-        c.fill();
-        buildDiamondPath(c, noteSize * 0.56);
-        c.fillStyle = "rgba(255,255,255,0.18)";
-        c.fill();
-      }
-      c.strokeStyle = hollow ? color : "rgba(255,255,255,0.45)";
-      c.lineWidth = hollow ? 2.2 : 1.4;
-      buildDiamondPath(c, noteSize * 0.8);
-      c.stroke();
-      c.restore();
-    }
-  }
-
-  // --- Waveform Panel ---
   function drawWaveformPanel(c: CanvasRenderingContext2D, fieldX: number, h: number) {
-    const panelX = getWaveformPanelX(fieldX) + s.waveformPanelOffsetX.value;
-    const panelW = WAVEFORM_WIDTH;
-    const panelY = 0;
-    const panelH = h;
-    const centerX = panelX + panelW * 0.5;
-
-    // Waveform: min/max envelope per time bucket → thin upper/lower polylines (not symmetric "bars")
-    if (s.waveformMinMax.value.length >= 2 && s.waveformDuration.value > 0) {
-      const visibleTop = panelY;
-      const visibleBottom = panelY + panelH;
-      const scaleX = (panelW - 10) * 0.46;
-      const dur = s.waveformDuration.value;
-      const mm = s.waveformMinMax.value;
-      const nBuckets = mm.length >> 1;
-      const strokeIn = getThemePrimaryHex();
-      const strokeOut = "rgba(255,255,255,0.15)";
-
-      function envelopeX(py: number): { mn: number; mx: number; inFile: boolean } {
-        const beat = yToBeat(py);
-        const sec = beatToTime(beat) - s.metaOffset.value;
-        if (sec < 0 || sec > dur) {
-          return { mn: centerX, mx: centerX, inFile: false };
-        }
-        const idx = Math.min(nBuckets - 1, Math.max(0, Math.floor((sec / dur) * nBuckets)));
-        const lo = mm[idx * 2]!;
-        const hi = mm[idx * 2 + 1]!;
-        return { mn: centerX + lo * scaleX, mx: centerX + hi * scaleX, inFile: true };
-      }
-
-      c.save();
-      c.beginPath();
-      let first = true;
-      for (let py = visibleTop; py < visibleBottom; py++) {
-        const { mx } = envelopeX(py);
-        if (first) {
-          c.moveTo(mx, py);
-          first = false;
-        } else {
-          c.lineTo(mx, py);
-        }
-      }
-      for (let py = visibleBottom - 1; py >= visibleTop; py--) {
-        const { mn } = envelopeX(py);
-        c.lineTo(mn, py);
-      }
-      c.closePath();
-      c.globalAlpha = 0.1;
-      c.fillStyle = strokeIn;
-      c.fill();
-      c.globalAlpha = 1;
-      c.restore();
-
-      c.lineWidth = 1;
-      c.lineJoin = "round";
-      c.lineCap = "round";
-
-      function strokeSegmentedPolyline(edge: "min" | "max") {
-        let segIn: boolean | null = null;
-        let started = false;
-        for (let py = visibleTop; py < visibleBottom; py++) {
-          const e = envelopeX(py);
-          const x = edge === "max" ? e.mx : e.mn;
-          const { inFile } = e;
-          if (segIn === null) {
-            segIn = inFile;
-            c.beginPath();
-            c.moveTo(x, py);
-            started = true;
-            continue;
-          }
-          if (inFile !== segIn) {
-            c.strokeStyle = segIn ? strokeIn : strokeOut;
-            c.stroke();
-            segIn = inFile;
-            c.beginPath();
-            c.moveTo(x, py);
-            started = true;
-            continue;
-          }
-          c.lineTo(x, py);
-        }
-        if (started) {
-          c.strokeStyle = segIn ? strokeIn : strokeOut;
-          c.stroke();
-        }
-      }
-
-      strokeSegmentedPolyline("max");
-      strokeSegmentedPolyline("min");
-    }
-
-    // Red dashed offset line
-    if (s.metaOffset.value !== 0) {
-      const offsetBeat = timeToBeat(s.metaOffset.value);
-      const offsetBeatY = beatToY(offsetBeat);
-      if (offsetBeatY >= panelY && offsetBeatY <= panelY + panelH) {
-        c.strokeStyle = "#ff5252";
-        c.lineWidth = 1.5;
-        c.setLineDash([3, 3]);
-        c.beginPath();
-        c.moveTo(panelX, offsetBeatY);
-        c.lineTo(panelX + panelW, offsetBeatY);
-        c.stroke();
-        c.setLineDash([]);
-      }
-    }
-
-    // Green dashed line at beat 0
-    const beat0Y = beatToY(0);
-    if (beat0Y >= panelY && beat0Y <= panelY + panelH) {
-      c.strokeStyle = "#76ff03";
-      c.lineWidth = 1.5;
-      c.setLineDash([4, 3]);
-      c.beginPath();
-      c.moveTo(panelX, beat0Y);
-      c.lineTo(panelX + panelW, beat0Y);
-      c.stroke();
-      c.setLineDash([]);
-    }
+    drawEditorWaveformPanel({
+      c,
+      fieldX,
+      h,
+      panelOffsetX: s.waveformPanelOffsetX.value,
+      waveformMinMax: s.waveformMinMax.value,
+      waveformDuration: s.waveformDuration.value,
+      metaOffset: s.metaOffset.value,
+      yToBeat,
+      beatToTime,
+      timeToBeat,
+      beatToY,
+    });
   }
 
-  /** Check if a point is within the waveform panel area */
   function isInWaveformPanel(x: number, y: number, fieldX: number, h: number): boolean {
-    const panelX = getWaveformPanelX(fieldX) + s.waveformPanelOffsetX.value;
-    const panelW = WAVEFORM_WIDTH;
-    return x >= panelX && x <= panelX + panelW && y >= 0 && y <= h;
+    return isPointInEditorWaveformPanel(x, y, fieldX, h, s.waveformPanelOffsetX.value);
   }
 
-  /** Allowed waveform panel offset range so the panel always stays inside the canvas viewport. */
   function getWaveformPanelOffsetBounds(): { min: number; max: number } {
     if (!s.canvasRef.value) return { min: 0, max: 0 };
-    const viewportPadding = 6;
-    const canvasWidth = s.canvasRef.value.clientWidth;
-    const fieldX = getCanvasFieldX();
-    const basePanelX = getWaveformPanelX(fieldX);
-    const minPanelX = viewportPadding;
-    const maxPanelX = Math.max(minPanelX, canvasWidth - WAVEFORM_WIDTH - viewportPadding);
-    return {
-      min: minPanelX - basePanelX,
-      max: maxPanelX - basePanelX,
-    };
+    return getEditorWaveformPanelOffsetBounds(s.canvasRef.value.clientWidth, getCanvasFieldX());
   }
 
   // --- Main draw loop ---
@@ -525,23 +137,16 @@ export function useEditorCanvas(s: EditorState) {
     const fieldX = (w - fieldWidth) / 2;
     const isPumpRoutine = s.activeChart.value?.stepsType === "pump-routine";
 
-    /** Match NoteField.vue pump-routine coloring: layer 1/2 from note, else infer from 5|5 panel halves. */
-    function editorNoteColor(
-      track: number,
-      routineLayer: 1 | 2 | null | undefined,
-    ): string {
-      if (!isPumpRoutine) {
-        return colColors[track % colColors.length];
-      }
-      if (routineLayer === 1 || routineLayer === 2) {
-        const id = routineLayer === 2 ? session.routineP2ColorId : session.routineP1ColorId;
-        return routineColorHex(id) ?? colColors[track % colColors.length];
-      }
-      if (numTracks === 10) {
-        const id = track < 5 ? session.routineP1ColorId : session.routineP2ColorId;
-        return routineColorHex(id) ?? colColors[track % colColors.length];
-      }
-      return colColors[track % colColors.length];
+    function editorNoteColor(track: number, routineLayer: 1 | 2 | null | undefined): string {
+      return editorCanvasNoteColor(
+        track,
+        routineLayer,
+        isPumpRoutine,
+        numTracks,
+        colColors,
+        session.routineP1ColorId,
+        session.routineP2ColorId,
+      );
     }
 
     if (s.playing.value) {
@@ -681,7 +286,7 @@ export function useEditorCanvas(s: EditorState) {
         ctx.textAlign = "right";
         ctx.textBaseline = "middle";
         const measureNum = Math.round(b / 4) + 1;
-        const labelX = s.waveformMinMax.value.length >= 2 ? getWaveformPanelX(fieldX) + WAVEFORM_WIDTH - 8 : fieldX - 10;
+        const labelX = s.waveformMinMax.value.length >= 2 ? waveformPanelLeftX(fieldX) + WAVEFORM_WIDTH - 8 : fieldX - 10;
         ctx.fillText(String(measureNum), labelX, y);
       }
 
@@ -866,7 +471,7 @@ export function useEditorCanvas(s: EditorState) {
           ctx.strokeStyle = holdColor + "60";
           ctx.lineWidth = 1;
           ctx.strokeRect(bodyX, Math.min(y, endY), bodyW, Math.abs(endY - y));
-          drawEditorLaneShape(ctx, x + COLUMN_WIDTH / 2, y, note.track, holdColor);
+          drawEditorLaneShape(ctx, x + COLUMN_WIDTH / 2, y, note.track, holdColor, numTracks);
           ctx.fillStyle = holdColor + "90";
           ctx.fillRect(bodyX - 2, endY - 4, bodyW + 4, 8);
           if (note.noteType === "Roll") {
@@ -877,14 +482,14 @@ export function useEditorCanvas(s: EditorState) {
             ctx.fillText("R", x + COLUMN_WIDTH / 2, y);
           }
         } else if (note.noteType === "Lift") {
-          drawEditorLaneShape(ctx, x + COLUMN_WIDTH / 2, y, note.track, "#ce93d8", 0.16, true);
+          drawEditorLaneShape(ctx, x + COLUMN_WIDTH / 2, y, note.track, "#ce93d8", numTracks, 0.16, true);
         } else if (note.noteType === "Fake") {
-          drawEditorLaneShape(ctx, x + COLUMN_WIDTH / 2, y, note.track, "#78909c", 0.18, false);
+          drawEditorLaneShape(ctx, x + COLUMN_WIDTH / 2, y, note.track, "#78909c", numTracks, 0.18, false);
           ctx.setLineDash([4, 4]);
-          drawEditorLaneShape(ctx, x + COLUMN_WIDTH / 2, y, note.track, "#78909c", 0, true);
+          drawEditorLaneShape(ctx, x + COLUMN_WIDTH / 2, y, note.track, "#78909c", numTracks, 0, true);
           ctx.setLineDash([]);
         } else {
-          drawEditorLaneShape(ctx, x + COLUMN_WIDTH / 2, y, note.track, color);
+          drawEditorLaneShape(ctx, x + COLUMN_WIDTH / 2, y, note.track, color, numTracks);
         }
 
         if (inSelection) {
@@ -915,7 +520,7 @@ export function useEditorCanvas(s: EditorState) {
     // ── Receptor keys (gameplay-style arrows / shapes) ──
     for (let i = 0; i < numTracks; i++) {
       const rcol = editorNoteColor(i, undefined);
-      drawEditorReceptor(ctx, fieldX + i * COLUMN_WIDTH + COLUMN_WIDTH / 2, receptorY, i, rcol);
+      drawEditorReceptor(ctx, fieldX + i * COLUMN_WIDTH + COLUMN_WIDTH / 2, receptorY, i, rcol, numTracks);
     }
 
     // Playhead
