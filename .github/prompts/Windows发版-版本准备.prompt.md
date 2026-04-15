@@ -1,26 +1,117 @@
-# Windows 发版：版本准备
+# Windows 发版 - 版本准备
 
-你是本仓库的发布助手。目标是完成发版前的版本一致性准备，并确保代码已可构建。
+## 任务目标
+
+完成发版前的版本一致性准备，确保代码已可构建，文档已同步。
+
+## 输入
+
+- 目标版本号（如 `v1.2.0`）
+- 当前代码状态
 
 ## 完成标准
 
-即将发布的语义化版本（如 `1.2.3`）在关键文件中完全一致，`AGENTS.md` 已同步更新，且 changelog 文件已就绪并入库。
+即将发布的语义化版本在关键文件中完全一致，文档已同步，且 changelog 文件已就绪并入库。
 
-## 必做项
+---
 
-1. 同步以下文件版本号为同一值（不带 `v` 前缀）：
-   - `package.json` 的 `version`
-   - `src-tauri/Cargo.toml` 的 `[package].version`
-   - `src-tauri/tauri.conf.json` 的顶层 `version`
-   - `src/constants/appMeta.ts` 的 `APP_VERSION`
-2. 不修改 `crates/sm-*/Cargo.toml` 的 `0.1.0`，除非用户明确要求 bump 内部 crate 版本。
-3. 检查是否已有当前版本的 `docs/changelog/bsm-vX.Y.Z.md`（`vX.Y.Z` 与后续标签一致）；若不存在，自动按 `@.github/prompts/Release更新文档.prompt.md` 的规范生成并更新该文档。
-4. 同步更新 `AGENTS.md` 中与版本、发布流程或文档索引相关的信息，确保文档与本次发布状态一致。
-5. 执行构建前校验：
-   - `npm run build`
-   - `cargo check -p best-stepmania`（或 `cargo check`）
-6. 若版本准备阶段产生文件改动（如版本号、changelog、`AGENTS.md`），在进入“打标签与发布”前必须先完成提交并推送，确保后续 `git status` 工作区检查可通过。
+## 执行步骤
 
-## 结果要求
+### 1. 同步版本号
 
-输出本次将发布的版本号、变更文件清单、changelog 文件路径，以及“是否已完成提交与推送”的确认信息。若校验失败，停止流程并先修复。
+确保以下文件的版本号一致（不带 `v` 前缀）：
+
+| 文件 | 字段 |
+|-----|------|
+| `package.json` | `version` |
+| `src-tauri/Cargo.toml` | `[package].version` |
+| `src-tauri/tauri.conf.json` | 顶层 `version` |
+| `src/constants/appMeta.ts` | `APP_VERSION` |
+
+```bash
+# 验证版本一致性
+grep -r '"version"' package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json src/constants/appMeta.ts
+```
+
+**注意**：不修改 `crates/sm-*/Cargo.toml` 的版本，除非用户明确要求 bump 内部 crate 版本。
+
+### 2. 文档同步（调用更新文档流程）
+
+执行 `更新文档.prompt.md`，完成以下任务：
+- 同步 AGENTS.md
+- 同步 UserGuide（中英文）
+- 更新 changelog
+
+```bash
+# 检查 changelog 是否存在
+ls docs/changelog/bsm-vX.Y.Z.md
+```
+
+若不存在，按 `更新文档-更新Changelog.prompt.md` 规范生成。
+
+### 3. 构建前校验
+
+```bash
+# 前端类型检查
+npm run build
+
+# Rust 编译检查
+cargo check -p best-stepmania
+```
+
+若校验失败，停止流程并先修复。
+
+### 4. 提交与推送
+
+若版本准备阶段产生文件改动（如版本号、changelog、`AGENTS.md`），在进入"打标签与发布"前必须先完成提交并推送：
+
+```bash
+git status
+git diff --stat
+```
+
+提交规范：`github提交.prompt.md`
+推送规范：`github推送.prompt.md`
+
+---
+
+## 输出
+
+```markdown
+## 版本准备完成摘要
+
+目标版本：vX.Y.Z
+
+### 版本号同步状态
+| 文件 | 状态 |
+|-----|------|
+| package.json | ✓ |
+| src-tauri/Cargo.toml | ✓ |
+| src-tauri/tauri.conf.json | ✓ |
+| src/constants/appMeta.ts | ✓ |
+
+### 文档同步状态
+| 文档 | 状态 |
+|-----|------|
+| AGENTS.md | ✓/新增 |
+| docs/zh/USER_GUIDE.md | ✓/新增 |
+| docs/en/USER_GUIDE.md | ✓/新增 |
+| docs/changelog/bsm-vX.Y.Z.md | ✓/新增 |
+
+### 构建校验
+- npm run build: 通过/失败
+- cargo check: 通过/失败
+
+### Git 状态
+- 提交: 是/否
+- 推送: 是/否
+```
+
+---
+
+## 约束
+
+- 不修改内部 crate 版本
+- 不跳过文档同步
+- 不跳过构建校验
+- 确保工作区干净后再进入下一步
