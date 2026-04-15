@@ -68,6 +68,11 @@ impl ProfileDb {
 
             CREATE INDEX IF NOT EXISTS idx_hs_profile ON high_scores(profile_id);
             CREATE INDEX IF NOT EXISTS idx_hs_song ON high_scores(song_path, steps_type, difficulty);
+
+            CREATE TABLE IF NOT EXISTS favorites (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                song_path TEXT NOT NULL UNIQUE
+            );
             ",
         )?;
         Ok(())
@@ -102,8 +107,14 @@ impl ProfileDb {
             Ok(Profile {
                 id: row.get::<_, String>(0)?.parse().unwrap_or_default(),
                 display_name: row.get(1)?,
-                created_at: row.get::<_, String>(2)?.parse().unwrap_or_else(|_| Utc::now()),
-                last_played_at: row.get::<_, String>(3)?.parse().unwrap_or_else(|_| Utc::now()),
+                created_at: row
+                    .get::<_, String>(2)?
+                    .parse()
+                    .unwrap_or_else(|_| Utc::now()),
+                last_played_at: row
+                    .get::<_, String>(3)?
+                    .parse()
+                    .unwrap_or_else(|_| Utc::now()),
                 total_play_count: row.get::<_, u32>(4)?,
                 total_dance_points: row.get::<_, i64>(5)?,
                 total_play_time_secs: row.get::<_, f64>(6)?,
@@ -186,7 +197,13 @@ impl ProfileDb {
              LIMIT ?5",
         )?;
         let rows = stmt.query_map(
-            params![profile_id.to_string(), song_path, steps_type, difficulty, lim as i64],
+            params![
+                profile_id.to_string(),
+                song_path,
+                steps_type,
+                difficulty,
+                lim as i64
+            ],
             |row| row_to_high_score(row),
         )?;
         rows.collect()
@@ -217,14 +234,77 @@ impl ProfileDb {
         limit: usize,
     ) -> Result<Vec<HighScore>, rusqlite::Error> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, profile_id, song_path, steps_type, difficulty, meter, grade, dp_percent, score, max_combo, w1, w2, w3, w4, w5, miss, held, let_go, mines_hit, modifiers, played_at
-             FROM high_scores WHERE profile_id = ?1 ORDER BY played_at DESC LIMIT ?2"
+            "SELECT id, profile_id, song_path, steps_type, difficulty, meter, grade, dp_percent, score, max_combo, w1, w2, w3, w4, w5, miss, held, let_go, mines_hit, modifiers, played_at FROM high_scores WHERE profile_id = ?1 ORDER BY played_at DESC LIMIT ?2"
         )?;
-        let rows = stmt.query_map(
-            params![profile_id.to_string(), limit as u32],
-            |row| row_to_high_score(row),
-        )?;
+        let rows = stmt.query_map(params![profile_id.to_string(), limit as u32], |row| {
+            row_to_high_score(row)
+        })?;
         rows.collect()
+    }
+
+    // --- Favorites ---
+
+    pub fn toggle_favorite(&self, song_path: &str) -> Result<bool, rusqlite::Error> {
+        let exists: bool = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM favorites WHERE song_path = ?1",
+                params![song_path],
+                |_row| Ok(true),
+            )
+            .unwrap_or(false);
+
+        if exists {
+            self.conn.execute(
+                "DELETE FROM favorites WHERE song_path = ?1",
+                params![song_path],
+            )?;
+            Ok(false)
+        } else {
+            self.conn.execute(
+                "INSERT INTO favorites (song_path) VALUES (?1)",
+                params![song_path],
+            )?;
+            Ok(true)
+        }
+    }
+
+    pub fn is_favorite(&self, song_path: &str) -> Result<bool, rusqlite::Error> {
+        let exists: bool = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM favorites WHERE song_path = ?1",
+                params![song_path],
+                |_row| Ok(true),
+            )
+            .unwrap_or(false);
+        Ok(exists)
+    }
+
+    pub fn get_favorites(&self) -> Result<Vec<String>, rusqlite::Error> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT song_path FROM favorites ORDER BY song_path")?;
+        let rows = stmt.query_map([], |row| row.get(0))?;
+        rows.collect()
+    }
+
+    pub fn cleanup_orphaned_favorites(
+        &self,
+        valid_song_paths: &[String],
+    ) -> Result<usize, rusqlite::Error> {
+        let valid_set: std::collections::HashSet<String> =
+            valid_song_paths.iter().cloned().collect();
+        let favorites = self.get_favorites()?;
+        let mut removed = 0;
+        for fav in favorites {
+            if !valid_set.contains(&fav) {
+                self.conn
+                    .execute("DELETE FROM favorites WHERE song_path = ?1", params![fav])?;
+                removed += 1;
+            }
+        }
+        Ok(removed)
     }
 }
 
@@ -250,7 +330,10 @@ fn row_to_high_score(row: &rusqlite::Row) -> Result<HighScore, rusqlite::Error> 
         let_go: row.get(17)?,
         mines_hit: row.get(18)?,
         modifiers: row.get(19)?,
-        played_at: row.get::<_, String>(20)?.parse().unwrap_or_else(|_| Utc::now()),
+        played_at: row
+            .get::<_, String>(20)?
+            .parse()
+            .unwrap_or_else(|_| Utc::now()),
     })
 }
 
@@ -285,8 +368,15 @@ mod tests {
             dp_percent: 0.92,
             score: 98500,
             max_combo: 350,
-            w1: 200, w2: 100, w3: 40, w4: 5, w5: 0, miss: 0,
-            held: 20, let_go: 2, mines_hit: 0,
+            w1: 200,
+            w2: 100,
+            w3: 40,
+            w4: 5,
+            w5: 0,
+            miss: 0,
+            held: 20,
+            let_go: 2,
+            mines_hit: 0,
             modifiers: "C500".to_string(),
             played_at: Utc::now(),
         };
@@ -371,11 +461,10 @@ mod tests {
             .clear_top_scores_for_chart(&p.id, "Songs/A", "pump-single", "Hard")
             .unwrap();
         assert_eq!(n, 1);
-        assert!(
-            db.get_top_scores(&p.id, "Songs/A", "pump-single", "Hard", 10)
-                .unwrap()
-                .is_empty()
-        );
+        assert!(db
+            .get_top_scores(&p.id, "Songs/A", "pump-single", "Hard", 10)
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

@@ -107,7 +107,10 @@ pub fn create_profile(state: State<AppState>, name: String) -> Result<ProfileInf
 #[tauri::command]
 pub fn save_score(state: State<AppState>, req: SaveScoreRequest) -> Result<(), String> {
     let mut db = state.profile_db.lock().map_err(|e| e.to_string())?;
-    let profile_id: uuid::Uuid = req.profile_id.parse().map_err(|e: uuid::Error| e.to_string())?;
+    let profile_id: uuid::Uuid = req
+        .profile_id
+        .parse()
+        .map_err(|e: uuid::Error| e.to_string())?;
 
     let hs = sm_profile::HighScore {
         id: uuid::Uuid::new_v4(),
@@ -120,8 +123,15 @@ pub fn save_score(state: State<AppState>, req: SaveScoreRequest) -> Result<(), S
         dp_percent: req.dp_percent,
         score: req.score,
         max_combo: req.max_combo,
-        w1: req.w1, w2: req.w2, w3: req.w3, w4: req.w4, w5: req.w5,
-        miss: req.miss, held: req.held, let_go: req.let_go, mines_hit: req.mines_hit,
+        w1: req.w1,
+        w2: req.w2,
+        w3: req.w3,
+        w4: req.w4,
+        w5: req.w5,
+        miss: req.miss,
+        held: req.held,
+        let_go: req.let_go,
+        mines_hit: req.mines_hit,
         modifiers: req.modifiers,
         played_at: chrono::Utc::now(),
     };
@@ -176,4 +186,35 @@ pub fn get_recent_scores(
         .get_recent_scores(&pid, limit.unwrap_or(20))
         .map_err(|e| e.to_string())?;
     Ok(scores.into_iter().map(high_score_to_info).collect())
+}
+
+#[tauri::command]
+pub fn toggle_favorite(state: State<AppState>, song_path: String) -> Result<bool, String> {
+    let db = state.profile_db.lock().map_err(|e| e.to_string())?;
+    db.toggle_favorite(&song_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn is_favorite(state: State<AppState>, song_path: String) -> Result<bool, String> {
+    let db = state.profile_db.lock().map_err(|e| e.to_string())?;
+    db.is_favorite(&song_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_favorites(state: State<AppState>) -> Result<Vec<String>, String> {
+    let db = state.profile_db.lock().map_err(|e| e.to_string())?;
+    db.get_favorites().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn cleanup_orphaned_favorites(state: State<AppState>) -> Result<usize, String> {
+    let db = state.profile_db.lock().map_err(|e| e.to_string())?;
+    let mgr = state.song_manager.lock().map_err(|e| e.to_string())?;
+    let valid_paths: Vec<String> = mgr
+        .songs
+        .iter()
+        .map(|s| s.path.to_string_lossy().to_string())
+        .collect();
+    db.cleanup_orphaned_favorites(&valid_paths)
+        .map_err(|e| e.to_string())
 }

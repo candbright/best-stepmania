@@ -1,7 +1,7 @@
 mod commands;
 pub mod error;
 
-use commands::{audio, chart, config, diagnostics, import, noteskin, profile, scoring, song};
+use commands::{audio, chart, config, diagnostics, import, noteskin, profile, scoring, song, window};
 use sm_audio::AudioEngine;
 use sm_chart::SongFile;
 use sm_noteskin::NoteSkinManager;
@@ -346,6 +346,10 @@ pub fn run() {
             profile::get_top_scores,
             profile::clear_chart_top_scores,
             profile::get_recent_scores,
+            profile::toggle_favorite,
+            profile::is_favorite,
+            profile::get_favorites,
+            profile::cleanup_orphaned_favorites,
             audio::audio_load,
             audio::audio_play,
             audio::audio_pause,
@@ -384,6 +388,7 @@ pub fn run() {
             noteskin::load_noteskins_from_dir,
             diagnostics::export_diagnostics,
             diagnostics::open_path,
+            window::get_cursor_position,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

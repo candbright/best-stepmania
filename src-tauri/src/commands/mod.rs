@@ -7,3 +7,4 @@ pub mod noteskin;
 pub mod profile;
 pub mod scoring;
 pub mod song;
+pub mod window;

@@ -11,10 +11,6 @@ export default {
   "select.clearTopScoresConfirmAction": "确认清空",
   "select.play": "开始",
   "select.notes": "音符",
-  "select.sort.title": "标题",
-  "select.sort.artist": "艺术家",
-  "select.sort.bpm": "BPM",
-  "select.sort.pack": "曲包",
   "select.charts": "谱面",
   "select.selectSong": "请选择歌曲",
   "select.filter": "筛选",
@@ -58,4 +54,5 @@ export default {
   "select.filterDiffMaxPlaceholder": "最高",
   "select.fullComboBadge": "FC",
   "select.bpmUnit": "BPM",
+  "select.favorites": "收藏",
 } as const;

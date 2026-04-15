@@ -7,6 +7,20 @@ export function isTauri(): boolean {
   return typeof window !== "undefined" && !!window.__TAURI_INTERNALS__;
 }
 
+/** Returns the current cursor position in logical pixels, or null if unavailable. */
+export async function getCursorPosition(): Promise<{ x: number; y: number } | null> {
+  if (isTauri()) {
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const pos = await invoke<{ x: number; y: number }>("get_cursor_position");
+      return pos;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 /**
  * Open a directory picker dialog.
  * - In Tauri: uses the native Tauri dialog plugin.

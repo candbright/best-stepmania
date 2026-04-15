@@ -3,6 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useGameStore } from "@/stores/game";
 import { usePlayerStore } from "@/stores/player";
+import { useLibraryStore } from "@/stores/library";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import type { SongListItem } from "@/utils/api";
@@ -17,10 +18,12 @@ import { ensureMinElapsed } from "@/utils/loadingGate";
 import { primeEditorEntryResources } from "./editor/editorEntryPrefetch";
 import { useSessionStore } from "@/stores/session";
 import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
+import { PHYSICAL_ROOT_PACK } from "@/constants/songLibrary";
 
 const router = useRouter();
 const game = useGameStore();
 const player = usePlayerStore();
+const library = useLibraryStore();
 const session = useSessionStore();
 const blockingOverlay = useBlockingOverlayStore();
 const { t } = useI18n();
@@ -48,7 +51,8 @@ const hasActiveFilter = computed(() =>
   diffMax.value !== null ||
   filterSearch.value !== "" ||
   filterPack.value !== "" ||
-  filterStepsType.value !== "",
+  filterStepsType.value !== "" ||
+  library.showFavoritesOnly,
 );
 
 const activeFilterCount = computed(() => {
@@ -57,6 +61,7 @@ const activeFilterCount = computed(() => {
   if (filterSearch.value !== "") n++;
   if (filterPack.value !== "") n++;
   if (filterStepsType.value !== "") n++;
+  if (library.showFavoritesOnly) n++;
   return n;
 });
 
@@ -68,6 +73,7 @@ const DIFF_COLORS: Record<string, string> = {
 
 const filteredSongs = computed(() => {
   return game.songs.filter((s) => {
+    if (library.showFavoritesOnly && !library.favorites.has(s.path)) return false;
     if (filterSearch.value) {
       const q = filterSearch.value.toLowerCase();
       if (
@@ -116,8 +122,6 @@ const filteredCharts = computed(() => {
 const collapsedPacks = ref<Set<string>>(new Set());
 
 const ROOT_PACK_KEY = "__ROOT__";
-/** 磁盘上的根曲包目录名，扫描结果里 `pack` 为该值；与 `import::ROOT_PACK_ID` 一致 */
-const PHYSICAL_ROOT_PACK = ".root";
 
 const groupedSongs = computed(() => {
   const groups: { packKey: string; packLabel: string; songs: { song: typeof game.songs[0]; idx: number }[] }[] = [];
@@ -176,6 +180,7 @@ async function handleDeleteSongSuccess() {
 
   await game.refreshSongsList();
   game.needsSongRefresh = false;
+  await library.cleanupOrphanedFavorites();
 
   if (game.songs.length === 0) {
     player.cleanup();
@@ -323,6 +328,14 @@ function cycleSortMode() {
   game.setSortMode(modes[(cur + 1) % modes.length]);
 }
 
+async function toggleFavorite(songPath: string) {
+  await library.toggleFavorite(songPath);
+}
+
+function cycleShowFavoritesOnly() {
+  library.showFavoritesOnly = !library.showFavoritesOnly;
+}
+
 function onKeyDown(e: KeyboardEvent) {
   if (showFilterModal.value || confirmDeleteSong.value) return;
   if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -436,6 +449,7 @@ function stepsTypeLabel(stepsType: string) {
 
 onMounted(async () => {
   setUiSfxVolume((game.uiSfxVolume ?? 70) / 100);
+  void library.loadFavorites();
   window.addEventListener("keydown", onKeyDown);
 
   if (game.resumeFromEditor) {
@@ -511,6 +525,9 @@ onUnmounted(() => {
           <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
         </button>
         <button class="tb-btn sort-btn" @click="cycleSortMode">{{ sortLabel }}</button>
+        <button class="tb-btn fav-btn" :class="{ active: library.showFavoritesOnly }" @click="cycleShowFavoritesOnly" :title="t('select.favorites')">
+          ★
+        </button>
         <button class="tb-btn" @click="openCreateSongModal">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
@@ -549,6 +566,7 @@ onUnmounted(() => {
                   'song-row--no-charts': (song.charts?.length ?? 0) === 0,
                 }"
                 @click="selectSong(idx)" @dblclick="openEditor">
+                <button class="fav-star" :class="{ active: library.favorites.has(song.path) }" @click.stop="toggleFavorite(song.path)">★</button>
                 <div class="song-thumb">
                   <img v-if="bannerCache[song.path]" :src="bannerCache[song.path]" class="thumb-img" />
                   <div v-else class="thumb-ph" :style="{ '--h': idx * 37 % 360 }">{{ song.title[0] }}</div>
@@ -768,6 +786,34 @@ onUnmounted(() => {
   line-height: 1.2;
   background: color-mix(in srgb, var(--primary-color-hover) 38%, transparent);
   color: var(--text-color);
+}
+.fav-btn {
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+.fav-btn.active {
+  color: #ffd740;
+}
+.fav-star {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  opacity: 0.4;
+  transition: opacity 0.15s, color 0.15s;
+  z-index: 1;
+}
+.fav-star:hover {
+  opacity: 0.8;
+}
+.fav-star.active {
+  color: #ffd740;
+  opacity: 1;
 }
 
 .import-toast {

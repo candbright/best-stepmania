@@ -97,3 +97,19 @@ export async function getRecentScores(
 ): Promise<HighScoreInfo[]> {
   return invoke<HighScoreInfo[]>("get_recent_scores", { profileId, limit });
 }
+
+export async function toggleFavorite(songPath: string): Promise<boolean> {
+  return invoke<boolean>("toggle_favorite", { songPath });
+}
+
+export async function isFavorite(songPath: string): Promise<boolean> {
+  return invoke<boolean>("is_favorite", { songPath });
+}
+
+export async function getFavorites(): Promise<string[]> {
+  return invoke<string[]>("get_favorites", {});
+}
+
+export async function cleanupOrphanedFavorites(): Promise<number> {
+  return invoke<number>("cleanup_orphaned_favorites", {});
+}

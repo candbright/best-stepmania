@@ -3,6 +3,7 @@ import { useRouter } from "vue-router";
 import { useGameStore } from "@/stores/game";
 import { useSessionStore } from "@/stores/session";
 import { usePlayerStore } from "@/stores/player";
+import { useLibraryStore } from "@/stores/library";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import { playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/utils/sfx";
@@ -12,12 +13,14 @@ import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
 import { displayPercentFromDpRatio } from "@/engine/types";
 import { gradeTextGradientStyle } from "@/utils/gradeColors";
 import { chartFitsPlayMode } from "@/utils/chartPlayMode";
+import { PHYSICAL_ROOT_PACK } from "@/constants/songLibrary";
 
 export function useSelectMusicScreen() {
   const router = useRouter();
   const game = useGameStore();
   const sessionStore = useSessionStore();
   const player = usePlayerStore();
+  const library = useLibraryStore();
   const blockingOverlay = useBlockingOverlayStore();
   const { t } = useI18n();
   const bannerCache = ref<Record<string, string>>({});
@@ -79,7 +82,8 @@ export function useSelectMusicScreen() {
       diffMin.value !== null ||
       diffMax.value !== null ||
       filterSearch.value !== "" ||
-      filterPack.value !== "",
+      filterPack.value !== "" ||
+      library.showFavoritesOnly,
   );
 
   const activeFilterCount = computed(() => {
@@ -87,11 +91,13 @@ export function useSelectMusicScreen() {
     if (diffMin.value !== null || diffMax.value !== null) n++;
     if (filterSearch.value !== "") n++;
     if (filterPack.value !== "") n++;
+    if (library.showFavoritesOnly) n++;
     return n;
   });
 
   const filteredSongs = computed(() => {
     return game.songs.filter((s) => {
+      if (library.showFavoritesOnly && !library.favorites.has(s.path)) return false;
       if (filterSearch.value) {
         const q = filterSearch.value.toLowerCase();
         if (!s.title.toLowerCase().includes(q) && !(s.artist ?? "").toLowerCase().includes(q)) return false;
@@ -132,7 +138,6 @@ export function useSelectMusicScreen() {
   const collapsedPacks = ref<Set<string>>(new Set());
 
   const ROOT_PACK_KEY = "__ROOT__";
-  const PHYSICAL_ROOT_PACK = ".root";
 
   const groupedSongs = computed(() => {
     const indexByPath = new Map<string, number>();
@@ -340,6 +345,14 @@ export function useSelectMusicScreen() {
     game.setSortMode(modes[(cur + 1) % modes.length]);
   }
 
+  async function toggleFavorite(songPath: string) {
+    await library.toggleFavorite(songPath);
+  }
+
+  function cycleShowFavoritesOnly() {
+    library.showFavoritesOnly = !library.showFavoritesOnly;
+  }
+
   function onKeyDown(e: KeyboardEvent) {
     if (showFilterModal.value || showClearTopScoresModal.value) return;
     if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -409,6 +422,7 @@ export function useSelectMusicScreen() {
   onMounted(() => {
     setUiSfxVolume((game.uiSfxVolume ?? 70) / 100);
     void sessionStore.loadTopScores();
+    void library.loadFavorites();
     window.addEventListener("keydown", onKeyDown);
 
     if (game.resumePlaybackOnReturn) {
@@ -487,5 +501,9 @@ export function useSelectMusicScreen() {
     togglePack,
     displayPercentFromDpRatio,
     gradeTextGradientStyle,
+    toggleFavorite,
+    cycleShowFavoritesOnly,
+    showFavoritesOnly: computed(() => library.showFavoritesOnly),
+    isFavorite: (path: string) => library.isFavorite(path),
   };
 }

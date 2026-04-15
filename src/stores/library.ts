@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import type { SongListItem, SongPackInfo } from "@/utils/api";
 import * as api from "@/utils/api";
 
@@ -15,6 +15,8 @@ export const useLibraryStore = defineStore("library", () => {
   const sortMode = ref<SortMode>("title");
   const searchQuery = ref("");
   const songsLoadedOnce = ref(false);
+  const favorites = ref<Set<string>>(new Set());
+  const showFavoritesOnly = ref(false);
   let songsRequestId = 0;
   let packsRequestId = 0;
 
@@ -86,8 +88,51 @@ export const useLibraryStore = defineStore("library", () => {
     }
   }
 
+  async function loadFavorites() {
+    try {
+      const favs = await api.getFavorites();
+      favorites.value = new Set(favs);
+    } catch {
+      favorites.value = new Set();
+    }
+  }
+
+  async function toggleFavorite(songPath: string) {
+    try {
+      const isFav = await api.toggleFavorite(songPath);
+      if (isFav) {
+        favorites.value.add(songPath);
+      } else {
+        favorites.value.delete(songPath);
+      }
+    } catch {
+      // Silently fail
+    }
+  }
+
+  function isFavorite(songPath: string): boolean {
+    return favorites.value.has(songPath);
+  }
+
+  async function cleanupOrphanedFavorites() {
+    try {
+      await api.cleanupOrphanedFavorites();
+      // Reload favorites to sync with cleaned-up state
+      await loadFavorites();
+    } catch {
+      // Silently fail
+    }
+  }
+
+  const filteredSongs = computed(() => {
+    if (!showFavoritesOnly.value) return songs.value;
+    return songs.value.filter(s => favorites.value.has(s.path));
+  });
+
   return {
     songs, packs, sortMode, searchQuery, songsLoadedOnce,
+    favorites, showFavoritesOnly, filteredSongs,
     loadSongs, refreshSongsList, loadPacks, setSortMode, search,
+    loadFavorites, toggleFavorite, isFavorite, cleanupOrphanedFavorites,
   };
 });

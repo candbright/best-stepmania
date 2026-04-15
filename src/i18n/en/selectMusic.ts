@@ -11,10 +11,6 @@ export default {
   "select.clearTopScoresConfirmAction": "Clear scores",
   "select.play": "PLAY",
   "select.notes": "notes",
-  "select.sort.title": "Title",
-  "select.sort.artist": "Artist",
-  "select.sort.bpm": "BPM",
-  "select.sort.pack": "Pack",
   "select.charts": "CHARTS",
   "select.selectSong": "Select a song",
   "select.filter": "FILTER",
@@ -58,4 +54,5 @@ export default {
   "select.filterDiffMaxPlaceholder": "max",
   "select.fullComboBadge": "FC",
   "select.bpmUnit": "BPM",
+  "select.favorites": "Favorites",
 } as const;

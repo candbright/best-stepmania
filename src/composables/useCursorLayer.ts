@@ -1,6 +1,7 @@
 import { computed, ref, watch, type Ref } from "vue";
 import { useGameStore } from "@/stores/game";
 import { playMenuBack, playMenuConfirm, playMenuMove } from "@/utils/sfx";
+import { getCursorPosition } from "@/utils/platform";
 
 export type CursorVisualState =
   | "default"
@@ -242,7 +243,11 @@ export function useCursorLayer() {
     { immediate: true },
   );
 
-  function mountGlobalCursorListeners() {
+  async function mountGlobalCursorListeners() {
+    const pos = await getCursorPosition();
+    if (pos) {
+      cursor.value = { x: pos.x, y: pos.y, visible: true };
+    }
     document.addEventListener("contextmenu", preventContextMenu);
     document.addEventListener("pointermove", handleGlobalPointerMove, { capture: true });
     document.addEventListener("pointerdown", handleGlobalPointerDown, { capture: true });

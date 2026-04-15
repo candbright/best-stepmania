@@ -40,6 +40,10 @@ const {
   togglePack,
   displayPercentFromDpRatio,
   gradeTextGradientStyle,
+  toggleFavorite,
+  cycleShowFavoritesOnly,
+  showFavoritesOnly,
+  isFavorite,
 } = useSelectMusicScreen();
 </script>
 
@@ -62,6 +66,9 @@ const {
           <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
         </button>
         <button class="tb-btn sort-btn" @click="cycleSortMode">{{ sortLabel }}</button>
+        <button class="tb-btn fav-btn" :class="{ active: showFavoritesOnly }" @click="cycleShowFavoritesOnly" :title="t('select.favorites')">
+          ★
+        </button>
       </div>
     </header>
 
@@ -86,6 +93,7 @@ const {
               <button v-for="{ song, idx } in group.songs" :key="song.path"
                 class="song-row" :class="{ selected: game.currentSongIndex === idx }"
                 @click="selectSong(idx)" @dblclick="confirmSelection">
+                <button class="fav-star" :class="{ active: isFavorite(song.path) }" @click.stop="toggleFavorite(song.path)">★</button>
                 <div class="song-thumb">
                   <img v-if="bannerCache[song.path]" :src="bannerCache[song.path]" class="thumb-img" />
                   <div v-else class="thumb-ph" :style="{ '--h': idx * 37 % 360 }">{{ song.title[0] }}</div>
@@ -312,6 +320,34 @@ const {
   line-height: 1.2;
   background: color-mix(in srgb, var(--accent-secondary) 35%, transparent);
   color: var(--text-on-primary);
+}
+.fav-btn {
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+.fav-btn.active {
+  color: #ffd740;
+}
+.fav-star {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  opacity: 0.4;
+  transition: opacity 0.15s, color 0.15s;
+  z-index: 1;
+}
+.fav-star:hover {
+  opacity: 0.8;
+}
+.fav-star.active {
+  color: #ffd740;
+  opacity: 1;
 }
 .diff-input {
   width: 52px; padding: 0.25rem 0.35rem; border-radius: 6px;
