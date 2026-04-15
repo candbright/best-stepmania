@@ -332,10 +332,6 @@ async function toggleFavorite(songPath: string) {
   await library.toggleFavorite(songPath);
 }
 
-function cycleShowFavoritesOnly() {
-  library.showFavoritesOnly = !library.showFavoritesOnly;
-}
-
 function onKeyDown(e: KeyboardEvent) {
   if (showFilterModal.value || confirmDeleteSong.value) return;
   if (e.key === "ArrowUp" || e.key === "ArrowDown") {
@@ -525,9 +521,6 @@ onUnmounted(() => {
           <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
         </button>
         <button class="tb-btn sort-btn" @click="cycleSortMode">{{ sortLabel }}</button>
-        <button class="tb-btn fav-btn" :class="{ active: library.showFavoritesOnly }" @click="cycleShowFavoritesOnly" :title="t('select.favorites')">
-          ★
-        </button>
         <button class="tb-btn" @click="openCreateSongModal">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
@@ -559,13 +552,21 @@ onUnmounted(() => {
                 <div class="empty-icon">♪</div>
                 <p class="empty-title">{{ t('select.noSongs') }}</p>
               </div>
-              <button v-for="{ song, idx } in group.songs" :key="song.path"
+              <div
+                v-for="{ song, idx } in group.songs"
+                :key="song.path"
                 class="song-row"
                 :class="{
                   selected: game.currentSongIndex === idx,
                   'song-row--no-charts': (song.charts?.length ?? 0) === 0,
                 }"
-                @click="selectSong(idx)" @dblclick="openEditor">
+                role="button"
+                tabindex="0"
+                @click="selectSong(idx)"
+                @dblclick="openEditor"
+                @keydown.enter.prevent="openEditor"
+                @keydown.space.prevent="selectSong(idx)"
+              >
                 <button class="fav-star" :class="{ active: library.favorites.has(song.path) }" @click.stop="toggleFavorite(song.path)">★</button>
                 <div class="song-thumb">
                   <img v-if="bannerCache[song.path]" :src="bannerCache[song.path]" class="thumb-img" />
@@ -580,7 +581,7 @@ onUnmounted(() => {
                   class="song-no-charts-pill"
                 >{{ t('editorSelect.noChartsBadge') }}</span>
                 <div class="song-bpm">{{ song.displayBpm }}</div>
-              </button>
+              </div>
             </div>
           </div>
         </div>
@@ -593,6 +594,15 @@ onUnmounted(() => {
             <div class="hero-art">
               <img v-if="bannerCache[game.currentSong.path]" :src="bannerCache[game.currentSong.path]" class="hero-img" />
               <div v-else class="hero-ph" :style="{ '--h': game.currentSongIndex * 37 % 360 }">{{ game.currentSong.title[0] }}</div>
+              <button
+                type="button"
+                class="hero-fav-tag"
+                :class="{ active: library.isFavorite(game.currentSong.path) }"
+                @click.stop="toggleFavorite(game.currentSong.path)"
+                :aria-label="t('select.favorites')"
+              >
+                <span class="hero-fav-tag-icon" />
+              </button>
               <div class="hero-fade" />
             </div>
             <div class="hero-info">
@@ -657,12 +667,14 @@ onUnmounted(() => {
       :searchQuery="filterSearch"
       :filterPack="filterPack"
       :existingPacks="existingPacks"
+      :showFavoritesOnly="library.showFavoritesOnly"
       :showStepsTypeFilter="true"
       :filterStepsType="filterStepsType"
       @update:diffMin="diffMin = $event"
       @update:diffMax="diffMax = $event"
       @update:searchQuery="filterSearch = $event"
       @update:filterPack="filterPack = $event"
+      @update:showFavoritesOnly="library.showFavoritesOnly = $event"
       @update:filterStepsType="filterStepsType = $event"
       @apply="onFilterApply"
       @clear="onFilterClear"
@@ -786,13 +798,6 @@ onUnmounted(() => {
   line-height: 1.2;
   background: color-mix(in srgb, var(--primary-color-hover) 38%, transparent);
   color: var(--text-color);
-}
-.fav-btn {
-  font-size: 1rem;
-  color: var(--text-muted);
-}
-.fav-btn.active {
-  color: #ffd740;
 }
 .fav-star {
   position: absolute;
@@ -1001,6 +1006,35 @@ onUnmounted(() => {
   font-size: 4rem; font-weight: 900;
   color: color-mix(in srgb, var(--text-color) 10%, transparent);
   font-family: 'Orbitron', sans-serif;
+}
+.hero-fav-tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 24px;
+  height: 30px;
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+  cursor: pointer;
+  transition: color 0.15s, transform 0.15s, filter 0.15s;
+}
+.hero-fav-tag-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 74%, 0 100%);
+  filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--border-color) 55%, transparent));
+}
+.hero-fav-tag:hover {
+  transform: translateY(-1px);
+}
+.hero-fav-tag.active {
+  color: var(--primary-color);
+  filter: drop-shadow(0 0 10px var(--primary-color-glow));
 }
 .hero-fade {
   position: absolute; inset: 0;

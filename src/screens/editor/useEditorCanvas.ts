@@ -5,11 +5,9 @@ import type { EditorState } from "./useEditorState";
 import { BPM_BEAT_MATCH_EPS, COLUMN_WIDTH, NOTE_SIZE, HEADER_HEIGHT, WAVEFORM_WIDTH } from "./constants";
 import {
   beatToRowFromState,
-  beatToTimeFromState,
   beatToYFromState,
   marqueePreviewRowTrackRectFromState,
   snapBeatFromState,
-  timeToBeatFromState,
   yToBeatFromState,
 } from "./editorCanvasMath";
 import { useSessionStore } from "@/stores/session";
@@ -23,6 +21,12 @@ import {
   waveformPanelLeftX,
 } from "./editorCanvasWaveform";
 import { editorCanvasNoteColor } from "./editorCanvasNoteColor";
+import {
+  buildBpmTimingCache,
+  beatToSecondCached,
+  secondToBeatCached,
+  type BpmTimingCache,
+} from "./editorBpmTimingCache";
 
 export function useEditorCanvas(s: EditorState) {
   const session = useSessionStore();
@@ -30,6 +34,35 @@ export function useEditorCanvas(s: EditorState) {
   let animId = 0;
   /** Previous playhead beat while editor timeline is playing — used to detect row.beat crossings vs receptors. */
   let prevEditorPlaybackBeat: number | null = null;
+  /** Playback SFX scan pointer (into sorted `noteRows` by beat). */
+  let noteRowScanIdx = 0;
+
+  // --- Timing caches (rebuilt when bpmChanges changes) ---
+  let timingCache: BpmTimingCache | null = null;
+  let timingCacheKey = "";
+  let bpmBeatKeySet: Set<number> | null = null;
+
+  function beatKey(beat: number): number {
+    // Stable integer key for beat comparisons using the same tolerance as UI matching.
+    // (E.g. two beats within BPM_BEAT_MATCH_EPS map to the same key.)
+    return Math.round(beat / BPM_BEAT_MATCH_EPS);
+  }
+
+  function getTimingCaches(): { cache: BpmTimingCache; bpmBeatKeys: Set<number> } {
+    const arr = s.bpmChanges.value;
+    const len = arr.length;
+    const first = arr[0];
+    const last = arr[len - 1];
+    const key = `${len}|${first?.beat ?? 0}|${first?.bpm ?? 0}|${last?.beat ?? 0}|${last?.bpm ?? 0}`;
+    if (!timingCache || !bpmBeatKeySet || key !== timingCacheKey) {
+      timingCacheKey = key;
+      timingCache = buildBpmTimingCache(arr, s.bpm.value);
+      const set = new Set<number>();
+      for (const c of arr) set.add(beatKey(c.beat));
+      bpmBeatKeySet = set;
+    }
+    return { cache: timingCache, bpmBeatKeys: bpmBeatKeySet };
+  }
 
   /** Hit areas for BPM edit buttons drawn on canvas (rebuilt each frame) */
   const bpmEditButtons: Array<{ index: number; x: number; y: number; w: number; h: number }> = [];
@@ -84,12 +117,14 @@ export function useEditorCanvas(s: EditorState) {
   }
 
   function beatToTime(beat: number): number {
-    return beatToTimeFromState(beat, s.bpmChanges.value, s.bpm.value);
+    const { cache } = getTimingCaches();
+    return beatToSecondCached(beat, cache);
   }
 
   /** Inverse of beatToTime: given elapsed seconds, return the beat position (multi-BPM aware) */
   function timeToBeat(seconds: number): number {
-    return timeToBeatFromState(seconds, s.bpmChanges.value, s.bpm.value);
+    const { cache } = getTimingCaches();
+    return secondToBeatCached(seconds, cache);
   }
 
   function drawWaveformPanel(c: CanvasRenderingContext2D, fieldX: number, h: number) {
@@ -163,6 +198,7 @@ export function useEditorCanvas(s: EditorState) {
       const eps = 1e-5;
       if (prevBeat === null) {
         prevEditorPlaybackBeat = currBeat;
+        noteRowScanIdx = 0;
       } else if (currBeat > prevBeat + 1e-9) {
         const low = prevBeat - eps;
         const high = currBeat + eps;
@@ -173,14 +209,24 @@ export function useEditorCanvas(s: EditorState) {
           playBeatLine();
         }
         const tracksCrossed = new Set<number>();
-        for (const row of s.noteRows.value) {
+        const rows = s.noteRows.value;
+        // Advance pointer to first row with beat > low.
+        while (noteRowScanIdx < rows.length && rows[noteRowScanIdx]!.beat <= low) {
+          noteRowScanIdx += 1;
+        }
+        // Scan rows in (low, high].
+        let j = noteRowScanIdx;
+        while (j < rows.length) {
+          const row = rows[j]!;
           const nb = row.beat;
-          if (nb <= low || nb > high) continue;
+          if (nb > high) break;
           for (const n of row.notes) {
             if (n.noteType === "Fake") continue;
             tracksCrossed.add(n.track);
           }
+          j += 1;
         }
+        noteRowScanIdx = j;
         if (tracksCrossed.size > 0) {
           const scale = 1 / Math.sqrt(tracksCrossed.size);
           for (const track of tracksCrossed) {
@@ -251,12 +297,15 @@ export function useEditorCanvas(s: EditorState) {
     };
 
     bpmAddButtons.length = 0;
+    const { bpmBeatKeys } = getTimingCaches();
     const iStart = Math.ceil((startBeat - 1e-9) / step);
     const iEnd = Math.floor((endBeat + 1e-9) / step);
     for (let i = iStart; i <= iEnd; i++) {
       const b = Math.round(i * step * 1e6) / 1e6;
       const y = beatToY(b);
-      if (y < HEADER_HEIGHT - 5 || y > h + 5) continue;
+      // Show beat/measure lines all the way up to the lane top (y=0),
+      // not just the chart field below the header/judgment area.
+      if (y < -5 || y > h + 5) continue;
 
       const onMeasure = nearMultipleOf(b, 4);
       const onBeat = nearMultipleOf(b, 1);
@@ -290,7 +339,8 @@ export function useEditorCanvas(s: EditorState) {
         ctx.fillText(String(measureNum), labelX, y);
       }
 
-      const hasBpmHere = s.bpmChanges.value.some((c) => Math.abs(c.beat - b) < BPM_BEAT_MATCH_EPS);
+      // O(1) membership check instead of scanning the full BPM list per grid line.
+      const hasBpmHere = bpmBeatKeys.has(beatKey(b));
       if (!hasBpmHere) {
         const addBtnX = fieldX + fieldWidth + 8;
         const addBtnY = y - 9;
@@ -333,7 +383,9 @@ export function useEditorCanvas(s: EditorState) {
     for (let ci = 0; ci < s.bpmChanges.value.length; ci++) {
       const change = s.bpmChanges.value[ci];
       const cy = beatToY(change.beat);
-      if (cy < HEADER_HEIGHT || cy > h) continue;
+      // Keep BPM guide lines visible through the receptor/judgment area;
+      // only cull when they leave the top of the lane region.
+      if (cy < 0 || cy > h) continue;
       const inSelBand = bpmChangeRowInSelectionRowBand(change.beat);
       ctx.strokeStyle = inSelBand ? "rgba(255,224,130,0.95)" : "rgba(255,171,0,0.7)";
       ctx.lineWidth = inSelBand ? 3 : 2;
