@@ -1,7 +1,8 @@
 use crate::AppState;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use tauri::{AppHandle, State};
+use std::path::Path;
+use tauri::{AppHandle, LogicalSize, Manager, State, WebviewWindow};
 
 /// Returns the primary monitor's resolution in pixels.
 /// Returns the OS-specific factory default language.
@@ -414,22 +415,119 @@ fn config_path(state: &State<AppState>) -> std::path::PathBuf {
     state.data_dir.join("config.toml")
 }
 
+/// Parses an on-disk `config.toml` with the same migrations as [`load_config`] for existing files.
+fn parse_existing_config_file(path: &Path) -> Result<AppConfig, String> {
+    let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let mut config: AppConfig = toml::from_str(&content).unwrap_or_default();
+    if config.window_display_preset == "normal" && config.fullscreen {
+        config.window_display_preset = "exclusiveFullscreen".to_string();
+    }
+    if config.window_display_preset == "normal"
+        && (config.window_width.is_none() || config.window_height.is_none())
+    {
+        config.window_width = Some(1280);
+        config.window_height = Some(720);
+    }
+    Ok(config)
+}
+
+fn fixed_logical_size_for_preset(preset: &str) -> Option<(u32, u32)> {
+    match preset {
+        "fixed16x9_1280x720" => Some((1280, 720)),
+        "fixed16x9_1600x900" => Some((1600, 900)),
+        "fixed16x9_1920x1080" => Some((1920, 1080)),
+        "fixed16x10_1680x1050" => Some((1680, 1050)),
+        "fixed16x10_1920x1200" => Some((1920, 1200)),
+        "fixed4x3_1024x768" => Some((1024, 768)),
+        "fixed4x3_1600x1200" => Some((1600, 1200)),
+        "fixed21x9_2560x1080" => Some((2560, 1080)),
+        _ => None,
+    }
+}
+
+/// Applies persisted window mode/size before the webview loads (matches frontend `applyWindowDisplayPreset`).
+fn apply_window_geometry_for_config(window: &WebviewWindow, config: &AppConfig) -> Result<(), String> {
+    let preset = config.window_display_preset.as_str();
+
+    if preset == "normal" {
+        window.set_fullscreen(false).map_err(|e| e.to_string())?;
+        window.set_decorations(true).map_err(|e| e.to_string())?;
+        window.set_resizable(true).map_err(|e| e.to_string())?;
+        if let (Some(w), Some(h)) = (config.window_width, config.window_height) {
+            if w > 0 && h > 0 {
+                window
+                    .set_size(LogicalSize::new(w as f64, h as f64))
+                    .map_err(|e| e.to_string())?;
+            }
+        }
+        return Ok(());
+    }
+
+    if preset == "exclusiveFullscreen" {
+        window.set_fullscreen(false).map_err(|e| e.to_string())?;
+        window.set_decorations(true).map_err(|e| e.to_string())?;
+        window.set_resizable(false).map_err(|e| e.to_string())?;
+        window.set_fullscreen(true).map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    window.set_fullscreen(false).map_err(|e| e.to_string())?;
+
+    if preset == "borderless" {
+        let monitor = window.current_monitor().map_err(|e| e.to_string())?;
+        let Some(mon) = monitor else {
+            window.set_decorations(false).map_err(|e| e.to_string())?;
+            window.set_resizable(false).map_err(|e| e.to_string())?;
+            return Ok(());
+        };
+        let wa = mon.work_area();
+        window.set_decorations(false).map_err(|e| e.to_string())?;
+        window.set_resizable(false).map_err(|e| e.to_string())?;
+        window.set_position(wa.position).map_err(|e| e.to_string())?;
+        window.set_size(wa.size).map_err(|e| e.to_string())?;
+        return Ok(());
+    }
+
+    window.set_decorations(true).map_err(|e| e.to_string())?;
+
+    if let Some((w, h)) = fixed_logical_size_for_preset(preset) {
+        window.set_resizable(false).map_err(|e| e.to_string())?;
+        window
+            .set_size(LogicalSize::new(w as f64, h as f64))
+            .map_err(|e| e.to_string())?;
+        window.center().map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+/// Called from `setup` so the native window matches `config.toml` before the first web paint.
+pub fn apply_startup_window_from_config(app: &AppHandle, data_dir: &Path) {
+    let path = data_dir.join("config.toml");
+    if !path.exists() {
+        return;
+    }
+    let config = match parse_existing_config_file(&path) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("apply_startup_window_from_config: read config: {e}");
+            return;
+        }
+    };
+    let windows = app.webview_windows();
+    let Some(window) = windows.values().next() else {
+        return;
+    };
+    if let Err(e) = apply_window_geometry_for_config(window, &config) {
+        eprintln!("apply_startup_window_from_config: {e}");
+    }
+}
+
 #[tauri::command]
 pub fn load_config(app: AppHandle, state: State<AppState>) -> Result<AppConfig, String> {
     let path = config_path(&state);
     if path.exists() {
-        let content = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let mut config: AppConfig = toml::from_str(&content).unwrap_or_default();
-        if config.window_display_preset == "normal" && config.fullscreen {
-            config.window_display_preset = "exclusiveFullscreen".to_string();
-        }
-        if config.window_display_preset == "normal"
-            && (config.window_width.is_none() || config.window_height.is_none())
-        {
-            config.window_width = Some(1280);
-            config.window_height = Some(720);
-        }
-        Ok(config)
+        parse_existing_config_file(&path)
     } else {
         // First launch: detect primary monitor resolution and auto-select a preset
         let preset = app

@@ -5,9 +5,89 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>BestStepMania</title>
+    <!-- JS/CSS 到达前：与主题底色一致，仅文案 + 不确定进度条（与 AppLoadingOverlay 简化版一致） -->
+    <style>
+      html,
+      body,
+      #app {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #08080f;
+        color: #e6e6ef;
+      }
+      .boot-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1.25rem;
+        box-sizing: border-box;
+        font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      }
+      .boot-splash__backdrop {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          135deg,
+          rgba(17, 17, 24, 0.96) 0%,
+          rgba(8, 8, 15, 0.94) 50%,
+          rgba(60, 48, 120, 0.22) 100%
+        );
+      }
+      .boot-splash__panel {
+        position: relative;
+        z-index: 1;
+        width: min(360px, 100%);
+        padding: 1.25rem 1.25rem 1rem;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.035);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        text-align: center;
+      }
+      .boot-splash__msg {
+        margin: 0 0 1rem;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        color: rgba(230, 230, 239, 0.9);
+      }
+      .boot-splash__bar {
+        height: 3px;
+        border-radius: 3px;
+        background: rgba(230, 230, 239, 0.1);
+        overflow: hidden;
+      }
+      .boot-splash__bar-inner {
+        height: 100%;
+        width: 36%;
+        border-radius: 3px;
+        background: linear-gradient(90deg, rgba(115, 96, 255, 0.4), #7360ff, #8b7cff);
+        animation: boot-bar 1.35s ease-in-out infinite;
+      }
+      @keyframes boot-bar {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(320%);
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="boot-splash" role="status" aria-live="polite" aria-busy="true">
+        <div class="boot-splash__backdrop" aria-hidden="true"></div>
+        <div class="boot-splash__panel">
+          <p class="boot-splash__msg">正在进入游戏…</p>
+          <div class="boot-splash__bar" aria-hidden="true">
+            <div class="boot-splash__bar-inner"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

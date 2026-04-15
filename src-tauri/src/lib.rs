@@ -167,6 +167,10 @@ pub fn run() {
                 .unwrap_or_else(|_| PathBuf::from("."));
             std::fs::create_dir_all(&data_dir).ok();
 
+            // 在 WebView 首帧之前按 config.toml 调整窗口，避免先闪 tauri.conf 默认尺寸
+            let app_handle = app.handle();
+            config::apply_startup_window_from_config(&app_handle, &data_dir);
+
             // Songs 目录固定在 app_data_dir/songs
             let songs_dir = data_dir.join("songs");
             std::fs::create_dir_all(&songs_dir).ok();
