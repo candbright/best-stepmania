@@ -1,6 +1,6 @@
 # Best-StepMania User Guide (Simplified)
 
-This guide aligns with **v1.0.0**. Release notes: [changelog/bsm-v1.0.0.md](../changelog/bsm-v1.0.0.md).
+This guide aligns with **v1.3.1**. Release notes: [changelog/bsm-v1.3.1.md](../changelog/bsm-v1.3.1.md).
 
 ## 1. What You Need
 
@@ -22,6 +22,7 @@ Note: do not launch `target/debug/best-stepmania.exe` directly. It expects the `
 ### Song Select
 
 - Browse songs, then use search/filter/sort.
+- Favorite songs and filter by favorites only.
 - Create song packs to organize your library.
 
 ### Gameplay

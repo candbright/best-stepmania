@@ -131,7 +131,7 @@ TitleScreen → SelectMusicScreen → PlayerOptionsScreen → GameplayScreen →
 | `settings` | Persisted config (volume, theme, keybindings) |
 | `player` | Audio playback queue, progress polling, abortId race protection |
 | `session` | Current game session (selected song/chart) |
-| `library` | Song catalog, search, sorting |
+| `library` | Song catalog, search, sorting, favorites |
 | `game` | Facade (backwards compat) — prefer sub-stores in new code |
 
 ### Rust Crate Dependencies
@@ -174,6 +174,8 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 - **NoteSkin pipeline**: `sm-noteskin` → IPC commands → `useNoteSkin()` composable → `NoteField.vue`
 - **Chart cache**: `ChartCache` in `lib.rs` is LRU (default 8 entries), configurable via `chart_cache_size`
 - **AppError**: `src-tauri/src/error.rs` defines `AppError` enum with `From<T>` impls for io/parse errors
+- **Song favorites**: `library` store (`src/stores/library.ts`) manages favorites state; IPC commands `toggle_favorite`, `is_favorite`, `get_favorites`, `cleanup_orphaned_favorites` in `profile` command group
+- **Cursor position**: `src/utils/platform.ts` wraps Tauri `get_cursor_position` command — exception to "all IPC through `src/api/`" since it's a platform utility
 
 ---
 
