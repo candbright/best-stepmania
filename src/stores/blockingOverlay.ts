@@ -10,6 +10,9 @@ export const useBlockingOverlayStore = defineStore("blockingOverlay", () => {
   const message = ref("");
   const error = ref(false);
   const showRetry = ref(false);
+  /** 0–100 when known; null = indeterminate animation */
+  const progress = ref<number | null>(null);
+  const showCancel = ref(true);
   const onCancel = shallowRef<(() => void) | null>(null);
   const onRetry = shallowRef<(() => void) | null>(null);
 
@@ -17,6 +20,7 @@ export const useBlockingOverlayStore = defineStore("blockingOverlay", () => {
     message: string;
     onCancel: () => void;
     onRetry?: (() => void) | null;
+    showCancel?: boolean;
   }): void {
     open.value = true;
     error.value = false;
@@ -24,6 +28,8 @@ export const useBlockingOverlayStore = defineStore("blockingOverlay", () => {
     message.value = opts.message;
     onCancel.value = opts.onCancel;
     onRetry.value = opts.onRetry ?? null;
+    progress.value = null;
+    showCancel.value = opts.showCancel ?? true;
   }
 
   function patchHandlers(opts: {
@@ -42,6 +48,10 @@ export const useBlockingOverlayStore = defineStore("blockingOverlay", () => {
     message.value = msg;
   }
 
+  function setProgress(p: number | null): void {
+    progress.value = p;
+  }
+
   function clearError(): void {
     error.value = false;
     showRetry.value = false;
@@ -52,6 +62,8 @@ export const useBlockingOverlayStore = defineStore("blockingOverlay", () => {
     showRetry.value = true;
     message.value = msg;
     onRetry.value = retry;
+    progress.value = null;
+    showCancel.value = true;
   }
 
   function hide(): void {
@@ -60,6 +72,8 @@ export const useBlockingOverlayStore = defineStore("blockingOverlay", () => {
     showRetry.value = false;
     onCancel.value = null;
     onRetry.value = null;
+    progress.value = null;
+    showCancel.value = true;
   }
 
   function invokeCancel(): void {
@@ -75,9 +89,12 @@ export const useBlockingOverlayStore = defineStore("blockingOverlay", () => {
     message,
     error,
     showRetry,
+    progress,
+    showCancel,
     show,
     patchHandlers,
     updateMessage,
+    setProgress,
     clearError,
     setFailed,
     hide,

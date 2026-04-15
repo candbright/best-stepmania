@@ -21,8 +21,6 @@ function renderFatalScreen(message: string): void {
   root.textContent = message;
 }
 
-renderFatalScreen("BestStepMania 正在启动...");
-
 const app = createApp(App);
 app.config.errorHandler = (error, instance, info) => {
   console.error("Vue runtime error:", { error, instance, info });
@@ -49,7 +47,6 @@ void router.isReady().then(() => {
   if (router.currentRoute.value.path !== "/") {
     void router.replace("/");
   }
+  app.mount("#app");
+  installThemeCssBridge();
 });
-
-app.mount("#app");
-installThemeCssBridge();

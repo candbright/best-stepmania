@@ -41,6 +41,8 @@ onUnmounted(() => {
       :message="blockingOverlay.message"
       :error="blockingOverlay.error"
       :show-retry="blockingOverlay.showRetry"
+      :show-cancel="blockingOverlay.showCancel"
+      :progress="blockingOverlay.progress"
       @cancel="blockingOverlay.invokeCancel"
       @retry="blockingOverlay.invokeRetry"
     />
@@ -56,6 +58,8 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* mount 首帧即有底色，避免在 router-view 内容就绪前透出“纯黑”感 */
+  background: var(--bg-color);
 }
 
 .hide-system-cursor-global,
