@@ -48,7 +48,7 @@ function syncTextFromModel() {
 watch(
   () => props.modelValue,
   () => {
-    if (!isFocused.value) syncTextFromModel();
+    syncTextFromModel();
   },
   { immediate: true },
 );

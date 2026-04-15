@@ -125,7 +125,8 @@ export const useSettingsStore = defineStore("settings", () => {
     return Object.prototype.hasOwnProperty.call(SHORTCUT_DEFAULTS, k);
   }
 
-  async function loadAppConfig() {
+  async function loadAppConfig(opts?: { force?: boolean }) {
+    if (configLoaded.value && !opts?.force) return;
     try {
       const cfg = await api.loadConfig();
       language.value = cfg.language;

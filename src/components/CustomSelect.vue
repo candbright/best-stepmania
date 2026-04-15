@@ -28,6 +28,7 @@ const open = ref(false);
 const rootRef = ref<HTMLElement | null>(null);
 const listRef = ref<HTMLElement | null>(null);
 const menuStyle = ref<Record<string, string>>({});
+const menuPlacement = ref<"down" | "up">("down");
 
 const selectedOption = computed(() => props.options.find((o) => o.value === props.modelValue));
 const activeIndex = ref(-1);
@@ -58,13 +59,32 @@ function selectOption(value: SelectValue, disabled?: boolean) {
 
 function layoutMenu() {
   const trigger = rootRef.value?.querySelector<HTMLElement>(".custom-select-trigger");
+  const menu = listRef.value;
   if (!trigger) return;
+
   const r = trigger.getBoundingClientRect();
+  const gap = 6;
+  const viewportHeight = window.innerHeight;
+  const fallbackMaxHeight = 240;
+  const menuHeight = menu?.scrollHeight ?? fallbackMaxHeight;
+
+  const spaceBelow = viewportHeight - r.bottom - gap;
+  const spaceAbove = r.top - gap;
+  const shouldOpenUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+
+  menuPlacement.value = shouldOpenUp ? "up" : "down";
+
+  const maxHeight = Math.max(120, Math.min(menuHeight, shouldOpenUp ? spaceAbove : spaceBelow, fallbackMaxHeight));
+  const actualMenuHeight = Math.min(menuHeight, maxHeight);
+
   menuStyle.value = {
     position: "fixed",
     left: `${r.left}px`,
-    top: `${r.bottom + 6}px`,
+    top: shouldOpenUp
+      ? `${r.top - gap - actualMenuHeight}px`
+      : `${r.bottom + gap}px`,
     width: `${r.width}px`,
+    maxHeight: `${maxHeight}px`,
     "z-index": "14000",
   };
 }
@@ -211,6 +231,7 @@ onUnmounted(() => {
         v-if="open"
         ref="listRef"
         class="custom-select-menu"
+        :class="[`custom-select-menu--${menuPlacement}`]"
         :style="menuStyle"
         role="listbox"
         tabindex="-1"
@@ -309,7 +330,6 @@ onUnmounted(() => {
 }
 
 .custom-select-menu {
-  max-height: 240px;
   overflow: auto;
   border-radius: 10px;
   border: 1px solid var(--border-color);
@@ -318,6 +338,14 @@ onUnmounted(() => {
   padding: 0.28rem;
   list-style: none;
   box-sizing: border-box;
+}
+
+.custom-select-menu--up {
+  transform-origin: bottom left;
+}
+
+.custom-select-menu--down {
+  transform-origin: top left;
 }
 
 .custom-select--form .custom-select-menu {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, inject } from "vue";
+import { computed, inject, watch } from "vue";
 import { useI18n } from "@/i18n";
 import { useGameStore } from "@/stores/game";
 import type { RhythmSfxStyle } from "@/api/config";
@@ -31,6 +31,33 @@ const rhythmSfxStyleOptions = computed(() => [
   { label: t("settings.rhythmSfxStyleOption.bright"), value: "bright" },
   { label: t("settings.rhythmSfxStyleOption.crisp"), value: "crisp" },
 ]);
+
+watch(
+  () => game.metronomeSfxStyle,
+  (next, prev) => {
+    if (next !== prev && game.metronomeSfxEnabled) {
+      sfx.previewMetronomeSfxFromSettings();
+    }
+  },
+);
+
+watch(
+  () => game.rhythmSfxStyle,
+  (next, prev) => {
+    if (next !== prev && game.rhythmSfxEnabled) {
+      sfx.previewRhythmSfxFromSettings();
+    }
+  },
+);
+
+watch(
+  () => game.uiSfxStyle,
+  (next, prev) => {
+    if (next !== prev && game.uiSfxEnabled) {
+      sfx.previewUiSfxFromSettings();
+    }
+  },
+);
 </script>
 
 <template>
@@ -111,7 +138,7 @@ const rhythmSfxStyleOptions = computed(() => [
           @pointerup.stop.prevent="sfx.previewMetronomeSfxFromSettings"
           @mousedown.stop.prevent
         >
-          ▶▶
+          ▶
         </button>
       </label>
       <CustomSelect
@@ -157,7 +184,7 @@ const rhythmSfxStyleOptions = computed(() => [
           @pointerup.stop.prevent="sfx.previewRhythmSfxFromSettings"
           @mousedown.stop.prevent
         >
-          ▶▶
+          ▶
         </button>
       </label>
       <CustomSelect
@@ -202,7 +229,7 @@ const rhythmSfxStyleOptions = computed(() => [
           @pointerup.stop.prevent="sfx.previewUiSfxFromSettings"
           @mousedown.stop.prevent
         >
-          ▶▶
+          ▶
         </button>
       </label>
       <CustomSelect
