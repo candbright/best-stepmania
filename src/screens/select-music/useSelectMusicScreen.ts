@@ -349,6 +349,10 @@ export function useSelectMusicScreen() {
     await library.toggleFavorite(songPath);
   }
 
+  function setShowFavoritesOnly(value: boolean) {
+    library.showFavoritesOnly = value;
+  }
+
   function cycleShowFavoritesOnly() {
     library.showFavoritesOnly = !library.showFavoritesOnly;
   }
@@ -386,7 +390,12 @@ export function useSelectMusicScreen() {
     nextBatch();
   }
 
-  const sortLabel = computed(() => t(`select.sort.${game.sortMode}` as string));
+  const sortLabel = computed(() => {
+    const key = `select.sort.${game.sortMode}` as const;
+    const translated = t(key);
+    if (translated !== key) return translated;
+    return t("select.sort.default");
+  });
 
   function difficultyLabel(diff: string) {
     const key = `difficulty.${diff}`;
@@ -503,6 +512,7 @@ export function useSelectMusicScreen() {
     gradeTextGradientStyle,
     toggleFavorite,
     cycleShowFavoritesOnly,
+    setShowFavoritesOnly,
     showFavoritesOnly: computed(() => library.showFavoritesOnly),
     isFavorite: (path: string) => library.isFavorite(path),
   };

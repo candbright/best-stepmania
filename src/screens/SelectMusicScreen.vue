@@ -41,10 +41,12 @@ const {
   displayPercentFromDpRatio,
   gradeTextGradientStyle,
   toggleFavorite,
-  cycleShowFavoritesOnly,
+  setShowFavoritesOnly,
   showFavoritesOnly,
   isFavorite,
 } = useSelectMusicScreen();
+
+void songScrollRef;
 </script>
 
 <template>
@@ -66,9 +68,6 @@ const {
           <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
         </button>
         <button class="tb-btn sort-btn" @click="cycleSortMode">{{ sortLabel }}</button>
-        <button class="tb-btn fav-btn" :class="{ active: showFavoritesOnly }" @click="cycleShowFavoritesOnly" :title="t('select.favorites')">
-          ★
-        </button>
       </div>
     </header>
 
@@ -90,9 +89,18 @@ const {
                 <div class="empty-icon">♪</div>
                 <p class="empty-title">{{ t('select.noSongs') }}</p>
               </div>
-              <button v-for="{ song, idx } in group.songs" :key="song.path"
-                class="song-row" :class="{ selected: game.currentSongIndex === idx }"
-                @click="selectSong(idx)" @dblclick="confirmSelection">
+              <div
+                v-for="{ song, idx } in group.songs"
+                :key="song.path"
+                class="song-row"
+                :class="{ selected: game.currentSongIndex === idx }"
+                role="button"
+                tabindex="0"
+                @click="selectSong(idx)"
+                @dblclick="confirmSelection"
+                @keydown.enter.prevent="confirmSelection"
+                @keydown.space.prevent="selectSong(idx)"
+              >
                 <button class="fav-star" :class="{ active: isFavorite(song.path) }" @click.stop="toggleFavorite(song.path)">★</button>
                 <div class="song-thumb">
                   <img v-if="bannerCache[song.path]" :src="bannerCache[song.path]" class="thumb-img" />
@@ -103,7 +111,7 @@ const {
                   <div class="song-artist">{{ song.artist }}</div>
                 </div>
                 <div class="song-bpm">{{ song.displayBpm }}</div>
-              </button>
+              </div>
             </div>
           </div>
         </div>
@@ -116,6 +124,9 @@ const {
             <div class="hero-art">
               <img v-if="bannerCache[game.currentSong.path]" :src="bannerCache[game.currentSong.path]" class="hero-img" />
               <div v-else class="hero-ph" :style="{ '--h': game.currentSongIndex * 37 % 360 }">{{ game.currentSong.title[0] }}</div>
+              <button type="button" class="hero-fav-tag" :class="{ active: isFavorite(game.currentSong.path) }" @click.stop="toggleFavorite(game.currentSong.path)" :aria-label="t('select.favorites')">
+                <span class="hero-fav-tag-icon" />
+              </button>
               <div class="hero-fade" />
             </div>
             <div class="hero-info">
@@ -209,10 +220,12 @@ const {
       :searchQuery="filterSearch"
       :filterPack="filterPack"
       :existingPacks="existingPacks"
+      :showFavoritesOnly="showFavoritesOnly"
       @update:diffMin="diffMin = $event"
       @update:diffMax="diffMax = $event"
       @update:searchQuery="filterSearch = $event"
       @update:filterPack="filterPack = $event"
+      @update:showFavoritesOnly="setShowFavoritesOnly($event)"
       @apply="onFilterApply"
       @clear="onFilterClear"
       @close="showFilterModal = false"
@@ -320,13 +333,6 @@ const {
   line-height: 1.2;
   background: color-mix(in srgb, var(--accent-secondary) 35%, transparent);
   color: var(--text-on-primary);
-}
-.fav-btn {
-  font-size: 1rem;
-  color: var(--text-muted);
-}
-.fav-btn.active {
-  color: #ffd740;
 }
 .fav-star {
   position: absolute;
@@ -554,6 +560,35 @@ const {
   display: flex; align-items: center; justify-content: center;
   font-size: 4rem; font-weight: 900; color: rgba(255,255,255,0.08);
   font-family: 'Orbitron', sans-serif;
+}
+.hero-fav-tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  border: none;
+  background: transparent;
+  padding: 0;
+  width: 24px;
+  height: 30px;
+  color: color-mix(in srgb, var(--text-muted) 92%, transparent);
+  cursor: pointer;
+  transition: color 0.15s, transform 0.15s, filter 0.15s;
+}
+.hero-fav-tag-icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 74%, 0 100%);
+  filter: drop-shadow(0 2px 5px color-mix(in srgb, var(--border-color) 55%, transparent));
+}
+.hero-fav-tag:hover {
+  transform: translateY(-1px);
+}
+.hero-fav-tag.active {
+  color: var(--primary-color);
+  filter: drop-shadow(0 0 10px var(--primary-color-glow));
 }
 .hero-fade {
   position: absolute; inset: 0;
