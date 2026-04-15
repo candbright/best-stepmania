@@ -8,7 +8,6 @@ import {
   previewMetronomeSfx,
   previewRhythmSfx,
   previewUiSfx,
-  playMenuConfirm,
 } from "@/utils/sfx";
 import { logOptionalRejection } from "@/utils/devLog";
 import { useConfirmDialog } from "@/composables/useConfirmDialog";
@@ -57,15 +56,15 @@ function previewMetronomeSfxFromSettings() {
 }
 
 function playControlClickSfx() {
-  sfxGate.tryRun(() => playMenuConfirm());
+  sfxGate.tryRun(() => previewUiSfx());
 }
 
 function playToggleClickSfx() {
-  sfxGate.tryRun(() => playMenuConfirm());
+  sfxGate.tryRun(() => previewUiSfx());
 }
 
 function playSliderClickSfx() {
-  sfxGate.tryRun(() => playMenuConfirm());
+  sfxGate.tryRun(() => previewUiSfx());
 }
 
 const panelSfx: OptionsPanelSfx = {

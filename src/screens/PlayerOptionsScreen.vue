@@ -4,7 +4,6 @@ import { useRouter } from "vue-router";
 import { useGameStore } from "@/stores/game";
 import type { ChartInfoItem } from "@/utils/api";
 import { useI18n } from "@/i18n";
-import HelpTooltip from "@/components/HelpTooltip.vue";
 import { listNoteskins } from "@/api";
 import SettingsCard from "@/components/SettingsCard.vue";
 import { ROUTINE_PLAYER_COLORS, type RoutinePlayerColorId } from "@/constants/routinePlayerColors";
@@ -515,7 +514,7 @@ onUnmounted(() => {
 
       <!-- Playback Rate -->
       <section class="option-card">
-        <h3>{{ t('playerOpt.playbackRate') }} <HelpTooltip helpKey="playbackRate" /></h3>
+        <h3>{{ t('playerOpt.playbackRate') }}</h3>
         <div class="chip-grid">
           <button v-for="r in RATE_OPTIONS" :key="r"
             class="chip" :class="{ active: game.playbackRate === r }"
@@ -527,7 +526,7 @@ onUnmounted(() => {
       <section class="option-card">
         <h3>{{ t('playerOpt.judgmentSettings') }}</h3>
         <div class="setting-row">
-          <span class="setting-label">{{ t('playerOpt.autoPlay') }} <HelpTooltip helpKey="autoPlay" /></span>
+          <span class="setting-label">{{ t('playerOpt.autoPlay') }}</span>
           <label class="toggle-switch">
             <input type="checkbox" v-model="game.autoPlay" />
             <span class="toggle-slider"></span>

@@ -23,6 +23,8 @@ const session = useSessionStore();
 const player = usePlayerStore();
 const blockingOverlay = useBlockingOverlayStore();
 
+const needsBootstrap = computed(() => !game.configLoaded || !game.profileId);
+
 const hasCachedSongs = game.songs.length > 0;
 const scanDone = ref(hasCachedSongs);
 const scanCount = ref(hasCachedSongs ? game.songs.length : 0);
@@ -304,16 +306,26 @@ async function bootstrapTitleScreen(): Promise<void> {
 }
 
 onBeforeMount(() => {
-  blockingOverlay.show({
-    message: t("loadingPhase.appEnter"),
-    onCancel: () => {},
-    showCancel: false,
-  });
-  blockingOverlay.setProgress(3);
+  if (needsBootstrap.value) {
+    blockingOverlay.show({
+      message: t("loadingPhase.appEnter"),
+      onCancel: () => {},
+      showCancel: false,
+    });
+    blockingOverlay.setProgress(3);
+  } else {
+    // Returning to title should not flash the global blocking overlay.
+    blockingOverlay.hide();
+  }
 });
 
 onMounted(() => {
-  void bootstrapTitleScreen();
+  if (needsBootstrap.value) {
+    void bootstrapTitleScreen();
+  } else {
+    // Ensure overlay is not left open from another screen.
+    blockingOverlay.hide();
+  }
   applyPlayModeSelectReturnIntent();
   window.addEventListener("keydown", onKeyDown);
 });
