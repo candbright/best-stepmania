@@ -21,11 +21,19 @@
 **新增 / 删除 / 重命名的目录**
 
 ```bash
-# 前端目录
+# 前端目录 (FSD 结构)
 ls -la src/
 ls -la src/screens/
-ls -la src/components/
-ls -la src/stores/
+ls -la src/shared/
+ls -la src/shared/ui/
+ls -la src/shared/layout/
+ls -la src/shared/composables/
+ls -la src/shared/stores/
+ls -la src/shared/services/tauri/
+ls -la src/shared/lib/
+ls -la src/entities/
+ls -la src/widgets/
+ls -la src/features/
 ls -la src/api/
 
 # Rust 目录

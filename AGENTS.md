@@ -76,33 +76,83 @@ cargo clippy --fix -W clippy::pedantic  # Auto-fix pedantic lints
 
 ---
 
-## Frontend Architecture (Componentization)
+## Frontend Architecture (FSD - Feature-Sliced Design)
+
+This project uses **Feature-Sliced Design (FSD)** to organize frontend code. FSD ensures clear separation of concerns and makes the codebase scalable and maintainable.
+
+### FSD Layer Structure
+```
+src/
+├── api/              # Tauri IPC wrappers (invoke calls)
+├── constants/        # App constants (gradeColors, appMeta, etc.)
+├── engine/           # Game engine (GameEngine, JudgmentSystem)
+├── entities/         # Business domain models (SongRow, PlayerSettingsPanel)
+├── features/         # Business features (settings rows, auth, etc.)
+├── i18n/             # Internationalization (en, zh)
+├── router/           # Vue Router configuration
+├── screens/          # Route pages (TitleScreen, GameplayScreen, etc.)
+│   └── [screen]/     # Screen-specific composables + sub-components
+├── shared/           # Cross-app shared code (FSD shared layer)
+│   ├── composables/  # Reusable composables (useConfirmDialog, etc.)
+│   ├── layout/       # Layout components (BackgroundVideo, CursorLayer)
+│   ├── lib/          # Shared libraries (sfx audio wrapper)
+│   ├── services/     # Service wrappers (tauri/ window, audio, diagnostics)
+│   ├── stores/       # Pinia stores (settings, library, player, etc.)
+│   └── ui/           # Base UI components (BaseModal, BaseSelect, etc.)
+├── utils/            # Pure helper functions (api, platform, themeCssBridge)
+└── widgets/          # Reusable business blocks (NoteField, MusicPlayer)
+```
 
 ### Layer Responsibilities
 | Layer | Responsibility |
 |-------|---------------|
-| **Pages** (`src/screens/`) | Composition shell, route-level logic, minimal presentation |
-| **Components** (`src/components/`) | Display, local interaction, props/emits |
-| **Composables** (`src/composables/`, `src/screens/*/`) | Complex reusable logic, local state |
-| **Stores** (`src/stores/`) | Global shared state only |
-| **Services** (`src/services/`) | Business logic, data transformation |
-| **Utils** (`src/utils/`) | Pure helper functions |
-| **API** (`src/api/`) | Tauri IPC wrappers only |
+| **shared/ui** | Generic UI primitives (BaseModal, BaseSelect, BaseTooltip) |
+| **shared/layout** | Global layout components (BackgroundVideo, CursorLayer) |
+| **shared/composables** | Reusable reactive logic (useConfirmDialog, useGlobalHotkeys) |
+| **shared/stores** | Global Pinia state (settings, library, player, session) |
+| **shared/services** | External service wrappers (Tauri IPC wrappers) |
+| **shared/lib** | Cross-app libraries (sfx audio) |
+| **entities** | Business domain models (SongRow, PlayModeStrip, SongHero) |
+| **widgets** | Reusable business blocks (NoteField, MusicPlayer, SettingsCard) |
+| **features** | Complete business features (SettingsSection with all row types) |
+| **screens** | Route-level page composition (TitleScreen, GameplayScreen) |
+| **api** | Tauri IPC command wrappers only |
+| **engine** | Game logic (GameEngine, JudgmentSystem) - NOT components |
+| **constants** | Static app constants |
+| **utils** | Pure functions (no side effects, no reactivity) |
+| **i18n** | Localization keys and translation functions |
+| **router** | Route definitions and navigation guards |
+
+### Key FSD Principles
+- **Shared = truly shared**: Code used by 2+ unrelated layers goes in `shared/`
+- **Entities = models**: Domain objects with no business logic (SongRow renders itself)
+- **Widgets = composed entities**: Business blocks combining entities (MusicPlayer uses SongRow)
+- **Features = user actions**: Complete feature slices (SettingsSection with all row variants)
+- **Screens = routes**: Page composition that orchestrates widgets/features
+- **Tauri calls = api only**: All `invoke()`, events, window control → `src/api/` or `src/shared/services/tauri/`
+
+### Naming Conventions
+- **Components**: `PascalCase.vue` (BaseModal.vue, NoteField.vue)
+- **Composables**: `camelCase.ts` (useConfirmDialog.ts)
+- **Stores**: `camelCase.ts` (settings.ts, library.ts)
+- **Screen subdirs**: `kebab-case/` (select-music/, gameplay/, editor/)
+- **Base components**: `Base*` prefix (BaseModal, BaseSelect, BaseConfirmModal)
 
 ### Key Principles
-- **Pages = composition**: Pages should mostly assemble components, not contain business logic
-- **Tauri calls unified**: All `invoke()`, events, window control, fs access → `src/api/` only. Never scatter in components
-- **Global state → Pinia**: Only shared state across screens goes in stores
-- **Local state → composables**: Page-specific state stays in page or its composables
+- **Pages = composition**: Screens should mostly assemble widgets/features, not contain business logic
+- **Tauri calls unified**: All `invoke()`, events, window control → `src/api/` only
+- **Global state → Pinia**: Only shared state across screens goes in `shared/stores/`
+- **Local state → composables**: Page-specific state in `screens/[name]/` or `shared/composables/`
 - **No over-splitting**: Keep reasonable granularity. Extract when there's clear reuse or clarity benefit
 - **Don't break contracts**: Never change existing Tauri IPC contracts or function signatures
 
 ### Code Smells to Avoid
-- Giant pages with mixed responsibilities
+- Giant screens with mixed responsibilities
 - Duplicate templates, logic, or styles
 - Store overloading (everything in one store)
 - Components directly manipulating global state
-- Tauri calls scattered in multiple components
+- Tauri calls scattered in components (should be in `api/` or `shared/services/`)
+- Putting business logic in `shared/` (only generic/shared code belongs there)
 
 ---
 
@@ -133,6 +183,8 @@ TitleScreen → SelectMusicScreen → PlayerOptionsScreen → GameplayScreen →
 | `session` | Current game session (selected song/chart) |
 | `library` | Song catalog, search, sorting, favorites |
 | `game` | Facade (backwards compat) — prefer sub-stores in new code |
+
+> **Location**: All stores are in `src/shared/stores/` (Pinia Composition API)
 
 ### Rust Crate Dependencies
 ```
@@ -170,11 +222,11 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 - **Audio preview**: `player.playSongAt(idx)` handles abortId race protection automatically
 - **Config persistence**: `config.rs` reads/writes `config.toml` via `AppState.data_dir`
 - **i18n**: Keys in `src/i18n/en.ts` / `zh.ts`; use `t('ns.key')`; never hardcode strings
-- **SFX**: `src/utils/sfx.ts` wraps Web Audio API
+- **SFX**: `src/shared/lib/sfx.ts` wraps Web Audio API
 - **NoteSkin pipeline**: `sm-noteskin` → IPC commands → `useNoteSkin()` composable → `NoteField.vue`
 - **Chart cache**: `ChartCache` in `lib.rs` is LRU (default 8 entries), configurable via `chart_cache_size`
 - **AppError**: `src-tauri/src/error.rs` defines `AppError` enum with `From<T>` impls for io/parse errors
-- **Song favorites**: `library` store (`src/stores/library.ts`) manages favorites state; IPC commands `toggle_favorite`, `is_favorite`, `get_favorites`, `cleanup_orphaned_favorites` in `profile` command group
+- **Song favorites**: `library` store (`src/shared/stores/library.ts`) manages favorites state; IPC commands `toggle_favorite`, `is_favorite`, `get_favorites`, `cleanup_orphaned_favorites` in `profile` command group
 - **Cursor position**: `src/utils/platform.ts` wraps Tauri `get_cursor_position` command — exception to "all IPC through `src/api/`" since it's a platform utility
 
 ---
@@ -186,6 +238,11 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 3. **New Rust crate**: Add to workspace root `Cargo.toml` `[workspace.members]` AND to `src-tauri/Cargo.toml` `[dependencies]`
 4. **New game mechanic**: Extend `JudgmentSystem` or `GameEngine` in `src/engine/`, NOT in screen components
 5. **New NoteSkin**: Add `NoteSkinConfig` to `sm-noteskin`, add commands, frontend loads via `useNoteSkin()`
+6. **New widget**: Add to `src/widgets/` if reusable across screens (NoteField, MusicPlayer pattern)
+7. **New entity**: Add to `src/entities/` if domain model with no business logic (SongRow pattern)
+8. **New feature**: Add to `src/features/<name>/` for complete business feature slices (settings pattern)
+9. **New base UI**: Add to `src/shared/ui/` if generic primitive (BaseModal, BaseSelect pattern)
+10. **New shared composable**: Add to `src/shared/composables/` if reusable across multiple features
 
 ---
 
