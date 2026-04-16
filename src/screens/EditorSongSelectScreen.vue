@@ -38,6 +38,38 @@ const showFilterModal = ref(false);
 const songScrollRef = ref<HTMLElement | null>(null);
 const refreshing = ref(false);
 
+// Resize state
+const songPanelWidth = ref(320);
+const isDragging = ref(false);
+const resizeHandleRef = ref<HTMLElement | null>(null);
+
+const MIN_SONG_PANEL_WIDTH = 200;
+const MIN_DETAIL_PANEL_WIDTH = 400;
+
+const startDrag = (_e: MouseEvent) => {
+  isDragging.value = true;
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', stopDrag);
+  document.body.style.userSelect = 'none';
+};
+
+const onDrag = (e: MouseEvent) => {
+  if (!isDragging.value) return;
+  const container = document.querySelector('.sms-body') as HTMLElement;
+  if (!container) return;
+  const containerRect = container.getBoundingClientRect();
+  const newWidth = e.clientX - containerRect.left;
+  const maxWidth = containerRect.width - MIN_DETAIL_PANEL_WIDTH;
+  songPanelWidth.value = Math.max(MIN_SONG_PANEL_WIDTH, Math.min(newWidth, maxWidth));
+};
+
+const stopDrag = () => {
+  isDragging.value = false;
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', stopDrag);
+  document.body.style.userSelect = '';
+};
+
 /** Last query passed to `navigateToEditorWithPrefetch` (for retry). */
 const pendingEditorRouteQuery = ref<Record<string, string> | undefined>(undefined);
 /** True after prefetch OK and `router.push("/editor")` — unmount must not clear primed session. */
@@ -557,7 +589,7 @@ onUnmounted(() => {
 
     <div class="sms-body">
       <!-- Song list -->
-      <div class="song-panel">
+      <div class="song-panel" :style="{ width: `${songPanelWidth}px` }">
         <div ref="songScrollRef" class="song-scroll">
           <SongPackList
             :groups="groupedSongs"
@@ -575,6 +607,14 @@ onUnmounted(() => {
           />
         </div>
       </div>
+
+      <!-- Resize handle -->
+      <div
+        ref="resizeHandleRef"
+        class="resize-handle"
+        :class="{ dragging: isDragging }"
+        @mousedown="startDrag"
+      />
 
       <!-- Detail panel -->
       <div class="detail-panel">
@@ -827,7 +867,7 @@ onUnmounted(() => {
 
 /* ── Song panel ── */
 .song-panel {
-  width: 320px; flex-shrink: 0;
+  flex-shrink: 0;
   display: flex; flex-direction: column;
   border-right: 1px solid var(--border-color);
   overflow: hidden;
@@ -838,6 +878,40 @@ onUnmounted(() => {
 .song-scroll::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--primary-color) 45%, transparent);
   border-radius: 2px;
+}
+
+/* ── Resize handle ── */
+.resize-handle {
+  width: 6px;
+  flex-shrink: 0;
+  background: var(--border-color);
+  cursor: col-resize;
+  transition: background 0.15s;
+  position: relative;
+}
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 32px;
+  background: color-mix(in srgb, var(--primary-color) 40%, transparent);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.resize-handle:hover,
+.resize-handle.dragging {
+  background: color-mix(in srgb, var(--primary-color) 50%, var(--border-color));
+}
+.resize-handle:hover::after,
+.resize-handle.dragging::after {
+  opacity: 1;
+}
+.resize-handle.dragging {
+  background: var(--primary-color);
 }
 
 /* Empty state */
