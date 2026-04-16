@@ -5,8 +5,8 @@ import {
   setUiSfxEnabled,
   setUiSfxStyle,
   setUiSfxVolume,
-} from "@/utils/sfx";
-import { useGameStore } from "@/stores/game";
+} from "@/shared/lib/sfx";
+import { useGameStore } from "@/shared/stores/game";
 
 type GameStore = ReturnType<typeof useGameStore>;
 

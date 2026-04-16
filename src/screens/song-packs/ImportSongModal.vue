@@ -3,9 +3,9 @@ import { ref, watch, computed } from "vue";
 import { useI18n } from "@/i18n";
 import { openFileDialog } from "@/utils/platform";
 import type { SongPackInfo } from "@/utils/api";
-import BaseModal from "@/components/BaseModal.vue";
-import CustomSelect from "@/components/CustomSelect.vue";
-import AppNumberField from "@/components/AppNumberField.vue";
+import BaseModal from "@/shared/ui/BaseModal.vue";
+import CustomSelect from "@/shared/ui/BaseSelect.vue";
+import AppNumberField from "@/shared/ui/BaseNumberField.vue";
 
 const props = defineProps<{
   show: boolean;

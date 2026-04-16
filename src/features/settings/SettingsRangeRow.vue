@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import HelpTooltip from "@/components/HelpTooltip.vue";
+import HelpTooltip from "@/shared/ui/BaseTooltip.vue";
 
 const props = withDefaults(
   defineProps<{

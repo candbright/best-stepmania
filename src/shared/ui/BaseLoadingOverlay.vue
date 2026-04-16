@@ -5,7 +5,7 @@
 import { watch, onUnmounted, computed } from "vue";
 import { useI18n } from "@/i18n";
 import { isTauri } from "@/utils/platform";
-import { closeTauriMainWindow, logCloseMainWindowFailure } from "@/services/tauri/window";
+import { closeTauriMainWindow, logCloseMainWindowFailure } from "@/shared/services/tauri/window";
 
 const open = defineModel<boolean>("open", { default: false });
 

@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from "vue";
-import { useModalBottomHintLayout } from "@/composables/useModalBottomHintLayout";
-import { useGameStore } from "@/stores/game";
-import { usePlayerStore } from "@/stores/player";
+import { useModalBottomHintLayout } from "@/shared/composables/useModalBottomHintLayout";
+import { useGameStore } from "@/shared/stores/game";
+import { usePlayerStore } from "@/shared/stores/player";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import { openFileDialog } from "@/utils/platform";
-import CustomSelect from "@/components/CustomSelect.vue";
-import AppNumberField from "@/components/AppNumberField.vue";
+import CustomSelect from "@/shared/ui/BaseSelect.vue";
+import AppNumberField from "@/shared/ui/BaseNumberField.vue";
 import type { Ref } from "vue";
 
 const props = withDefaults(

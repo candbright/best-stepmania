@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, inject, watch } from "vue";
 import { useI18n } from "@/i18n";
-import { useGameStore } from "@/stores/game";
+import { useGameStore } from "@/shared/stores/game";
 import type { RhythmSfxStyle } from "@/api/config";
-import HelpTooltip from "@/components/HelpTooltip.vue";
-import CustomSelect from "@/components/CustomSelect.vue";
-import AppNumberField from "@/components/AppNumberField.vue";
-import SettingsSection from "@/components/settings/SettingsSection.vue";
-import SettingsRangeRow from "@/components/settings/SettingsRangeRow.vue";
+import HelpTooltip from "@/shared/ui/BaseTooltip.vue";
+import CustomSelect from "@/shared/ui/BaseSelect.vue";
+import AppNumberField from "@/shared/ui/BaseNumberField.vue";
+import SettingsSection from "@/features/settings/SettingsSection.vue";
+import SettingsRangeRow from "@/features/settings/SettingsRangeRow.vue";
 import { OPTIONS_PANEL_SFX } from "./injectionKeys";
 
 const { t } = useI18n();

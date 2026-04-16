@@ -1,8 +1,8 @@
 import * as api from "@/utils/api";
 import { logOptionalRejection } from "@/utils/devLog";
-import { useGameStore } from "@/stores/game";
-import { usePlayerStore } from "@/stores/player";
-import { useSessionStore } from "@/stores/session";
+import { useGameStore } from "@/shared/stores/game";
+import { usePlayerStore } from "@/shared/stores/player";
+import { useSessionStore } from "@/shared/stores/session";
 
 /**
  * Run editor IPC prep on the **current** screen (song select), then navigate to `/editor`.

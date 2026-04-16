@@ -1,6 +1,6 @@
 import type { Router } from "vue-router";
-import { useGameStore } from "@/stores/game";
-import { usePlayerStore } from "@/stores/player";
+import { useGameStore } from "@/shared/stores/game";
+import { usePlayerStore } from "@/shared/stores/player";
 import * as api from "@/utils/api";
 import { logOptionalRejection } from "@/utils/devLog";
 import type { EditorCanvas } from "../useEditorCanvas";

@@ -1,5 +1,5 @@
-import { useGameStore } from "@/stores/game";
-import { usePlayerStore } from "@/stores/player";
+import { useGameStore } from "@/shared/stores/game";
+import { usePlayerStore } from "@/shared/stores/player";
 import type { SongListItem } from "@/utils/api";
 
 /**

@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import FilterModal from "./select-music/FilterModal.vue";
-import TwoStepDangerModal from "@/components/TwoStepDangerModal.vue";
+import TwoStepDangerModal from "@/shared/ui/BaseConfirmModal.vue";
+import SongPackList from "@/entities/SongPackList.vue";
+import SongHero from "@/entities/SongHero.vue";
+import SongChartList from "@/entities/SongChartList.vue";
+import TopScores from "@/widgets/TopScores.vue";
 import { useSelectMusicScreen } from "./select-music/useSelectMusicScreen";
 
 const {
@@ -75,115 +79,63 @@ void songScrollRef;
       <!-- Song list -->
       <div class="song-panel">
         <div ref="songScrollRef" class="song-scroll">
-          <div v-for="group in groupedSongs" :key="group.packKey" class="pack-group">
-            <button class="pack-header" @click="togglePack(group.packKey)">
-              <span class="pack-arrow" :class="{ open: !collapsedPacks.has(group.packKey) }">▶</span>
-              <span class="pack-name">{{ group.packLabel }}</span>
-              <span class="pack-count">{{ group.songs.length }}</span>
-            </button>
-            <div v-if="!collapsedPacks.has(group.packKey)" class="pack-songs">
-              <div
-                v-if="group.packKey === ROOT_PACK_KEY && group.songs.length === 0 && game.songs.length === 0"
-                class="empty-state empty-state--in-pack"
-              >
-                <div class="empty-icon">♪</div>
-                <p class="empty-title">{{ t('select.noSongs') }}</p>
-              </div>
-              <div
-                v-for="{ song, idx } in group.songs"
-                :key="song.path"
-                class="song-row"
-                :class="{ selected: game.currentSongIndex === idx }"
-                role="button"
-                tabindex="0"
-                @click="selectSong(idx)"
-                @dblclick="confirmSelection"
-                @keydown.enter.prevent="confirmSelection"
-                @keydown.space.prevent="selectSong(idx)"
-              >
-                <button class="fav-star" :class="{ active: isFavorite(song.path) }" @click.stop="toggleFavorite(song.path)">★</button>
-                <div class="song-thumb">
-                  <img v-if="bannerCache[song.path]" :src="bannerCache[song.path]" class="thumb-img" />
-                  <div v-else class="thumb-ph" :style="{ '--h': idx * 37 % 360 }">{{ song.title[0] }}</div>
-                </div>
-                <div class="song-text">
-                  <div class="song-name">{{ song.title }}</div>
-                  <div class="song-artist">{{ song.artist }}</div>
-                </div>
-                <div class="song-bpm">{{ song.displayBpm }}</div>
-              </div>
-            </div>
-          </div>
+          <SongPackList
+            :groups="groupedSongs"
+            :rootPackKey="ROOT_PACK_KEY"
+            :collapsedPacks="collapsedPacks"
+            :selectedIndex="game.currentSongIndex"
+            :bannerCache="bannerCache"
+            :isCurrentRootEmpty="game.songs.length === 0"
+            :isFavorite="isFavorite"
+            :noSongsLabel="t('select.noSongs')"
+            @togglePack="togglePack"
+            @selectSong="selectSong"
+            @confirmSong="confirmSelection"
+            @toggleFavorite="toggleFavorite"
+          />
         </div>
       </div>
 
       <!-- Detail panel -->
       <div class="detail-panel">
         <template v-if="game.currentSong">
-          <div class="hero">
-            <div class="hero-art">
-              <img v-if="bannerCache[game.currentSong.path]" :src="bannerCache[game.currentSong.path]" class="hero-img" />
-              <div v-else class="hero-ph" :style="{ '--h': game.currentSongIndex * 37 % 360 }">{{ game.currentSong.title[0] }}</div>
-              <button type="button" class="hero-fav-tag" :class="{ active: isFavorite(game.currentSong.path) }" @click.stop="toggleFavorite(game.currentSong.path)" :aria-label="t('select.favorites')">
-                <span class="hero-fav-tag-icon" />
-              </button>
-              <div class="hero-fade" />
-            </div>
-            <div class="hero-info">
-              <h2 class="hero-title">{{ game.currentSong.title }}</h2>
-              <p v-if="game.currentSong.subtitle" class="hero-subtitle">{{ game.currentSong.subtitle }}</p>
-              <p class="hero-artist">{{ game.currentSong.artist }}</p>
-              <span class="bpm-badge">♪ {{ game.currentSong.displayBpm }} {{ t('select.bpmUnit') }}</span>
-            </div>
-          </div>
+          <SongHero
+            :title="game.currentSong.title"
+            :subtitle="game.currentSong.subtitle"
+            :artist="game.currentSong.artist"
+            :displayBpm="`${game.currentSong.displayBpm} ${t('select.bpmUnit')}`"
+            :bannerUrl="bannerCache[game.currentSong.path]"
+            :hue="game.currentSongIndex * 37 % 360"
+            :isFavorite="isFavorite(game.currentSong.path)"
+            :favoriteLabel="t('select.favorites')"
+            @toggleFavorite="toggleFavorite(game.currentSong.path)"
+          />
 
           <div class="detail-panel-inner">
-            <div class="section-label">{{ t('select.charts') }}</div>
-            <div class="diff-list">
-              <button
-                v-for="chart in filteredCharts"
-                :key="chart.chartIndex"
-                type="button"
-                class="diff-btn"
-                :class="{ active: chart.chartIndex === game.currentChartIndex }"
-                :style="{ '--dc': DIFF_COLORS[chart.difficulty] || '#888' }"
-                @click="game.selectChart(chart.chartIndex)"
-              >
-                <span class="diff-gem" />
-                <span class="diff-name">{{ difficultyLabel(chart.difficulty) }}</span>
-                <span class="diff-meter">{{ chart.meter }}</span>
-                <span class="diff-type">{{ stepsTypeLabel(chart.stepsType) }}</span>
-                <span class="diff-notes">{{ chart.noteCount }} {{ t('select.notes') }}</span>
-              </button>
-              <div v-if="filteredCharts.length === 0" class="no-charts">{{ t('select.noMatchingCharts') }}</div>
-            </div>
+            <SongChartList
+              :charts="filteredCharts"
+              :currentChartIndex="game.currentChartIndex"
+              :difficultyColors="DIFF_COLORS"
+              :difficultyLabel="difficultyLabel"
+              :stepsTypeLabel="stepsTypeLabel"
+              :chartsLabel="t('select.charts')"
+              :notesLabel="t('select.notes')"
+              :noMatchingChartsLabel="t('select.noMatchingCharts')"
+              @selectChart="game.selectChart($event)"
+            />
 
-            <div v-if="game.topScores.length > 0" class="top-scores">
-              <div class="top-scores-head">
-                <div class="section-label">{{ t('select.topScores') }}</div>
-                <button
-                  type="button"
-                  class="clear-top-scores-btn"
-                  :disabled="clearingTopScores || !game.profileId"
-                  @click="onClearTopScores"
-                >
-                  {{ t('select.clearTopScores') }}
-                </button>
-              </div>
-              <ul class="top-scores-list">
-                <li
-                  v-for="(row, idx) in game.topScores"
-                  :key="`${row.playedAt}-${idx}`"
-                  class="score-row"
-                >
-                  <span class="rank">{{ idx + 1 }}</span>
-                  <span class="grade" :style="gradeTextGradientStyle(row.grade)">{{ row.grade }}</span>
-                  <span class="pct">{{ displayPercentFromDpRatio(row.dpPercent).toFixed(2) }}%</span>
-                  <span v-if="row.fullCombo" class="fc-badge">{{ t('select.fullComboBadge') }}</span>
-                  <span class="played-at">{{ formatPlayedAt(row.playedAt) }}</span>
-                </li>
-              </ul>
-            </div>
+            <TopScores
+              :topScores="game.topScores"
+              :profileId="game.profileId"
+              :clearingTopScores="clearingTopScores"
+              :displayPercentFromDpRatio="displayPercentFromDpRatio"
+              :gradeTextGradientStyle="gradeTextGradientStyle"
+              :formatPlayedAt="formatPlayedAt"
+              :title="t('select.topScores')"
+              :clearLabel="t('select.clearTopScores')"
+              :fullComboLabel="t('select.fullComboBadge')"
+              @clear="onClearTopScores"
+            />
           </div>
 
           <div class="action-row">

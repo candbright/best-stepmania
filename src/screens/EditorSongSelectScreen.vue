@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useGameStore } from "@/stores/game";
-import { usePlayerStore } from "@/stores/player";
-import { useLibraryStore } from "@/stores/library";
+import { useGameStore } from "@/shared/stores/game";
+import { usePlayerStore } from "@/shared/stores/player";
+import { useLibraryStore } from "@/shared/stores/library";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import type { SongListItem } from "@/utils/api";
-import { playMenuMove, playMenuBack, setUiSfxVolume } from "@/utils/sfx";
+import { playMenuMove, playMenuBack, setUiSfxVolume } from "@/shared/lib/sfx";
 import { openDirectoryDialog, isTauri } from "@/utils/platform";
 
 import CreateSongModal from "./select-music/CreateSongModal.vue";
@@ -16,8 +16,8 @@ import { syncSelectionToFilteredSongs } from "./select-music/syncSelectionToFilt
 import DeleteSongModal from "./song-packs/DeleteSongModal.vue";
 import { ensureMinElapsed } from "@/utils/loadingGate";
 import { primeEditorEntryResources } from "./editor/editorEntryPrefetch";
-import { useSessionStore } from "@/stores/session";
-import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
+import { useSessionStore } from "@/shared/stores/session";
+import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { PHYSICAL_ROOT_PACK } from "@/constants/songLibrary";
 
 const router = useRouter();

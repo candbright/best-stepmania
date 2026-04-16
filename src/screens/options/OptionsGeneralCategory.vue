@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { useI18n } from "@/i18n";
-import { useGameStore } from "@/stores/game";
-import SettingsSection from "@/components/settings/SettingsSection.vue";
-import SettingsSelectRow from "@/components/settings/SettingsSelectRow.vue";
+import { useGameStore } from "@/shared/stores/game";
+import SettingsSection from "@/features/settings/SettingsSection.vue";
+import SettingsSelectRow from "@/features/settings/SettingsSelectRow.vue";
 import { APP_THEME_IDS } from "@/constants/appThemes";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
 

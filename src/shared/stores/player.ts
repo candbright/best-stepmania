@@ -9,7 +9,7 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import type { SongListItem } from "@/utils/api";
 import * as api from "@/utils/api";
-import { getDefaultMusicTrack } from "@/utils/defaultMusic";
+import { getDefaultMusicTrack } from "@/entities/player/defaultMusic";
 import { logOptionalRejection } from "@/utils/devLog";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused";

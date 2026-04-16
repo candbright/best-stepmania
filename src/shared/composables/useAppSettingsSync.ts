@@ -6,11 +6,11 @@ import {
   setUiSfxEnabled,
   setUiSfxStyle,
   setUiSfxVolume,
-} from "@/utils/sfx";
+} from "@/shared/lib/sfx";
 import { logOptionalRejection } from "@/utils/devLog";
-import { syncAudioVolume } from "@/services/tauri/audio";
-import { applyWindowPreset } from "@/services/tauri/window";
-import { useGameStore } from "@/stores/game";
+import { syncAudioVolume } from "@/shared/services/tauri/audio";
+import { applyWindowPreset } from "@/shared/services/tauri/window";
+import { useGameStore } from "@/shared/stores/game";
 
 type GameStore = ReturnType<typeof useGameStore>;
 

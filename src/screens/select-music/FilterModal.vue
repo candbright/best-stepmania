@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useI18n } from "@/i18n";
-import { useModalBottomHintLayout } from "@/composables/useModalBottomHintLayout";
-import CustomSelect from "@/components/CustomSelect.vue";
-import AppNumberField from "@/components/AppNumberField.vue";
+import { useModalBottomHintLayout } from "@/shared/composables/useModalBottomHintLayout";
+import CustomSelect from "@/shared/ui/BaseSelect.vue";
+import AppNumberField from "@/shared/ui/BaseNumberField.vue";
 
 /** Same three modes as TitleScreen → enter game (pump only; no dance charts in this flow). */
 const STEPS_TYPE_OPTIONS = ["pump-single", "pump-double", "pump-routine"] as const;

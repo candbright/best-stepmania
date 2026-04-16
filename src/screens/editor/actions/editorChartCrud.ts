@@ -1,4 +1,4 @@
-import { useGameStore } from "@/stores/game";
+import { useGameStore } from "@/shared/stores/game";
 import * as api from "@/utils/api";
 import { logOptionalRejection } from "@/utils/devLog";
 import type { SaveChartNote } from "@/utils/api";

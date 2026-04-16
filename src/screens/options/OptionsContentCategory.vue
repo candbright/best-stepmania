@@ -2,7 +2,7 @@
 import { inject } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/i18n";
-import SettingsSection from "@/components/settings/SettingsSection.vue";
+import SettingsSection from "@/features/settings/SettingsSection.vue";
 import { OPTIONS_PANEL_SFX } from "./injectionKeys";
 
 const router = useRouter();

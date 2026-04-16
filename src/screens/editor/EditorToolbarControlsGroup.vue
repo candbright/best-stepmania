@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "@/i18n";
-import CustomSelect from "@/components/CustomSelect.vue";
+import CustomSelect from "@/shared/ui/BaseSelect.vue";
 import { EDITOR_QUANTIZE_LEVELS, RATE_OPTIONS } from "./constants";
 import type { ShortcutId } from "@/engine/keyBindings";
 

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
 import type { GameEngine, NoteFieldExposed, PanelConfig } from "@/engine";
-import type { PlayMode } from "@/stores/session";
+import type { PlayMode } from "@/shared/stores/session";
 import type { RoutinePlayerColorId } from "@/constants/routinePlayerColors";
 import { routineColorHex } from "@/constants/routinePlayerColors";
 import type { NoteSkinSnapshot } from "@/api";
-import { trackColorForSkin } from "@/stores/noteskin";
+import { trackColorForSkin } from "@/shared/stores/noteskin";
 import type { PerPlayerConfig } from "@/engine/types";
 import {
   buildPanels,

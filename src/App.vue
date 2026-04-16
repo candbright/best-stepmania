@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import MusicPlayer from "@/components/MusicPlayer.vue";
-import AppLoadingOverlay from "@/components/AppLoadingOverlay.vue";
-import CursorLayer from "@/components/CursorLayer.vue";
-import { useGameStore } from "@/stores/game";
-import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
-import { useGlobalSfxBridge } from "@/composables/useGlobalSfxBridge";
-import { useGlobalHotkeys } from "@/composables/useGlobalHotkeys";
+import MusicPlayer from "@/widgets/MusicPlayer.vue";
+import AppLoadingOverlay from "@/shared/ui/BaseLoadingOverlay.vue";
+import CursorLayer from "@/shared/layout/CursorLayer.vue";
+import { useGameStore } from "@/shared/stores/game";
+import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
+import { useGlobalSfxBridge } from "@/shared/composables/useGlobalSfxBridge";
+import { useGlobalHotkeys } from "@/shared/composables/useGlobalHotkeys";
 
 const router = useRouter();
 const route = useRoute();

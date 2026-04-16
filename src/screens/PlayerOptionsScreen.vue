@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useGameStore } from "@/stores/game";
+import { useGameStore } from "@/shared/stores/game";
 import type { ChartInfoItem } from "@/utils/api";
 import { useI18n } from "@/i18n";
 import { listNoteskins } from "@/api";
-import SettingsCard from "@/components/SettingsCard.vue";
+import SettingsCard from "@/widgets/SettingsCard.vue";
 import { ROUTINE_PLAYER_COLORS, type RoutinePlayerColorId } from "@/constants/routinePlayerColors";
 import { logOptionalRejection } from "@/utils/devLog";
 import { chartFitsPlayMode } from "@/utils/chartPlayMode";
-import { setMetronomeSfxEnabled, setRhythmSfxEnabled, setUiSfxEnabled } from "@/utils/sfx";
+import { setMetronomeSfxEnabled, setRhythmSfxEnabled, setUiSfxEnabled } from "@/shared/lib/sfx";
 
 const router = useRouter();
 const game = useGameStore();

@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { useI18n } from "@/i18n";
-import { useGameStore } from "@/stores/game";
-import SettingsSection from "@/components/settings/SettingsSection.vue";
-import KeyChordPicker from "@/components/KeyChordPicker.vue";
+import { useGameStore } from "@/shared/stores/game";
+import SettingsSection from "@/features/settings/SettingsSection.vue";
+import KeyChordPicker from "@/widgets/KeyChordPicker.vue";
 import type { KeyChord, ShortcutId } from "@/engine/keyBindings";
 import {
   SHORTCUT_DEFAULTS,

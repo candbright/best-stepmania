@@ -10,9 +10,9 @@ import {
   snapBeatFromState,
   yToBeatFromState,
 } from "./editorCanvasMath";
-import { useSessionStore } from "@/stores/session";
+import { useSessionStore } from "@/shared/stores/session";
 import { getThemeBgHex } from "@/utils/themeCssBridge";
-import { playBeatLine, playRhythmLaneApproach } from "@/utils/sfx";
+import { playBeatLine, playRhythmLaneApproach } from "@/shared/lib/sfx";
 import { drawEditorLaneShape, drawEditorReceptor } from "./editorCanvasNoteShapes";
 import {
   drawEditorWaveformPanel,

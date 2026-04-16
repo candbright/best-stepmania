@@ -1,4 +1,4 @@
-import { useGameStore } from "@/stores/game";
+import { useGameStore } from "@/shared/stores/game";
 import type { ShortcutId } from "@/engine/keyBindings";
 import type { EditorState } from "../useEditorState";
 import {

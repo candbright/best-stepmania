@@ -1,8 +1,8 @@
 import type { Router } from "vue-router";
 import type { RouteLocationNormalizedLoaded } from "vue-router";
-import { playMenuBack } from "@/utils/sfx";
-import { useGameStore } from "@/stores/game";
-import { useSessionStore } from "@/stores/session";
+import { playMenuBack } from "@/shared/lib/sfx";
+import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
 
 type GameStore = ReturnType<typeof useGameStore>;
 type SessionStore = ReturnType<typeof useSessionStore>;

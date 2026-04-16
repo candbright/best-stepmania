@@ -1,6 +1,6 @@
 import type { NavigationGuard } from "vue-router";
-import { usePlayerStore } from "@/stores/player";
-import { useSessionStore } from "@/stores/session";
+import { usePlayerStore } from "@/shared/stores/player";
+import { useSessionStore } from "@/shared/stores/session";
 
 /** Pause / resume title music when entering or leaving the options screen from the title route. */
 export const titleOptionsMusicGuard: NavigationGuard = (to, from) => {

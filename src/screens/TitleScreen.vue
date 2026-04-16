@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/i18n";
-import { useGameStore } from "@/stores/game";
-import { useSessionStore } from "@/stores/session";
-import { usePlayerStore } from "@/stores/player";
-import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
+import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
+import { usePlayerStore } from "@/shared/stores/player";
+import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { onBeforeMount, onMounted, onUnmounted, ref, watch, nextTick, computed } from "vue";
-import { applyGameplayRhythmSfxSettings, playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/utils/sfx";
+import { applyGameplayRhythmSfxSettings, playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/shared/lib/sfx";
 import * as api from "@/utils/api";
 import { initScoringConfig } from "@/engine/types";
 import { isTauri } from "@/utils/platform";
-import { applyWindowPreset, closeTauriMainWindow, tryCloseWebTab } from "@/services/tauri/window";
+import { applyWindowPreset, closeTauriMainWindow, tryCloseWebTab } from "@/shared/services/tauri/window";
 import { applyPlayModeSelection } from "@/utils/applyPlayModeSelection";
-import PlayModeStrip from "@/components/PlayModeStrip.vue";
+import PlayModeStrip from "@/entities/PlayModeStrip.vue";
 import type { SessionPlayMode } from "@/utils/chartPlayMode";
 
 const router = useRouter();

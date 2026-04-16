@@ -1,5 +1,5 @@
 import type { InjectionKey } from "vue";
-import type { ConfirmDialogRequest } from "@/composables/useConfirmDialog";
+import type { ConfirmDialogRequest } from "@/shared/composables/useConfirmDialog";
 
 export interface OptionsPanelSfx {
   playControlClickSfx: () => void;

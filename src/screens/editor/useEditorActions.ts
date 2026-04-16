@@ -3,16 +3,16 @@
 // metadata, BPM management, keyboard/mouse handlers.
 
 import { useRouter, type RouteLocationNormalizedLoaded } from "vue-router";
-import { useGameStore } from "@/stores/game";
-import { usePlayerStore } from "@/stores/player";
-import { useSessionStore } from "@/stores/session";
+import { useGameStore } from "@/shared/stores/game";
+import { usePlayerStore } from "@/shared/stores/player";
+import { useSessionStore } from "@/shared/stores/session";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import { logOptionalRejection } from "@/utils/devLog";
 import type { EditorState } from "./useEditorState";
 import type { EditorCanvas } from "./useEditorCanvas";
 import { defaultQuantizeFromTimeSignatures } from "./quantizeFromTimeSignature";
-import { serializeEditorChartPersist, serializeEditorMetaPersist } from "@/utils/editorChartBackup";
+import { serializeEditorChartPersist, serializeEditorMetaPersist } from "@/screens/editor/editorChartBackup";
 import { createEditorUndoQuantize } from "./actions/editorUndoQuantize";
 import { createEditorChartLoading } from "./actions/editorChartLoading";
 import { createEditorChartCrud } from "./actions/editorChartCrud";

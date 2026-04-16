@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRouter } from "vue-router";
-import { useGameStore } from "@/stores/game";
+import { useGameStore } from "@/shared/stores/game";
 import { useI18n } from "@/i18n";
 import { displayPercentFromDpRatio } from "@/engine/types";
-import { gradeTextGradientStyle } from "@/utils/gradeColors";
+import { gradeTextGradientStyle } from "@/constants/gradeColors";
 
 const router = useRouter();
 const game = useGameStore();

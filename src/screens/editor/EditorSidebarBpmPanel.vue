@@ -2,7 +2,7 @@
 import { useI18n } from "@/i18n";
 import type { BpmChange } from "./useEditorState";
 import { BPM_BEAT_MATCH_EPS } from "./constants";
-import AppNumberField from "@/components/AppNumberField.vue";
+import AppNumberField from "@/shared/ui/BaseNumberField.vue";
 
 const { t } = useI18n();
 

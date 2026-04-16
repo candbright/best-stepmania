@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from "vue";
-import { useCursorLayer } from "@/composables/useCursorLayer";
+import { useCursorLayer } from "@/shared/composables/useCursorLayer";
 
 const {
   game,

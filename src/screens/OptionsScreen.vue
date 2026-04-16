@@ -2,18 +2,18 @@
 import { ref, onUnmounted, onMounted, provide } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/i18n";
-import { useGameStore } from "@/stores/game";
-import { useLibraryStore } from "@/stores/library";
+import { useGameStore } from "@/shared/stores/game";
+import { useLibraryStore } from "@/shared/stores/library";
 import {
   previewMetronomeSfx,
   previewRhythmSfx,
   previewUiSfx,
-} from "@/utils/sfx";
+} from "@/shared/lib/sfx";
 import { logOptionalRejection } from "@/utils/devLog";
-import { useConfirmDialog } from "@/composables/useConfirmDialog";
-import { useSettingsSaveQueue } from "@/composables/useSettingsSaveQueue";
-import { useAppSettingsSync } from "@/composables/useAppSettingsSync";
-import { useSfxPreviewGate } from "@/composables/useSfxPreviewGate";
+import { useConfirmDialog } from "@/shared/composables/useConfirmDialog";
+import { useSettingsSaveQueue } from "@/shared/composables/useSettingsSaveQueue";
+import { useAppSettingsSync } from "@/shared/composables/useAppSettingsSync";
+import { useSfxPreviewGate } from "@/shared/composables/useSfxPreviewGate";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX, type OptionsPanelSfx } from "./options/injectionKeys";
 import OptionsContentCategory from "./options/OptionsContentCategory.vue";
 import OptionsAudioCategory from "./options/OptionsAudioCategory.vue";

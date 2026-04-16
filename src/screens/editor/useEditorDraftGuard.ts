@@ -2,8 +2,8 @@ import { computed, nextTick, ref, watch } from "vue";
 import { defaultQuantizeFromTimeSignatures } from "./quantizeFromTimeSignature";
 import type { EditorState } from "./useEditorState";
 import type { EditorCanvas } from "./useEditorCanvas";
-import type { useGameStore } from "@/stores/game";
-import type { EditorChartBackupStored } from "@/utils/editorChartBackup";
+import type { useGameStore } from "@/shared/stores/game";
+import type { EditorChartBackupStored } from "@/screens/editor/editorChartBackup";
 import {
   applyEditorChartBackupToState,
   clearEditorChartBackup,
@@ -12,7 +12,7 @@ import {
   serializeEditorChartPersist,
   serializeEditorMetaPersist,
   writeEditorChartBackup,
-} from "@/utils/editorChartBackup";
+} from "@/screens/editor/editorChartBackup";
 
 type GameStore = ReturnType<typeof useGameStore>;
 

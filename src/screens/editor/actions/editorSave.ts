@@ -1,7 +1,7 @@
-import { useGameStore } from "@/stores/game";
+import { useGameStore } from "@/shared/stores/game";
 import * as api from "@/utils/api";
 import type { SaveChartNote } from "@/utils/api";
-import { clearEditorChartBackup } from "@/utils/editorChartBackup";
+import { clearEditorChartBackup } from "@/screens/editor/editorChartBackup";
 import type { EditorState } from "../useEditorState";
 
 type GameStore = ReturnType<typeof useGameStore>;

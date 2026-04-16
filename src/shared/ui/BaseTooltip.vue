@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useI18n } from "@/i18n";
-import BaseModal from "@/components/BaseModal.vue";
+import BaseModal from "@/shared/ui/BaseModal.vue";
 
 const props = defineProps<{ helpKey: string }>();
 const { t } = useI18n();

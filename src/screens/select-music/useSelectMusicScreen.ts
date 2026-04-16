@@ -1,17 +1,17 @@
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useGameStore } from "@/stores/game";
-import { useSessionStore } from "@/stores/session";
-import { usePlayerStore } from "@/stores/player";
-import { useLibraryStore } from "@/stores/library";
+import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
+import { usePlayerStore } from "@/shared/stores/player";
+import { useLibraryStore } from "@/shared/stores/library";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
-import { playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/utils/sfx";
+import { playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/shared/lib/sfx";
 import { syncSelectionToFilteredSongs } from "./syncSelectionToFilteredSongs";
 import { ensureMinElapsed } from "@/utils/loadingGate";
-import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
+import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { displayPercentFromDpRatio } from "@/engine/types";
-import { gradeTextGradientStyle } from "@/utils/gradeColors";
+import { gradeTextGradientStyle } from "@/constants/gradeColors";
 import { chartFitsPlayMode } from "@/utils/chartPlayMode";
 import { PHYSICAL_ROOT_PACK } from "@/constants/songLibrary";
 

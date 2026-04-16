@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { useGameStore } from "@/stores/game";
-import { usePlayerStore } from "@/stores/player";
-import { useSessionStore } from "@/stores/session";
+import { useGameStore } from "@/shared/stores/game";
+import { usePlayerStore } from "@/shared/stores/player";
+import { useSessionStore } from "@/shared/stores/session";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import {
@@ -18,13 +18,13 @@ import EditorSidebar from "./editor/EditorSidebar.vue";
 import EditorStatusBar from "./editor/EditorStatusBar.vue";
 import EditorPromptModals from "./editor/EditorPromptModals.vue";
 import { ensureMinElapsed } from "@/utils/loadingGate";
-import { useBlockingOverlayStore } from "@/stores/blockingOverlay";
+import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { routineColorHex } from "@/constants/routinePlayerColors";
 import { logOptionalRejection } from "@/utils/devLog";
-import TwoStepDangerModal from "@/components/TwoStepDangerModal.vue";
-import BaseModal from "@/components/BaseModal.vue";
-import CustomSelect from "@/components/CustomSelect.vue";
-import AppNumberField from "@/components/AppNumberField.vue";
+import TwoStepDangerModal from "@/shared/ui/BaseConfirmModal.vue";
+import BaseModal from "@/shared/ui/BaseModal.vue";
+import CustomSelect from "@/shared/ui/BaseSelect.vue";
+import AppNumberField from "@/shared/ui/BaseNumberField.vue";
 import { formatBinding, mergeShortcutBindings } from "@/engine/keyBindings";
 import type { ShortcutId } from "@/engine/keyBindings";
 import { useEditorDraftGuard } from "./editor/useEditorDraftGuard";

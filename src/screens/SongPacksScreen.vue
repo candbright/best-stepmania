@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { useGameStore } from "@/stores/game";
-import { usePlayerStore } from "@/stores/player";
-import { useLibraryStore } from "@/stores/library";
+import { useGameStore } from "@/shared/stores/game";
+import { usePlayerStore } from "@/shared/stores/player";
+import { useLibraryStore } from "@/shared/stores/library";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import type { SongPackInfo, SongListItem } from "@/utils/api";

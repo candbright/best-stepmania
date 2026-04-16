@@ -1,5 +1,5 @@
 import type { WindowDisplayPresetId } from "@/constants/windowDisplay";
-import { applyWindowDisplayPreset } from "@/utils/applyWindowDisplay";
+import { applyWindowDisplayPreset } from "@/shared/services/tauri/applyWindowDisplay";
 import { logOptionalRejection } from "@/utils/devLog";
 
 export interface WindowPresetSize {

@@ -1,6 +1,6 @@
 import { ref, shallowRef, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useGameStore } from "@/stores/game";
+import { useGameStore } from "@/shared/stores/game";
 import { GameEngine } from "@/engine/GameEngine";
 import { createTauriAudioPort } from "@/engine";
 import { keyMapLookupTrack, resolveGameplayKeyMap10 } from "@/engine/keyBindings";
@@ -10,13 +10,13 @@ import * as api from "@/utils/api";
 import { getIpcInvokeSnapshot } from "@/utils/api";
 import type { TimingDataResponse } from "@/api/editor";
 import type { ChartTimingSlice } from "@/engine/chartTiming";
-import { useNoteSkin } from "@/stores/noteskin";
+import { useNoteSkin } from "@/shared/stores/noteskin";
 import {
   applyGameplayRhythmSfxSettings,
   playCountdown,
   playCountdownGo,
   playRhythmLaneApproach,
-} from "@/utils/sfx";
+} from "@/shared/lib/sfx";
 import { devWarn, logOptionalRejection } from "@/utils/devLog";
 import { useI18n } from "@/i18n";
 import { playModeAndCoopForStepsType } from "@/utils/chartPlayMode";
