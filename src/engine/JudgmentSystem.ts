@@ -219,8 +219,7 @@ export class JudgmentSystem {
           finished: false,
           isRoll,
           lastRollTick: 0,
-          broken: false,
-          brokenAtSecond: null,
+          letGo: false,
         });
       }
     }
@@ -523,13 +522,13 @@ export class JudgmentSystem {
         }
       } else {
         const down = keysDown[hold.track] ?? false;
-        if (!this.config.autoPlay && !hold.broken && hold.held && !down) {
-          hold.broken = true;
-          hold.brokenAtSecond = currentSecond;
-        }
-        if (hold.broken) {
+        if (hold.letGo && down && hold.held) {
+          hold.letGo = false;
+          hold.held = true;
+        } else if (!down && hold.held && !hold.letGo) {
+          hold.letGo = true;
           hold.held = false;
-        } else {
+        } else if (!hold.letGo) {
           hold.held = this.config.autoPlay ? true : down;
         }
       }

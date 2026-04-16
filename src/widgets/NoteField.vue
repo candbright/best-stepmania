@@ -47,6 +47,7 @@ const props = defineProps<{
   routineP2ColorId: RoutinePlayerColorId;
   doublePanelGapPx: number;
   targetFps: number;
+  uiScale: number;
 }>();
 
 // ── Per-instance render subsystems ───────────────────────────────────────────
@@ -94,8 +95,6 @@ const getPanelForTrack = (track: number): PanelConfig | undefined => {
   return findPanelByTrack(track, computePanels(w, h));
 };
 
-// ── Color helpers ─────────────────────────────────────────────────────────────
-
 function getTrackColors(panel?: PanelConfig): string[] {
   const n = panel?.numTracks ?? props.engine.config.numTracks;
   const cfg = props.engine.config;
@@ -114,13 +113,11 @@ function getTrackColor(track: number, panel?: PanelConfig, routineLayer?: 1 | 2 
     return trackColorForSkin(skinConfig, localTrack, n);
   }
   if (props.playMode === "pump-routine" && playerNoteskin === "default") {
-    // 颜色按谱面 `&` 分图层：1 = 前半段，2 = 后半段（与左右板无关）
     if (routineLayer === 1 || routineLayer === 2) {
       const id = routineLayer === 2 ? props.routineP2ColorId : props.routineP1ColorId;
       const accent = routineColorHex(id);
       if (accent) return accent;
     }
-    // 无图层信息（旧缓存谱面等）：受体/回退仍按左右板玩家着色
     if (routineLayer == null && p?.player) {
       const id = p.player === 2 ? props.routineP2ColorId : props.routineP1ColorId;
       const accent = routineColorHex(id);
@@ -130,8 +127,6 @@ function getTrackColor(track: number, panel?: PanelConfig, routineLayer?: 1 | 2 
   const colors = getTrackColors(p);
   return colors[localTrack % colors.length];
 }
-
-// ── Schema delegations ────────────────────────────────────────────────────────
 
 function getTrackDirection(col: number): ArrowDirection | null {
   return schemaTrackDirection(props.engine.config.numTracks, col);
@@ -148,8 +143,6 @@ function getColumnLabel(col: number): string {
 function isCenterColumn(col: number): boolean {
   return schemaIsCenterColumn(props.engine.config.numTracks, col);
 }
-
-// ── Panel layout ──────────────────────────────────────────────────────────────
 
 let cachedPanels: PanelConfig[] = [];
 let panelsLayoutKey = "";
@@ -185,6 +178,7 @@ function computePanels(w: number, h: number): PanelConfig[] {
     skinConfig1: props.skinConfig ?? null,
     skinConfig2: props.skinConfig2 ?? null,
     gap: clampDoublePanelGapPx(props.doublePanelGapPx),
+    uiScale: props.uiScale,
   });
   return cachedPanels;
 }
@@ -192,7 +186,7 @@ function computePanels(w: number, h: number): PanelConfig[] {
 function getRenderDrawerDeps(): RenderDrawerDeps {
   return {
     numTracks: props.engine.config.numTracks,
-    noteHeight: NOTE_HEIGHT,
+    noteHeight: NOTE_HEIGHT * props.uiScale,
     qualityLevel: quality.level,
     getPlayerConfig,
     getTrackColor,
@@ -204,13 +198,11 @@ function getRenderDrawerDeps(): RenderDrawerDeps {
   };
 }
 
-// ── Panel renderer ────────────────────────────────────────────────────────────
-
 function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, time: number, _dt: number) {
   const engine = props.engine;
   const deps = getRenderDrawerDeps();
-  const colW = getColumnWidth(panel.numTracks);
-  const recSize = getReceptorSize(panel.numTracks, panel.noteScale ?? 1);
+  const colW = getColumnWidth(panel.numTracks) * props.uiScale;
+  const recSize = getReceptorSize(panel.numTracks, panel.noteScale ?? 1) * props.uiScale;
   const { x: px, width: pWidth, receptorY, numTracks } = panel;
 
   c.save();
@@ -218,11 +210,9 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
   c.rect(px, 0, pWidth, h);
   c.clip();
 
-  // Background for panel area
   c.fillStyle = "#08080f";
   c.fillRect(px, 0, pWidth, h);
 
-  // Column separators
   c.strokeStyle = "rgba(255, 255, 255, 0.04)";
   c.lineWidth = 1;
   for (let i = 0; i <= numTracks; i++) {
@@ -237,7 +227,6 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
     drawBeatLines(c, engine, px, pWidth, receptorY, h, panel.speedMod, panel.reverse);
   }
 
-  // Judgment line glow
   const jlGrad = c.createLinearGradient(px, receptorY - 12, px, receptorY + 12);
   jlGrad.addColorStop(0, getThemePrimaryRgba(0));
   jlGrad.addColorStop(0.5, getThemePrimaryRgba(0.12));
@@ -253,7 +242,6 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
 
   const blankLead = engine.isChartLeadInBlankPhase();
 
-  // Hold bodies (drawn behind notes)
   if (!blankLead && engine.judgment) {
     for (const hold of engine.judgment.holds) {
       if (hold.track >= panel.startTrack && hold.track < panel.startTrack + numTracks) {
@@ -262,7 +250,6 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
     }
   }
 
-  // Notes (hidden during silent lead-in — only beat lines scroll; receptors still drawn below)
   if (!blankLead) {
     const visibleRange = 3.0;
     const [visibleStart, visibleEnd] = engine.getVisibleNoteRange(visibleRange, visibleRange);
@@ -280,7 +267,6 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
     const nx = px + localTrack * colW;
     const fx = getEffectsForTrack(note.track);
 
-    // Sudden / hidden alpha
     let noteAlpha = 1.0;
     if (fx.sudden || fx.hidden) {
       const fadeZone = h * 0.10;
@@ -307,7 +293,6 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
     }
     if (noteAlpha <= 0) continue;
 
-    // Rotate effect
     const rotation = fx.rotate
       ? ((panel.reverse ? y - receptorY : receptorY - y) / h) * Math.PI * 4
       : 0;
@@ -325,14 +310,13 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
     } else if (note.noteType === "Lift") {
       drawLiftDrawer(c, nx, y, note.track, colW, panel, deps, note.routineLayer ?? null);
     } else {
-      drawNoteDrawer(c, nx, y, note.track, colW, note.noteType, panel, deps, note.routineLayer ?? null);
+      drawNoteDrawer(c, nx, y, note.track, colW, recSize, note.noteType, panel, deps, note.routineLayer ?? null);
     }
 
     c.restore();
     }
   }
 
-  // Receptors + key press glow
   for (let col = 0; col < numTracks; col++) {
     const lx = px + col * colW;
     const trackIdx = panel.startTrack + col;
@@ -347,14 +331,11 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
       c.fillRect(lx - 10, receptorY - colW, colW + 20, colW * 2);
     }
 
-    // Global track index so pump-routine / 10-key uses correct arrow per panel (5–9 not 0–4).
     drawReceptorDrawer(c, lx, receptorY, trackIdx, pressed, color, colW, recSize, panel.player, deps);
   }
 
   c.restore();
 }
-
-// ── Frame loop ────────────────────────────────────────────────────────────────
 
 function drawFrame(time: number) {
   if (!ctx || !canvasRef.value) return;
@@ -385,12 +366,10 @@ function drawFrame(time: number) {
     engine.setChartLeadInFromLayout(h, primaryPanel.receptorY, primaryPanel.reverse, primaryPanel.speedMod);
   }
   engine.update(time);
-  // Clear entire canvas to transparent, letting parent background show through
   ctx.clearRect(0, 0, w, h);
   for (const panel of panels) {
     drawPanel(ctx, panel, h, time, dt);
   }
-  // Draw hit particles once per frame above all panels.
   particleSystem.updateAndDraw(ctx, dt, quality.level);
 
   animFrameId = requestAnimationFrame(drawFrame);
@@ -407,8 +386,6 @@ function drawFrame(time: number) {
   }
 }
 
-// ── Exposed API ───────────────────────────────────────────────────────────────
-
 function showJudgment(judgment: string, color: string, track?: number) {
   const now = performance.now();
   const panel = track !== undefined ? getPanelForTrack(track) : undefined;
@@ -424,7 +401,7 @@ function showJudgment(judgment: string, color: string, track?: number) {
   if (canvasRef.value && track !== undefined) {
     const panel = getPanelForTrack(track);
     if (panel) {
-      const colW = getColumnWidth(panel.numTracks);
+      const colW = getColumnWidth(panel.numTracks) * props.uiScale;
       const localTrack = track - panel.startTrack;
       const px = panel.x + localTrack * colW + colW / 2;
       const receptorY = panel.receptorY;
@@ -451,8 +428,6 @@ function getPerfState() {
 }
 
 defineExpose<NoteFieldExposed>({ showJudgment, getPerfState });
-
-// ── Canvas lifecycle ──────────────────────────────────────────────────────────
 
 function resizeCanvas() {
   if (!canvasRef.value) return;

@@ -63,7 +63,7 @@ defineProps<{
 }
 .hud-life-track {
   flex: 1;
-  height: 5px;
+  height: 0.3125rem;
   background: rgba(255, 255, 255, 0.06);
   border-radius: 3px;
   overflow: hidden;

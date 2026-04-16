@@ -84,6 +84,7 @@ export function drawNoteDrawer(
   y: number,
   track: number,
   colW: number,
+  recSize: number,
   noteType: string,
   panel: PanelConfig | undefined,
   deps: RenderDrawerDeps,
@@ -102,20 +103,14 @@ export function drawNoteDrawer(
     const pumpDirection = deps.getPumpDirection(track);
 
     if (pumpDirection) {
-      const arrowSize = Math.min(colW * 0.8, 48) * scale;
+      // Match receptor arrow size formula: recSize * 0.92
+      const arrowSize = recSize * 0.92 * scale;
       const directionalStyle = noteStyle === "musical" ? "musical" : noteStyle;
       drawArrowWithSkin(c, cx, y, arrowSize, pumpDirection, fillColor, directionalStyle, deps.qualityLevel);
     } else {
-      drawPumpPanelWithSkin(
-        c,
-        cx,
-        y,
-        Math.min(colW * 0.74, deps.noteHeight * 1.28) * scale,
-        fillColor,
-        noteStyle,
-        true,
-        deps.qualityLevel,
-      );
+      // Match receptor panel size formula: recSize * 0.78
+      const panelSize = recSize * 0.78 * scale;
+      drawPumpPanelWithSkin(c, cx, y, panelSize, fillColor, noteStyle, true, deps.qualityLevel);
     }
     return;
   }
@@ -123,19 +118,23 @@ export function drawNoteDrawer(
   const direction = deps.getTrackDirection(track);
   const fillColor = noteType === "Roll" ? "#ff9800" : color;
   if (direction) {
-    const arrowSize = Math.min(colW * 0.78, 46) * scale;
+    // Match receptor arrow size formula: recSize * 0.88
+    const arrowSize = recSize * 0.88 * scale;
     drawArrowWithSkin(c, cx, y, arrowSize, direction, fillColor, noteStyle, deps.qualityLevel);
     return;
   }
 
-  const pad = 6;
+  // Non-arrow (DDR-style) receptors are recSize x recSize squares — match width
+  const noteW = recSize;
+  const noteH = recSize;
+  const pad = (colW - noteW) / 2;
   c.fillStyle = fillColor;
   c.beginPath();
-  c.roundRect(x + pad, y - deps.noteHeight / 2, colW - pad * 2, deps.noteHeight, 4);
+  c.roundRect(x + pad, y - noteH / 2, noteW, noteH, 4);
   c.fill();
   c.fillStyle = "rgba(255,255,255,0.3)";
   c.beginPath();
-  c.roundRect(x + pad + 2, y - deps.noteHeight / 2 + 2, colW - pad * 2 - 4, 6, 2);
+  c.roundRect(x + pad + 2, y - noteH / 2 + 2, noteW - 4, 6, 2);
   c.fill();
 }
 
@@ -165,11 +164,7 @@ export function drawHoldDrawer(
   let clipEndSec: number;
   if (hold.active) {
     clipStartSec = Math.max(startSec, playheadChartSec);
-    if (hold.broken && hold.brokenAtSecond != null) {
-      clipEndSec = Math.min(endSec, hold.brokenAtSecond);
-    } else {
-      clipEndSec = endSec;
-    }
+    clipEndSec = endSec;
   } else {
     clipStartSec = startSec;
     clipEndSec = endSec;
@@ -222,7 +217,7 @@ export function drawHoldDrawer(
 
   const baseAlpha = hold.finished
     ? 0.15
-    : hold.active && (hold.isRoll ? hold.held : hold.held || hold.broken)
+    : hold.active && hold.held
       ? 0.95
       : 0.5;
   c.globalAlpha = baseAlpha * holdAlpha;

@@ -11,10 +11,8 @@ const MODES: { key: SessionPlayMode; labelKey: string }[] = [
 withDefaults(
   defineProps<{
     current: SessionPlayMode;
-    /** title：与主界面竖排大卡一致；inline：选歌页横排 */
     layout?: "title" | "inline";
     disabled?: boolean;
-    /** title 布局下由父级标题菜单键盘漫游高亮的行（0–2） */
     keyboardHighlightIndex?: number | null;
   }>(),
   { layout: "inline", disabled: false, keyboardHighlightIndex: null },

@@ -51,6 +51,7 @@ interface BuildPanelsInput {
   skinConfig1?: NoteSkinSnapshot | null;
   skinConfig2?: NoteSkinSnapshot | null;
   gap?: number;
+  uiScale?: number;
 }
 
 export function buildPanels(input: BuildPanelsInput): PanelConfig[] {
@@ -63,14 +64,16 @@ export function buildPanels(input: BuildPanelsInput): PanelConfig[] {
     skinConfig1,
     skinConfig2,
     gap = DOUBLE_PANEL_GAP_DEFAULT_PX,
+    uiScale = 1,
   } = input;
   const gapPx = clampDoublePanelGapPx(gap);
+  const receptorBaseY = Math.round(100 * uiScale);
 
   const [p1, p2] = playerConfigs;
 
   if (usesSplitWidePanelLayout(coopMode, numTracks)) {
     const half = Math.floor(numTracks / 2);
-    const colW = getColumnWidth(half);
+    const colW = getColumnWidth(half) * uiScale;
     const panelWidth = half * colW;
     const totalWidth = panelWidth * 2 + gapPx;
     const startX = Math.floor((width - totalWidth) / 2);
@@ -80,7 +83,7 @@ export function buildPanels(input: BuildPanelsInput): PanelConfig[] {
         numTracks: half,
         x: startX,
         width: panelWidth,
-        receptorY: p1.reverse ? height - 100 : 100,
+        receptorY: p1.reverse ? height - receptorBaseY : receptorBaseY,
         player: 1,
         reverse: p1.reverse,
         noteScale: p1.noteScale ?? DEFAULT_NOTE_SCALE,
@@ -92,7 +95,7 @@ export function buildPanels(input: BuildPanelsInput): PanelConfig[] {
         numTracks: half,
         x: startX + panelWidth + gapPx,
         width: panelWidth,
-        receptorY: p2.reverse ? height - 100 : 100,
+        receptorY: p2.reverse ? height - receptorBaseY : receptorBaseY,
         player: 2,
         reverse: p2.reverse,
         noteScale: p2.noteScale ?? DEFAULT_NOTE_SCALE,
@@ -104,7 +107,7 @@ export function buildPanels(input: BuildPanelsInput): PanelConfig[] {
   }
 
   if (coopMode === "co-op" && numTracks <= 5) {
-    const colW = getColumnWidth(numTracks);
+    const colW = getColumnWidth(numTracks) * uiScale;
     const panelWidth = numTracks * colW;
     const totalWidth = panelWidth * 2 + gapPx;
     const startX = Math.floor((width - totalWidth) / 2);
@@ -114,7 +117,7 @@ export function buildPanels(input: BuildPanelsInput): PanelConfig[] {
         numTracks,
         x: startX,
         width: panelWidth,
-        receptorY: p1.reverse ? height - 100 : 100,
+        receptorY: p1.reverse ? height - receptorBaseY : receptorBaseY,
         player: 1,
         reverse: p1.reverse,
         noteScale: p1.noteScale ?? DEFAULT_NOTE_SCALE,
@@ -126,7 +129,7 @@ export function buildPanels(input: BuildPanelsInput): PanelConfig[] {
         numTracks,
         x: startX + panelWidth + gapPx,
         width: panelWidth,
-        receptorY: p2.reverse ? height - 100 : 100,
+        receptorY: p2.reverse ? height - receptorBaseY : receptorBaseY,
         player: 2,
         reverse: p2.reverse,
         noteScale: p2.noteScale ?? DEFAULT_NOTE_SCALE,
@@ -137,7 +140,7 @@ export function buildPanels(input: BuildPanelsInput): PanelConfig[] {
     ];
   }
 
-  const colW = getColumnWidth(numTracks);
+  const colW = getColumnWidth(numTracks) * uiScale;
   const panelWidth = numTracks * colW;
 
   return [
@@ -145,7 +148,7 @@ export function buildPanels(input: BuildPanelsInput): PanelConfig[] {
       numTracks,
       x: Math.floor((width - panelWidth) / 2),
       width: panelWidth,
-      receptorY: p1.reverse ? height - 100 : 100,
+      receptorY: p1.reverse ? height - receptorBaseY : receptorBaseY,
       player: 1,
       reverse: p1.reverse,
       noteScale: p1.noteScale ?? DEFAULT_NOTE_SCALE,

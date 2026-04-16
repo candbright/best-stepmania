@@ -46,7 +46,6 @@ onUnmounted(() => {
       autoplay
     />
     <div v-else-if="hasImage" class="bg-image" :style="{ backgroundImage: `url(${bgImagePath})` }" />
-    <!-- 静态渐变：避免与 NoteField 并行 rAF 抢主线程（无视频/背景图时） -->
     <div v-else class="bg-fallback" aria-hidden="true" />
     <div class="bg-dim" />
   </div>

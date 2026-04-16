@@ -18,7 +18,6 @@ const {
   countdown,
   cdText,
   showPauseMenu,
-  offsetText,
   lifePercent,
   scoreDisplay,
   comboDisplay,
@@ -35,6 +34,8 @@ const {
   p2ComboDisplay,
   p2Difficulty,
   p2Meter,
+  p1OffsetDisplay,
+  p2OffsetDisplay,
   lifeClass,
   p2LifeClass,
   loadAndStart,
@@ -77,6 +78,7 @@ onUnmounted(() => {
         :routine-p2-color-id="game.routineP2ColorId"
         :double-panel-gap-px="game.doublePanelGapPx"
         :target-fps="game.targetFps"
+        :ui-scale="game.uiScale"
       />
     </div>
 
@@ -97,6 +99,8 @@ onUnmounted(() => {
       :p2-meter="p2Meter"
       :p2-score-display="p2ScoreDisplay"
       :p2-combo-display="p2ComboDisplay"
+      :p1-offset-display="p1OffsetDisplay"
+      :p2-offset-display="p2OffsetDisplay"
       @pause="pauseGame"
     />
 
@@ -120,14 +124,6 @@ onUnmounted(() => {
         class="judgment-overlay"
         :style="{ color: lastJudgmentColor }"
       >{{ lastJudgmentText }}</div>
-    </transition>
-
-    <!-- Offset indicator -->
-    <transition name="fade-quick">
-      <div v-if="offsetText" class="offset-display"
-        :class="{ late: offsetText.startsWith('+'), early: offsetText.startsWith('-') }">
-        {{ offsetText }}
-      </div>
     </transition>
 
     <!-- ── LOADING ── -->

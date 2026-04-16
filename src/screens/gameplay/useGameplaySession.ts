@@ -38,6 +38,8 @@ const lastJudgmentColor = ref("");
 /** Cancellable handle for the judgment-text clear timer — prevents rapid-fire notes clearing each other's text early. */
 let lastJudgmentTimer: ReturnType<typeof setTimeout> | null = null;
 const offsetText = ref("");
+const p1OffsetDisplay = ref("");
+const p2OffsetDisplay = ref("");
 const lifePercent = ref(100);
 const scoreDisplay = ref(0);
 const comboDisplay = ref(0);
@@ -179,8 +181,14 @@ function onJudgment(evt: JudgmentEvent) {
 
   if (p1Config.showOffset && evt.judgment !== "Miss") {
     const ms = Math.round(evt.offset * 1000);
-    offsetText.value = (ms > 0 ? "+" : "") + ms + "ms";
-    setTimeout(() => { offsetText.value = ""; }, 800);
+    const text = (ms > 0 ? "+" : "") + ms + "ms";
+    if (evt.player === 1) {
+      p1OffsetDisplay.value = text;
+      setTimeout(() => { p1OffsetDisplay.value = ""; }, 800);
+    } else {
+      p2OffsetDisplay.value = text;
+      setTimeout(() => { p2OffsetDisplay.value = ""; }, 800);
+    }
   }
 
   noteFieldRef.value?.showJudgment(name, color, evt.track);
@@ -825,6 +833,8 @@ const p2LifeClass = computed(() => {
     p2ComboDisplay,
     p2Difficulty,
     p2Meter,
+    p1OffsetDisplay,
+    p2OffsetDisplay,
     lifeClass,
     p2LifeClass,
     loadAndStart,

@@ -24,6 +24,8 @@ defineProps<{
   p2Meter: string | number;
   p2ScoreDisplay: number;
   p2ComboDisplay: number;
+  p1OffsetDisplay: string;
+  p2OffsetDisplay: string;
 }>();
 
 const emit = defineEmits<{
@@ -58,6 +60,7 @@ const emit = defineEmits<{
               :score="scoreDisplay"
               :combo="comboDisplay"
               :score-label="t('gameplay.scoreLabel')"
+              :offset-display="p1OffsetDisplay"
             />
           </div>
         </div>
@@ -76,6 +79,7 @@ const emit = defineEmits<{
               :score="p2ScoreDisplay"
               :combo="p2ComboDisplay"
               :score-label="t('gameplay.scoreLabel')"
+              :offset-display="p2OffsetDisplay"
             />
           </div>
         </div>
@@ -108,6 +112,7 @@ const emit = defineEmits<{
               :score="scoreDisplay"
               :combo="comboDisplay"
               :score-label="t('gameplay.scoreLabel')"
+              :offset-display="p1OffsetDisplay"
             />
           </div>
         </div>

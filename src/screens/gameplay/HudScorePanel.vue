@@ -4,6 +4,7 @@ defineProps<{
   score: number;
   combo: number;
   scoreLabel: string;
+  offsetDisplay: string;
 }>();
 </script>
 
@@ -12,6 +13,7 @@ defineProps<{
     <div class="hud-score-val">{{ score.toLocaleString() }}</div>
     <div class="hud-score-label">{{ scoreLabel }}</div>
     <div v-if="combo > 0" class="hud-combo">{{ combo }}x</div>
+    <div v-if="offsetDisplay" class="hud-offset" :class="{ late: offsetDisplay.startsWith('+'), early: offsetDisplay.startsWith('-') }">{{ offsetDisplay }}</div>
   </div>
 </template>
 
@@ -50,4 +52,12 @@ defineProps<{
   opacity: 0.9;
   margin-top: 0.1rem;
 }
+.hud-offset {
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.55rem;
+  font-weight: 600;
+  margin-top: 0.05rem;
+}
+.hud-offset.early { color: #42a5f5; }
+.hud-offset.late { color: #ffa726; }
 </style>

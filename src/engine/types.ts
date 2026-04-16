@@ -54,12 +54,10 @@ export interface HoldState {
   finished: boolean;
   /** Roll 音符需要反复敲击（区别于 Hold 需要持续按住） */
   isRoll: boolean;
-  /** Roll: 上次记录 tick 的时间（用于判定连续敲击） */
+  /** Roll：上次记录 tick 的时间（用于判定连续敲击） */
   lastRollTick: number;
-  /** Hold：中途松键后不再判定尾部成功，并截断尾部显示 */
-  broken: boolean;
-  /** 与 `note.second` 同域的图表时间，松键瞬间写入 */
-  brokenAtSecond: number | null;
+  /** Hold：中途松键，长条变暗，可重新按住恢复；恢复后若持续到尾键判定成功仍算 held */
+  letGo: boolean;
 }
 
 export interface ScoreState {
