@@ -3,8 +3,8 @@ import { computed } from "vue";
 import { useI18n } from "@/i18n";
 import type { ChartInfo } from "@/utils/api";
 import { DIFFICULTIES, DIFF_COLORS } from "./constants";
-import { CustomSelect } from "@/shared/ui";
-import { AppNumberField } from "@/shared/ui";
+import { BaseSelect } from "@/shared/ui";
+import { BaseNumberField } from "@/shared/ui";
 
 const { t } = useI18n();
 
@@ -117,7 +117,7 @@ const chartDifficultySelectOptions = computed(() =>
       <div class="meta-form chart-properties-form">
         <label class="meta-field">
           <span>{{ t('editor.stepsType') }}</span>
-          <CustomSelect
+          <BaseSelect
             v-model="editChartStepsType"
             variant="form"
             :options="chartStepsTypeSelectOptions"
@@ -126,7 +126,7 @@ const chartDifficultySelectOptions = computed(() =>
         </label>
         <label class="meta-field">
           <span>{{ t('editor.difficulty') }}</span>
-          <CustomSelect
+          <BaseSelect
             v-model="editChartDifficulty"
             variant="form"
             :options="chartDifficultySelectOptions"
@@ -135,7 +135,7 @@ const chartDifficultySelectOptions = computed(() =>
         </label>
         <label class="meta-field">
           <span>{{ t('editor.meter') }}</span>
-          <AppNumberField
+          <BaseNumberField
             v-model="editChartMeter"
             data-editor-shortcuts="allow"
             :min="1"

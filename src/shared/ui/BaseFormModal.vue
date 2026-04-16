@@ -75,6 +75,8 @@ function onEscKey(e: KeyboardEvent) {
 watch(
   () => props.modelValue,
   (open) => {
+    // Keep the capture listener strictly scoped to the visible lifetime
+    // of the modal so stacked dialogs do not accumulate stale handlers.
     if (open) window.addEventListener("keydown", onEscKey, true);
     else window.removeEventListener("keydown", onEscKey, true);
   },

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "@/i18n";
-import { AppNumberField } from "@/shared/ui";
+import { BaseNumberField } from "@/shared/ui";
 
 const { t } = useI18n();
 
@@ -70,7 +70,7 @@ const emit = defineEmits<{
       </label>
       <label class="meta-field">
         <span>{{ t('editor.metaOffset') }}</span>
-        <AppNumberField
+        <BaseNumberField
           v-model="metaOffset"
           data-editor-shortcuts="allow"
           inputmode="decimal"
@@ -84,7 +84,7 @@ const emit = defineEmits<{
       </label>
       <label class="meta-field">
         <span>{{ t('editor.metaSampleStart') }}</span>
-        <AppNumberField
+        <BaseNumberField
           v-model="metaSampleStart"
           data-editor-shortcuts="allow"
           step="0.1"
@@ -97,7 +97,7 @@ const emit = defineEmits<{
       </label>
       <label class="meta-field">
         <span>{{ t('editor.metaSampleLength') }}</span>
-        <AppNumberField
+        <BaseNumberField
           v-model="metaSampleLength"
           data-editor-shortcuts="allow"
           step="0.1"

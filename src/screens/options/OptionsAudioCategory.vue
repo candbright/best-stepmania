@@ -3,9 +3,9 @@ import { computed, inject, watch } from "vue";
 import { useI18n } from "@/i18n";
 import { useGameStore } from "@/shared/stores/game";
 import type { RhythmSfxStyle } from "@/api/config";
-import { HelpTooltip } from "@/shared/ui";
-import { CustomSelect } from "@/shared/ui";
-import { AppNumberField } from "@/shared/ui";
+import { BaseTooltip } from "@/shared/ui";
+import { BaseSelect } from "@/shared/ui";
+import { BaseNumberField } from "@/shared/ui";
 import { SettingsSection } from "@/features/settings";
 import { SettingsRangeRow } from "@/features/settings";
 import { OPTIONS_PANEL_SFX } from "./injectionKeys";
@@ -94,8 +94,8 @@ watch(
       @update:model-value="(v) => (game.effectVolume = v)"
     />
     <div class="setting-row">
-      <label>{{ t("settings.audioOffset") }} <HelpTooltip help-key="audioOffset" /></label>
-      <AppNumberField
+      <label>{{ t("settings.audioOffset") }} <BaseTooltip help-key="audioOffset" /></label>
+      <BaseNumberField
         v-model="game.audioOffsetMs"
         input-class="audio-offset-ms-input"
         :step="1"
@@ -141,7 +141,7 @@ watch(
           ▶
         </button>
       </label>
-      <CustomSelect
+      <BaseSelect
         :model-value="game.metronomeSfxStyle"
         :options="metronomeSfxStyleOptions"
         :disabled="!game.metronomeSfxEnabled"
@@ -187,7 +187,7 @@ watch(
           ▶
         </button>
       </label>
-      <CustomSelect
+      <BaseSelect
         :model-value="game.rhythmSfxStyle"
         :options="rhythmSfxStyleOptions"
         :disabled="!game.rhythmSfxEnabled"
@@ -232,7 +232,7 @@ watch(
           ▶
         </button>
       </label>
-      <CustomSelect
+      <BaseSelect
         :model-value="game.uiSfxStyle"
         :options="uiSfxStyleOptions"
         :disabled="!game.uiSfxEnabled"

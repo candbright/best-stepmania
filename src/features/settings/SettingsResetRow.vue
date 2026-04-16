@@ -1,8 +1,11 @@
 <script setup lang="ts">
-defineProps<{
-  disabled?: boolean;
-  variant?: "card" | "default";
-}>();
+withDefaults(
+  defineProps<{
+    disabled?: boolean;
+    variant?: "card" | "default";
+  }>(),
+  { variant: "default" },
+);
 
 const emit = defineEmits<{
   click: [];

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed } from "vue";
 import { useI18n } from "@/i18n";
-import { useModalBottomHintLayout } from "@/shared/composables/useModalBottomHintLayout";
-import { CustomSelect } from "@/shared/ui";
-import { AppNumberField } from "@/shared/ui";
+import BaseFormModal from "@/shared/ui/BaseFormModal.vue";
+import BaseSelect from "@/shared/ui/BaseSelect.vue";
+import BaseNumberField from "@/shared/ui/BaseNumberField.vue";
 
 /** Same three modes as TitleScreen → enter game (pump only; no dance charts in this flow). */
 const STEPS_TYPE_OPTIONS = ["pump-single", "pump-double", "pump-routine"] as const;
@@ -43,14 +43,6 @@ const emit = defineEmits<{
 }>();
 
 const { t } = useI18n();
-
-const modalMaskRef = ref<HTMLElement | null>(null);
-const modalCardRef = ref<HTMLElement | null>(null);
-const overlayActive = ref(true);
-const { hintVisible } = useModalBottomHintLayout(modalMaskRef, modalCardRef, {
-  active: overlayActive,
-  hasHint: () => props.bottomHint.trim().length > 0,
-});
 
 const localDiffMin = ref<number | null>(props.diffMin);
 const localDiffMax = ref<number | null>(props.diffMax);
@@ -110,97 +102,90 @@ const stepsTypeFilterOptions = computed(() => [
     label: stepsTypeOptionLabel(st),
   })),
 ]);
-
-function onEscKey(e: KeyboardEvent) {
-  if (e.key !== "Escape") return;
-  e.preventDefault();
-  e.stopPropagation();
-  emit("close");
-}
-
-onMounted(() => window.addEventListener("keydown", onEscKey, true));
-onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
 </script>
 
 <template>
-  <Teleport to="body">
-    <div ref="modalMaskRef" class="form-modal-mask">
-      <div class="form-modal-mask-fill" @click.self="emit('close')">
-        <div ref="modalCardRef" class="form-modal-shell form-modal-card">
-          <header class="form-modal-header">
-            <span class="form-modal-title">{{ t('select.filter') }}</span>
-            <button type="button" class="form-modal-close" @click="emit('close')">×</button>
-          </header>
+  <BaseFormModal
+    :model-value="true"
+    :title="t('select.filter')"
+    :bottom-hint="bottomHint"
+    width="min(500px, 92vw)"
+    :close-on-esc="true"
+    :close-on-overlay="true"
+    @close="emit('close')"
+  >
+    <div class="filter-form">
+      <label class="form-modal-label">{{ t('select.searchPlaceholder') }}</label>
+      <input
+        v-model="localSearch"
+        class="form-modal-input"
+        :placeholder="t('select.searchPlaceholder')"
+        @keydown.enter="apply"
+        autofocus
+      />
 
-          <div class="form-modal-body">
-            <label class="form-modal-label">{{ t('select.searchPlaceholder') }}</label>
-            <input
-              v-model="localSearch"
-              class="form-modal-input"
-              :placeholder="t('select.searchPlaceholder')"
-              @keydown.enter="apply"
-              autofocus
-            />
-
-            <label class="form-modal-label">{{ t('select.filterDifficulty') }}</label>
-            <div class="form-modal-diff-row">
-              <AppNumberField
-                v-model="localDiffMin"
-                nullable
-                input-class="form-modal-input form-modal-diff-input"
-                :placeholder="t('select.filterDiffMinPlaceholder')"
-                :min="1"
-                :max="99"
-              />
-              <span class="form-modal-diff-sep">~</span>
-              <AppNumberField
-                v-model="localDiffMax"
-                nullable
-                input-class="form-modal-input form-modal-diff-input"
-                :placeholder="t('select.filterDiffMaxPlaceholder')"
-                :min="1"
-                :max="99"
-              />
-            </div>
-
-            <label class="form-modal-label">{{ t('select.filterPack') }}</label>
-            <CustomSelect v-model="localPack" variant="form" :options="packFilterOptions" />
-
-            <label class="form-modal-label form-modal-label--switch">{{ t('select.onlyFavorites') }}</label>
-            <label class="slide-switch slide-switch--spaced">
-              <input v-model="localShowFavoritesOnly" type="checkbox" class="slide-switch-input" />
-              <span class="slide-switch-track">
-                <span class="slide-switch-thumb" />
-              </span>
-            </label>
-
-            <template v-if="showStepsTypeFilter">
-              <label class="form-modal-label">{{ t('select.filterStepsType') }}</label>
-              <CustomSelect v-model="localStepsType" variant="form" :options="stepsTypeFilterOptions" />
-            </template>
-          </div>
-
-          <footer class="form-modal-footer">
-            <div class="form-modal-footer-inner form-modal-footer-inner--spread">
-              <button type="button" class="form-modal-btn" @click="clearAll" :disabled="!hasActiveFilter">
-                {{ t('select.clearFilter') }}
-              </button>
-              <button type="button" class="form-modal-btn form-modal-btn--primary" @click="apply">
-                {{ t('confirm') }}
-              </button>
-            </div>
-          </footer>
-        </div>
+      <label class="form-modal-label">{{ t('select.filterDifficulty') }}</label>
+      <div class="form-modal-diff-row">
+        <BaseNumberField
+          v-model="localDiffMin"
+          nullable
+          input-class="form-modal-input form-modal-diff-input"
+          :placeholder="t('select.filterDiffMinPlaceholder')"
+          :min="1"
+          :max="99"
+        />
+        <span class="form-modal-diff-sep">~</span>
+        <BaseNumberField
+          v-model="localDiffMax"
+          nullable
+          input-class="form-modal-input form-modal-diff-input"
+          :placeholder="t('select.filterDiffMaxPlaceholder')"
+          :min="1"
+          :max="99"
+        />
       </div>
-      <p v-if="hintVisible" class="form-modal-mask-hint">{{ bottomHint }}</p>
+
+      <label class="form-modal-label">{{ t('select.filterPack') }}</label>
+      <BaseSelect v-model="localPack" variant="form" :options="packFilterOptions" />
+
+      <label class="form-modal-label form-modal-label--switch">{{ t('select.onlyFavorites') }}</label>
+      <label class="slide-switch slide-switch--spaced">
+        <input v-model="localShowFavoritesOnly" type="checkbox" class="slide-switch-input" />
+        <span class="slide-switch-track">
+          <span class="slide-switch-thumb" />
+        </span>
+      </label>
+
+      <template v-if="showStepsTypeFilter">
+        <label class="form-modal-label">{{ t('select.filterStepsType') }}</label>
+        <BaseSelect v-model="localStepsType" variant="form" :options="stepsTypeFilterOptions" />
+      </template>
     </div>
-  </Teleport>
+
+    <template #footer>
+      <div class="form-modal-footer-inner form-modal-footer-inner--spread">
+        <button type="button" class="form-modal-btn" @click="clearAll" :disabled="!hasActiveFilter">
+          {{ t('select.clearFilter') }}
+        </button>
+        <button type="button" class="form-modal-btn form-modal-btn--primary" @click="apply">
+          {{ t('confirm') }}
+        </button>
+      </div>
+    </template>
+  </BaseFormModal>
 </template>
 
 <style scoped>
+.filter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .form-modal-label--switch {
   margin-top: 0.25rem;
 }
+
 .slide-switch {
   position: relative;
   display: inline-flex;
@@ -210,9 +195,11 @@ onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
   flex-shrink: 0;
   cursor: pointer;
 }
+
 .slide-switch--spaced {
   margin-bottom: 0.25rem;
 }
+
 .slide-switch-input {
   position: absolute;
   inset: 0;
@@ -220,6 +207,7 @@ onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
   margin: 0;
   cursor: pointer;
 }
+
 .slide-switch-track {
   width: 100%;
   height: 100%;
@@ -232,6 +220,7 @@ onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
   padding: 2px;
   box-sizing: border-box;
 }
+
 .slide-switch-thumb {
   width: 18px;
   height: 18px;
@@ -241,16 +230,19 @@ onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
   transform: translateX(0);
   transition: transform 0.18s, background 0.18s, box-shadow 0.18s;
 }
+
 .slide-switch-input:checked + .slide-switch-track {
   background: color-mix(in srgb, var(--primary-color) 26%, var(--section-bg));
   border-color: var(--primary-color);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary-color) 18%, transparent);
 }
+
 .slide-switch-input:checked + .slide-switch-track .slide-switch-thumb {
   transform: translateX(20px);
   background: var(--primary-color);
   box-shadow: 0 0 10px var(--primary-color-glow);
 }
+
 .slide-switch-input:focus-visible + .slide-switch-track {
   box-shadow: var(--focus-ring);
 }

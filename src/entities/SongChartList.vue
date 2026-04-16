@@ -1,47 +1,64 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import type { ChartInfoItem } from "@/utils/api";
 
-defineProps<{
+const props = defineProps<{
   charts: ChartInfoItem[];
+  hasSourceCharts?: boolean;
   currentChartIndex: number;
   difficultyColors: Record<string, string>;
-  difficultyLabel: (difficulty: string) => string;
-  stepsTypeLabel: (stepsType: string) => string;
-  chartsLabel: string;
-  notesLabel: string;
-  noMatchingChartsLabel: string;
+  difficultyLabelFn: (diff: string) => string;
+  stepsTypeLabelFn: (type: string) => string;
+  t: (key: string) => string;
+  noChartsMessage?: string;
+  noMatchingChartsMessage?: string;
 }>();
 
 const emit = defineEmits<{
   (e: "selectChart", chartIndex: number): void;
 }>();
+
+// Callers should prefer passing translated copy explicitly.
+// These fallbacks keep the component from ever rendering raw i18n keys.
+const emptyStateMessage = computed(() => {
+  if (props.hasSourceCharts === false) {
+    return props.noChartsMessage ?? props.t("select.noChartsInSong");
+  }
+  return props.noMatchingChartsMessage ?? props.t("select.noMatchingCharts");
+});
 </script>
 
 <template>
-  <div>
-    <div class="section-label">{{ chartsLabel }}</div>
+  <div class="detail-panel-inner">
+    <div class="section-label">{{ props.t('select.charts') }}</div>
     <div class="diff-list">
       <button
-        v-for="chart in charts"
+        v-for="chart in props.charts"
         :key="chart.chartIndex"
         type="button"
         class="diff-btn"
-        :class="{ active: chart.chartIndex === currentChartIndex }"
-        :style="{ '--dc': difficultyColors[chart.difficulty] || '#888' }"
+        :class="{ active: chart.chartIndex === props.currentChartIndex }"
+        :style="{ '--dc': props.difficultyColors[chart.difficulty] || '#888' }"
         @click="emit('selectChart', chart.chartIndex)"
       >
         <span class="diff-gem" />
-        <span class="diff-name">{{ difficultyLabel(chart.difficulty) }}</span>
+        <span class="diff-name">{{ props.difficultyLabelFn(chart.difficulty) }}</span>
         <span class="diff-meter">{{ chart.meter }}</span>
-        <span class="diff-type">{{ stepsTypeLabel(chart.stepsType) }}</span>
-        <span class="diff-notes">{{ chart.noteCount }} {{ notesLabel }}</span>
+        <span class="diff-type">{{ props.stepsTypeLabelFn(chart.stepsType) }}</span>
+        <span class="diff-notes">{{ chart.noteCount }} {{ props.t('select.notes') }}</span>
       </button>
-      <div v-if="charts.length === 0" class="no-charts">{{ noMatchingChartsLabel }}</div>
+      <div v-if="props.charts.length === 0" class="no-charts">
+        {{ emptyStateMessage }}
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.detail-panel-inner {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+}
+
 .section-label {
   padding: 0.5rem 1.25rem 0.25rem;
   font-family: 'Orbitron', sans-serif;

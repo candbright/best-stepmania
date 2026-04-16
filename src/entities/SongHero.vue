@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 withDefaults(
   defineProps<{
     title: string;
@@ -8,7 +8,7 @@ withDefaults(
     bannerUrl?: string | null;
     hue: number;
     isFavorite: boolean;
-    favoriteLabel: string;
+    t: (key: string) => string;
   }>(),
   {
     subtitle: "",
@@ -30,8 +30,8 @@ const emit = defineEmits<{
         type="button"
         class="hero-fav-tag"
         :class="{ active: isFavorite }"
-        :aria-label="favoriteLabel"
         @click.stop="emit('toggleFavorite')"
+        :aria-label="t('select.favorites')"
       >
         <span class="hero-fav-tag-icon" />
       </button>
@@ -41,7 +41,7 @@ const emit = defineEmits<{
       <h2 class="hero-title">{{ title }}</h2>
       <p v-if="subtitle" class="hero-subtitle">{{ subtitle }}</p>
       <p class="hero-artist">{{ artist }}</p>
-      <span class="bpm-badge">♪ {{ displayBpm }}</span>
+      <span class="bpm-badge">♪ {{ displayBpm }} {{ t('select.bpmUnit') }}</span>
     </div>
   </div>
 </template>
@@ -59,14 +59,14 @@ const emit = defineEmits<{
 }
 .hero-fav-tag {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 5%;
+  right: 3%;
   z-index: 2;
   border: none;
   background: transparent;
   padding: 0;
-  width: 24px;
-  height: 30px;
+  width: 1.5rem;
+  height: 1.875rem;
   color: color-mix(in srgb, var(--text-muted) 92%, transparent);
   cursor: pointer;
   transition: color 0.15s, transform 0.15s, filter 0.15s;

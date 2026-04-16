@@ -19,6 +19,9 @@ import { primeEditorEntryResources } from "./editor/editorEntryPrefetch";
 import { useSessionStore } from "@/shared/stores/session";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { PHYSICAL_ROOT_PACK } from "@/constants/songLibrary";
+import SongHero from "@/entities/SongHero.vue";
+import SongChartList from "@/entities/SongChartList.vue";
+import SongPackList from "@/entities/SongPackList.vue";
 
 const router = useRouter();
 const game = useGameStore();
@@ -33,6 +36,7 @@ const bannerCache = ref<Record<string, string>>({});
 const showCreateSongModal = ref(false);
 const showFilterModal = ref(false);
 const songScrollRef = ref<HTMLElement | null>(null);
+const refreshing = ref(false);
 
 /** Last query passed to `navigateToEditorWithPrefetch` (for retry). */
 const pendingEditorRouteQuery = ref<Record<string, string> | undefined>(undefined);
@@ -122,6 +126,8 @@ const filteredCharts = computed(() => {
 const collapsedPacks = ref<Set<string>>(new Set());
 
 const ROOT_PACK_KEY = "__ROOT__";
+
+const favoriteSet = computed(() => library.favorites);
 
 const groupedSongs = computed(() => {
   const groups: { packKey: string; packLabel: string; songs: { song: typeof game.songs[0]; idx: number }[] }[] = [];
@@ -328,6 +334,17 @@ function cycleSortMode() {
   game.setSortMode(modes[(cur + 1) % modes.length]);
 }
 
+async function refreshSongs() {
+  refreshing.value = true;
+  try {
+    await game.refreshSongsList();
+    game.needsSongRefresh = false;
+    await library.loadPacks();
+  } finally {
+    refreshing.value = false;
+  }
+}
+
 async function toggleFavorite(songPath: string) {
   await library.toggleFavorite(songPath);
 }
@@ -512,6 +529,10 @@ onUnmounted(() => {
         <span class="topbar-title">{{ t('editorSelect.title') }}</span>
       </div>
       <div class="topbar-actions">
+        <button class="tb-icon-btn" :title="t('editorSelect.refresh')" @click="refreshSongs" :disabled="refreshing">
+          <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <span v-else class="spinner">&#x27F3;</span>
+        </button>
         <button
           class="tb-btn filter-btn"
           :class="{ active: hasActiveFilter }"
@@ -538,105 +559,51 @@ onUnmounted(() => {
       <!-- Song list -->
       <div class="song-panel">
         <div ref="songScrollRef" class="song-scroll">
-          <div v-for="group in groupedSongs" :key="group.packKey" class="pack-group">
-            <button class="pack-header" @click="togglePack(group.packKey)">
-              <span class="pack-arrow" :class="{ open: !collapsedPacks.has(group.packKey) }">▶</span>
-              <span class="pack-name">{{ group.packLabel }}</span>
-              <span class="pack-count">{{ group.songs.length }}</span>
-            </button>
-            <div v-if="!collapsedPacks.has(group.packKey)" class="pack-songs">
-              <div
-                v-if="group.packKey === ROOT_PACK_KEY && group.songs.length === 0 && game.songs.length === 0"
-                class="empty-state empty-state--in-pack"
-              >
-                <div class="empty-icon">♪</div>
-                <p class="empty-title">{{ t('select.noSongs') }}</p>
-              </div>
-              <div
-                v-for="{ song, idx } in group.songs"
-                :key="song.path"
-                class="song-row"
-                :class="{
-                  selected: game.currentSongIndex === idx,
-                  'song-row--no-charts': (song.charts?.length ?? 0) === 0,
-                }"
-                role="button"
-                tabindex="0"
-                @click="selectSong(idx)"
-                @dblclick="openEditor"
-                @keydown.enter.prevent="openEditor"
-                @keydown.space.prevent="selectSong(idx)"
-              >
-                <button class="fav-star" :class="{ active: library.favorites.has(song.path) }" @click.stop="toggleFavorite(song.path)">★</button>
-                <div class="song-thumb">
-                  <img v-if="bannerCache[song.path]" :src="bannerCache[song.path]" class="thumb-img" />
-                  <div v-else class="thumb-ph" :style="{ '--h': idx * 37 % 360 }">{{ song.title[0] }}</div>
-                </div>
-                <div class="song-text">
-                  <div class="song-name">{{ song.title }}</div>
-                  <div class="song-artist">{{ song.artist }}</div>
-                </div>
-                <span
-                  v-if="(song.charts?.length ?? 0) === 0"
-                  class="song-no-charts-pill"
-                >{{ t('editorSelect.noChartsBadge') }}</span>
-                <div class="song-bpm">{{ song.displayBpm }}</div>
-              </div>
-            </div>
-          </div>
+          <SongPackList
+            :groups="groupedSongs"
+            :rootPackKey="ROOT_PACK_KEY"
+            :collapsedPacks="collapsedPacks"
+            :selectedIndex="game.currentSongIndex"
+            :favoriteSet="favoriteSet"
+            :bannerCache="bannerCache"
+            :showNoChartsBadge="true"
+            :t="t"
+            @togglePack="togglePack"
+            @selectSong="selectSong"
+            @dblclickSong="openEditor"
+            @toggleFavorite="toggleFavorite"
+          />
         </div>
       </div>
 
       <!-- Detail panel -->
       <div class="detail-panel">
         <template v-if="game.currentSong">
-          <div class="hero">
-            <div class="hero-art">
-              <img v-if="bannerCache[game.currentSong.path]" :src="bannerCache[game.currentSong.path]" class="hero-img" />
-              <div v-else class="hero-ph" :style="{ '--h': game.currentSongIndex * 37 % 360 }">{{ game.currentSong.title[0] }}</div>
-              <button
-                type="button"
-                class="hero-fav-tag"
-                :class="{ active: library.isFavorite(game.currentSong.path) }"
-                @click.stop="toggleFavorite(game.currentSong.path)"
-                :aria-label="t('select.favorites')"
-              >
-                <span class="hero-fav-tag-icon" />
-              </button>
-              <div class="hero-fade" />
-            </div>
-            <div class="hero-info">
-              <h2 class="hero-title">{{ game.currentSong.title }}</h2>
-              <p v-if="game.currentSong.subtitle" class="hero-subtitle">{{ game.currentSong.subtitle }}</p>
-              <p class="hero-artist">{{ game.currentSong.artist }}</p>
-              <span class="bpm-badge">♪ {{ game.currentSong.displayBpm }} {{ t('select.bpmUnit') }}</span>
-            </div>
-          </div>
+          <SongHero
+            :title="game.currentSong.title"
+            :subtitle="game.currentSong.subtitle"
+            :artist="game.currentSong.artist"
+            :displayBpm="game.currentSong.displayBpm"
+            :bannerUrl="bannerCache[game.currentSong.path]"
+            :hue="game.currentSongIndex * 37"
+            :isFavorite="library.isFavorite(game.currentSong.path)"
+            :t="t"
+            @toggleFavorite="toggleFavorite(game.currentSong.path)"
+          />
 
           <div class="detail-panel-inner">
-            <div class="section-label">{{ t('select.charts') }}</div>
-            <div class="diff-list">
-              <button
-                v-for="chart in filteredCharts"
-                :key="chart.chartIndex"
-                type="button"
-                class="diff-btn"
-                :class="{ active: chart.chartIndex === game.currentChartIndex }"
-                :style="{ '--dc': DIFF_COLORS[chart.difficulty] || '#888' }"
-                @click="game.selectChart(chart.chartIndex)"
-              >
-                <span class="diff-gem" />
-                <span class="diff-name">{{ difficultyLabel(chart.difficulty) }}</span>
-                <span class="diff-meter">{{ chart.meter }}</span>
-                <span class="diff-type">{{ stepsTypeLabel(chart.stepsType) }}</span>
-                <span class="diff-notes">{{ chart.noteCount }} {{ t('select.notes') }}</span>
-              </button>
-              <div v-if="filteredCharts.length === 0" class="no-charts">
-                {{ (game.charts?.length ?? 0) === 0
-                  ? t('editorSelect.noChartsInSong')
-                  : t('select.noMatchingCharts') }}
-              </div>
-            </div>
+            <SongChartList
+              :charts="filteredCharts"
+              :hasSourceCharts="(game.charts?.length ?? 0) > 0"
+              :currentChartIndex="game.currentChartIndex"
+              :difficultyColors="DIFF_COLORS"
+              :difficultyLabelFn="difficultyLabel"
+              :stepsTypeLabelFn="stepsTypeLabel"
+              :t="t"
+              :noChartsMessage="t('editorSelect.noChartsInSong')"
+              :noMatchingChartsMessage="t('select.noMatchingCharts')"
+              @selectChart="game.selectChart($event)"
+            />
           </div>
 
           <div class="action-row">
@@ -778,6 +745,26 @@ onUnmounted(() => {
   color: var(--text-color);
 }
 .tb-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.tb-icon-btn {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--section-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tb-icon-btn:hover:not(:disabled) {
+  background: var(--primary-color-bg);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
+  color: var(--text-color);
+}
+.tb-icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .sort-btn,
 .filter-btn {
   font-size: 0.7rem;
@@ -796,19 +783,21 @@ onUnmounted(() => {
   font-size: 0.62rem;
   font-weight: 700;
   line-height: 1.2;
-  background: color-mix(in srgb, var(--primary-color-hover) 38%, transparent);
-  color: var(--text-color);
+  background: color-mix(in srgb, var(--accent-secondary) 35%, transparent);
+  color: var(--text-on-primary);
 }
+.spinner { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .fav-star {
   position: absolute;
-  top: 4px;
-  left: 4px;
+  top: 0.25rem;
+  left: 0.25rem;
   background: none;
   border: none;
   font-size: 0.9rem;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 2px;
+  padding: 0.125rem;
   opacity: 0.4;
   transition: opacity 0.15s, color 0.15s;
   z-index: 1;
@@ -949,7 +938,7 @@ onUnmounted(() => {
   background: hsl(var(--h), 45%, 22%);
   display: flex; align-items: center; justify-content: center;
   font-size: 1rem; font-weight: 700;
-  color: color-mix(in srgb, var(--text-color) 32%, transparent);
+  color: rgba(255,255,255,0.3);
 }
 .song-text { flex: 1; min-width: 0; }
 .song-name {
@@ -1004,19 +993,19 @@ onUnmounted(() => {
   background: linear-gradient(135deg, hsl(var(--h),45%,18%), hsl(calc(var(--h) + 40),45%,12%));
   display: flex; align-items: center; justify-content: center;
   font-size: 4rem; font-weight: 900;
-  color: color-mix(in srgb, var(--text-color) 10%, transparent);
+  color: rgba(255,255,255,0.08);
   font-family: 'Orbitron', sans-serif;
 }
 .hero-fav-tag {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 5%;
+  right: 3%;
   z-index: 2;
   border: none;
   background: transparent;
   padding: 0;
-  width: 24px;
-  height: 30px;
+  width: 1.5rem;
+  height: 1.875rem;
   color: color-mix(in srgb, var(--text-muted) 92%, transparent);
   cursor: pointer;
   transition: color 0.15s, transform 0.15s, filter 0.15s;

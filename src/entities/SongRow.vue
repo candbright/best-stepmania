@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import type { SongListItem } from "@/utils/api";
 
 withDefaults(
@@ -8,27 +8,27 @@ withDefaults(
     isSelected: boolean;
     isFavorite: boolean;
     bannerUrl?: string | null;
+    showNoChartsBadge?: boolean;
+    t?: (key: string) => string;
   }>(),
   {
     bannerUrl: null,
+    showNoChartsBadge: false,
   },
 );
 
 const emit = defineEmits<{
   (e: "select"): void;
-  (e: "confirm"): void;
   (e: "toggleFavorite"): void;
+  (e: "dblclick"): void;
 }>();
 
-function onKeyDown(event: KeyboardEvent) {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    emit("confirm");
-    return;
-  }
-
-  if (event.key === " ") {
-    event.preventDefault();
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    emit("dblclick");
+  } else if (e.key === " ") {
+    e.preventDefault();
     emit("select");
   }
 }
@@ -37,14 +37,21 @@ function onKeyDown(event: KeyboardEvent) {
 <template>
   <div
     class="song-row"
-    :class="{ selected: isSelected }"
+    :class="{
+      selected: isSelected,
+      'song-row--no-charts': showNoChartsBadge && (song.charts?.length ?? 0) === 0,
+    }"
     role="button"
     tabindex="0"
     @click="emit('select')"
-    @dblclick="emit('confirm')"
+    @dblclick="emit('dblclick')"
     @keydown="onKeyDown"
   >
-    <button class="fav-star" :class="{ active: isFavorite }" @click.stop="emit('toggleFavorite')">★</button>
+    <button
+      class="fav-star"
+      :class="{ active: isFavorite }"
+      @click.stop="emit('toggleFavorite')"
+    >★</button>
     <div class="song-thumb">
       <img v-if="bannerUrl" :src="bannerUrl" class="thumb-img" />
       <div v-else class="thumb-ph" :style="{ '--h': index * 37 % 360 }">{{ song.title[0] }}</div>
@@ -53,21 +60,61 @@ function onKeyDown(event: KeyboardEvent) {
       <div class="song-name">{{ song.title }}</div>
       <div class="song-artist">{{ song.artist }}</div>
     </div>
+    <span
+      v-if="showNoChartsBadge && (song.charts?.length ?? 0) === 0"
+      class="song-no-charts-pill"
+    >{{ t?.('editorSelect.noChartsBadge') }}</span>
     <div class="song-bpm">{{ song.displayBpm }}</div>
   </div>
 </template>
 
 <style scoped>
+.song-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+  position: relative;
+}
+.song-row:hover {
+  background: var(--section-bg);
+}
+.song-row.selected {
+  background: linear-gradient(
+    90deg,
+    var(--primary-color-bg),
+    color-mix(in srgb, var(--primary-color-bg) 40%, transparent)
+  );
+  border-left: 3px solid color-mix(in srgb, var(--primary-color) 82%, white);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 34%, transparent),
+    inset 0 0 16px color-mix(in srgb, var(--primary-color) 20%, transparent);
+}
+.song-row:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.song-row--no-charts {
+  opacity: 0.78;
+}
 .fav-star {
   position: absolute;
-  top: 4px;
-  left: 4px;
+  top: 0.25rem;
+  left: 0.25rem;
   background: none;
   border: none;
   font-size: 0.9rem;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 2px;
+  padding: 0.125rem;
   opacity: 0.4;
   transition: opacity 0.15s, color 0.15s;
   z-index: 1;
@@ -80,28 +127,6 @@ function onKeyDown(event: KeyboardEvent) {
   opacity: 1;
 }
 
-.song-row {
-  display: flex; align-items: center; gap: 0.6rem;
-  padding: 0.45rem 0.75rem;
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-color) 55%, transparent);
-  color: inherit; cursor: pointer; text-align: left; width: 100%;
-  transition: background 0.1s;
-  position: relative;
-}
-.song-row:hover { background: var(--section-bg); }
-.song-row.selected {
-  background: linear-gradient(90deg, var(--primary-color-bg), color-mix(in srgb, var(--primary-color-bg) 40%, transparent));
-  border-left: 3px solid color-mix(in srgb, var(--primary-color) 82%, white);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--primary-color) 34%, transparent),
-    inset 0 0 16px color-mix(in srgb, var(--primary-color) 20%, transparent);
-}
-.song-row:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
 .song-thumb { width: 48px; height: 32px; border-radius: 4px; overflow: hidden; flex-shrink: 0; }
 .thumb-img { width: 100%; height: 100%; object-fit: cover; }
 .thumb-ph {
@@ -127,5 +152,15 @@ function onKeyDown(event: KeyboardEvent) {
   color: var(--primary-color);
   font-weight: 700;
   flex-shrink: 0;
+}
+.song-no-charts-pill {
+  flex-shrink: 0;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #ff9800 14%, var(--section-bg));
+  border: 1px solid color-mix(in srgb, #ff9800 38%, transparent);
+  color: color-mix(in srgb, #ffb74d 82%, var(--text-color));
+  font-size: 0.62rem;
+  font-weight: 700;
 }
 </style>

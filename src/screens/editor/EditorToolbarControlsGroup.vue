@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "@/i18n";
-import { CustomSelect } from "@/shared/ui";
+import { BaseSelect } from "@/shared/ui";
 import { EDITOR_QUANTIZE_LEVELS, RATE_OPTIONS } from "./constants";
 import type { ShortcutId } from "@/engine/keyBindings";
 
@@ -58,7 +58,7 @@ const rateSelectOptions = computed(() =>
     >↑</button>
     <div class="toolbar-divider" />
     <label class="compact-label compact-label--wide-select" :title="t('editor.quantize')">
-      <CustomSelect
+      <BaseSelect
         v-model="quantize"
         variant="compact"
         :options="quantizeSelectOptions"
@@ -95,7 +95,7 @@ const rateSelectOptions = computed(() =>
       </span>
     </button>
     <label class="compact-label compact-label--wide-select" :title="t('editor.rate')">
-      <CustomSelect
+      <BaseSelect
         v-model="editorRate"
         variant="compact"
         :options="rateSelectOptions"

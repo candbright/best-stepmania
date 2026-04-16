@@ -21,10 +21,10 @@ import { ensureMinElapsed } from "@/utils/loadingGate";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { routineColorHex } from "@/constants/routinePlayerColors";
 import { logOptionalRejection } from "@/utils/devLog";
-import { TwoStepDangerModal } from "@/shared/ui";
+import { BaseConfirmModal } from "@/shared/ui";
 import { BaseModal } from "@/shared/ui";
-import { CustomSelect } from "@/shared/ui";
-import { AppNumberField } from "@/shared/ui";
+import { BaseSelect } from "@/shared/ui";
+import { BaseNumberField } from "@/shared/ui";
 import { formatBinding, mergeShortcutBindings } from "@/engine/keyBindings";
 import type { ShortcutId } from "@/engine/keyBindings";
 import { useEditorDraftGuard } from "./editor/useEditorDraftGuard";
@@ -629,7 +629,7 @@ onUnmounted(() => {
       @unsaved-save="onUnsavedSaveAndLeave"
     />
 
-    <TwoStepDangerModal
+    <BaseConfirmModal
       v-model="showDeleteChartModal"
       :title="t('editor.deleteChartModalTitle')"
       :step1-message="t('editor.confirmDeleteStep1')"
@@ -648,11 +648,11 @@ onUnmounted(() => {
     >
       <div class="form-modal-fields">
         <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
-        <CustomSelect v-model="newChartStepsType" variant="form" :options="newChartModalStepsOptions" />
+        <BaseSelect v-model="newChartStepsType" variant="form" :options="newChartModalStepsOptions" />
         <label class="form-modal-label">{{ t('editor.difficulty') }}</label>
-        <CustomSelect v-model="newChartDifficulty" variant="form" :options="newChartModalDifficultyOptions" />
+        <BaseSelect v-model="newChartDifficulty" variant="form" :options="newChartModalDifficultyOptions" />
         <label class="form-modal-label">{{ t('editor.meter') }}</label>
-        <AppNumberField v-model="newChartMeter" input-class="form-modal-input" :min="1" :max="99" />
+        <BaseNumberField v-model="newChartMeter" input-class="form-modal-input" :min="1" :max="99" />
       </div>
       <template #footer>
         <div class="form-modal-footer-inner">

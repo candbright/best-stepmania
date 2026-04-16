@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HelpTooltip } from "@/shared/ui";
+import { BaseTooltip } from "@/shared/ui";
 
 const props = withDefaults(
   defineProps<{
@@ -10,7 +10,6 @@ const props = withDefaults(
     max: number;
     step?: number;
     disabled?: boolean;
-    /** Shown in the trailing value cell (e.g. "72%", "480ms") */
     displayValue: string;
     onInteract?: () => void;
   }>(),
@@ -30,7 +29,7 @@ function onInput(e: Event) {
   <div class="setting-row">
     <label>
       {{ label }}
-      <HelpTooltip v-if="helpKey" :help-key="helpKey" />
+      <BaseTooltip v-if="helpKey" :help-key="helpKey" />
     </label>
     <input
       type="range"

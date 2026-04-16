@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "@/i18n";
-import { HelpTooltip } from "@/shared/ui";
+import { BaseTooltip } from "@/shared/ui";
 import { SettingsCard } from "@/widgets";
 import type { ChartInfoItem } from "@/utils/api";
 import type { RoutinePlayerColorId } from "@/constants/routinePlayerColors";
@@ -80,7 +80,7 @@ const difficultyLabel = (diff?: string) => {
     </div>
 
     <div class="sub-section">
-      <span class="setting-label">{{ t('playerOpt.speed') }} <HelpTooltip helpKey="speed" /></span>
+      <span class="setting-label">{{ t('playerOpt.speed') }} <BaseTooltip help-key="speed" /></span>
       <div class="speed-mod-rows">
         <div class="chip-grid-inline">
           <button v-for="mod in speedModsC" :key="mod"
@@ -96,7 +96,7 @@ const difficultyLabel = (diff?: string) => {
     </div>
 
     <div class="setting-row stacked">
-      <span class="setting-label">{{ t('playerOpt.colorScheme') }} <HelpTooltip helpKey="colorScheme" /></span>
+      <span class="setting-label">{{ t('playerOpt.colorScheme') }} <BaseTooltip help-key="colorScheme" /></span>
       <div class="chip-grid-inline">
         <button v-for="ns in availableSkins" :key="ns"
           class="chip-sm" :class="{ active: selectedNoteskin === ns }"

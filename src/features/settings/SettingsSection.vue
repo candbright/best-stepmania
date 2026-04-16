@@ -1,7 +1,6 @@
 <script setup lang="ts">
 withDefaults(
   defineProps<{
-    /** Plain section title; omit if using #head */
     title?: string;
   }>(),
   { title: "" },

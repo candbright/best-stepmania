@@ -2,7 +2,7 @@
 import { useI18n } from "@/i18n";
 import type { BpmChange } from "./useEditorState";
 import { BPM_BEAT_MATCH_EPS } from "./constants";
-import { AppNumberField } from "@/shared/ui";
+import { BaseNumberField } from "@/shared/ui";
 
 const { t } = useI18n();
 
@@ -28,11 +28,11 @@ const emit = defineEmits<{
       <div class="bpm-add-section">
         <label class="meta-field">
           <span>{{ t('editor.bpmNewAnchorBeat') }}</span>
-          <AppNumberField v-model="newBpmBeat" step="0.25" min="0" />
+          <BaseNumberField v-model="newBpmBeat" step="0.25" min="0" />
         </label>
         <label class="meta-field">
           <span>{{ t('editor.bpmNewAnchorBpm') }}</span>
-          <AppNumberField v-model="newBpmValue" step="0.01" min="1" />
+          <BaseNumberField v-model="newBpmValue" step="0.01" min="1" />
         </label>
         <button type="button" class="tool-btn small accent bpm-add-btn" @click="emit('addBpmChange')">
           + {{ t('editor.bpmAddChange') }}
@@ -42,7 +42,7 @@ const emit = defineEmits<{
         <label v-for="(bc, idx) in bpmChanges" :key="idx" class="meta-field bpm-field">
           <span>{{ t('editor.bpmChangeRowLabel').replace('{0}', bc.beat.toFixed(3)) }}</span>
           <div class="meta-field-with-action">
-            <AppNumberField
+            <BaseNumberField
               :model-value="bc.bpm"
               step="0.01"
               min="1"

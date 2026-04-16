@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HelpTooltip } from "@/shared/ui";
-import { CustomSelect } from "@/shared/ui";
+import { BaseTooltip } from "@/shared/ui";
+import { BaseSelect } from "@/shared/ui";
 
 type RowValue = string | number;
 
@@ -22,10 +22,10 @@ const emit = defineEmits<{
     <label>
       <slot name="label">
         {{ label }}
-        <HelpTooltip v-if="helpKey" :help-key="helpKey" />
+        <BaseTooltip v-if="helpKey" :help-key="helpKey" />
       </slot>
     </label>
-    <CustomSelect
+    <BaseSelect
       :model-value="modelValue"
       :options="options"
       :disabled="disabled"

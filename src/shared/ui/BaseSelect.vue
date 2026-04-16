@@ -379,4 +379,3 @@ onUnmounted(() => {
   opacity: 0.45;
 }
 </style>
- 

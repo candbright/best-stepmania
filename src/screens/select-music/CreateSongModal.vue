@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from "vue";
-import { useModalBottomHintLayout } from "@/shared/composables/useModalBottomHintLayout";
 import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import { openFileDialog } from "@/utils/platform";
-import { CustomSelect } from "@/shared/ui";
-import { AppNumberField } from "@/shared/ui";
+import BaseFormModal from "@/shared/ui/BaseFormModal.vue";
+import BaseSelect from "@/shared/ui/BaseSelect.vue";
+import BaseNumberField from "@/shared/ui/BaseNumberField.vue";
 import type { Ref } from "vue";
 
 const props = withDefaults(
@@ -29,14 +29,6 @@ const emit = defineEmits<{
 const game = useGameStore();
 const player = usePlayerStore();
 const { t } = useI18n();
-
-const modalMaskRef = ref<HTMLElement | null>(null);
-const modalCardRef = ref<HTMLElement | null>(null);
-const overlayActive = computed(() => props.show);
-const { hintVisible } = useModalBottomHintLayout(modalMaskRef, modalCardRef, {
-  active: overlayActive,
-  hasHint: () => props.bottomHint.trim().length > 0,
-});
 
 const creatingSong = ref(false);
 const ROOT_PACK_KEY = "__ROOT__";
@@ -201,176 +193,245 @@ function onKeyDown(e: KeyboardEvent) {
     close();
   }
 }
+
 watch(() => props.show, (val) => {
   if (val) window.addEventListener("keydown", onKeyDown, true);
   else window.removeEventListener("keydown", onKeyDown, true);
 });
+
 onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
 </script>
 
 <template>
-  <Teleport v-if="show" to="body">
-    <div ref="modalMaskRef" class="form-modal-mask">
-      <div class="form-modal-mask-fill" @click.self="close">
-        <div
-          ref="modalCardRef"
-          class="form-modal-shell form-modal-card--wide form-modal--scrollable"
-        >
-          <header class="form-modal-header">
-            <span class="form-modal-title">{{ t('select.createSong') }}</span>
-            <button type="button" class="form-modal-close" @click="close">×</button>
-          </header>
+  <BaseFormModal
+    :model-value="show"
+    :title="t('select.createSong')"
+    :bottom-hint="bottomHint"
+    wide
+    @close="close"
+  >
+    <div class="create-song-form">
+      <label class="form-modal-label">{{ t('select.targetPack') }}</label>
+      <BaseSelect v-model="createPack" variant="form" :options="createPackSelectOptions" />
+      <input
+        v-if="createPack === '__CUSTOM__'"
+        v-model="createPackCustom"
+        class="form-modal-input"
+        :placeholder="t('select.newPackPlaceholder')"
+      />
 
-          <div class="form-modal-body">
-            <div class="form-modal-fields">
-            <label class="form-modal-label">{{ t('select.targetPack') }}</label>
-            <CustomSelect v-model="createPack" variant="form" :options="createPackSelectOptions" />
-            <input
-              v-if="createPack === '__CUSTOM__'"
-              v-model="createPackCustom"
-              class="form-modal-input"
-              :placeholder="t('select.newPackPlaceholder')"
-            />
+      <label class="form-modal-label">{{ t('editor.metaTitle') }}</label>
+      <input v-model="createTitle" class="form-modal-input" :placeholder="t('select.defaultTitleHint')" />
 
-            <label class="form-modal-label">{{ t('editor.metaTitle') }}</label>
-            <input v-model="createTitle" class="form-modal-input" :placeholder="t('select.defaultTitleHint')" />
+      <label class="form-modal-label">{{ t('editor.metaArtist') }}</label>
+      <input v-model="createArtist" class="form-modal-input" :placeholder="t('select.defaultArtistHint')" />
 
-            <label class="form-modal-label">{{ t('editor.metaArtist') }}</label>
-            <input v-model="createArtist" class="form-modal-input" :placeholder="t('select.defaultArtistHint')" />
+      <label class="form-modal-label">{{ t('editor.metaSubtitle') }}</label>
+      <input v-model="createSubtitle" class="form-modal-input" />
 
-            <label class="form-modal-label">{{ t('editor.metaSubtitle') }}</label>
-            <input v-model="createSubtitle" class="form-modal-input" />
+      <label class="form-modal-label">{{ t('editor.metaGenre') }}</label>
+      <input v-model="createGenre" class="form-modal-input" />
 
-            <label class="form-modal-label">{{ t('editor.metaGenre') }}</label>
-            <input v-model="createGenre" class="form-modal-input" />
-
-            <label class="form-modal-label">{{ t('select.musicSource') }}</label>
-            <div class="form-modal-path-row">
-              <input
-                v-model="createMusicSourcePath"
-                class="form-modal-input form-modal-path-input"
-                :placeholder="t('select.defaultMusicHint')"
-              />
-              <button type="button" class="form-modal-path-btn" @click="pickCreateMusic">{{ t('common.browse') }}</button>
-              <button type="button" class="form-modal-path-btn" @click="clearCreateMusic">{{ t('common.clear') }}</button>
-            </div>
-
-            <label class="form-modal-label">{{ t('select.coverSource') }}</label>
-            <div class="form-modal-path-row">
-              <input
-                v-model="createCoverSourcePath"
-                class="form-modal-input form-modal-path-input"
-                :placeholder="t('select.defaultCoverHint')"
-              />
-              <button type="button" class="form-modal-path-btn" @click="pickCreateCover">{{ t('common.browse') }}</button>
-              <button type="button" class="form-modal-path-btn" @click="clearCreateCover">{{ t('common.clear') }}</button>
-            </div>
-
-            <label class="form-modal-label">{{ t('select.backgroundSource') }}</label>
-            <div class="form-modal-path-row">
-              <input
-                v-model="createBackgroundSourcePath"
-                class="form-modal-input form-modal-path-input"
-                :placeholder="t('select.defaultBackgroundHint')"
-              />
-              <button type="button" class="form-modal-path-btn" @click="pickCreateBackground">{{ t('common.browse') }}</button>
-              <button type="button" class="form-modal-path-btn" @click="clearCreateBackground">{{ t('common.clear') }}</button>
-            </div>
-
-            <p class="form-modal-hint">{{ t('select.timingDefaultsHint') }}</p>
-            <label class="form-modal-label">{{ t('select.createInitialBpm') }}</label>
-            <AppNumberField
-              v-model="createBpmBridge"
-              input-class="form-modal-input"
-              nullable
-              :min="20"
-              :max="999"
-              step="0.001"
-              :placeholder="String(DEFAULT_CREATE_BPM)"
-            />
-
-            <label class="form-modal-label">{{ t('editor.metaOffset') }}</label>
-            <AppNumberField
-              v-model="createOffsetBridge"
-              input-class="form-modal-input"
-              nullable
-              step="0.001"
-              :placeholder="String(DEFAULT_CREATE_OFFSET)"
-            />
-
-            <label class="form-modal-label">{{ t('editor.metaSampleStart') }}</label>
-            <AppNumberField
-              v-model="createSampleStartBridge"
-              input-class="form-modal-input"
-              nullable
-              :min="0"
-              step="0.001"
-              :placeholder="String(DEFAULT_CREATE_SAMPLE_START)"
-            />
-
-            <label class="form-modal-label">{{ t('editor.metaSampleLength') }}</label>
-            <AppNumberField
-              v-model="createSampleLengthBridge"
-              input-class="form-modal-input"
-              nullable
-              min="0.01"
-              step="0.001"
-              :placeholder="String(DEFAULT_CREATE_SAMPLE_LENGTH)"
-            />
-
-            <div class="form-modal-check">
-              <span>{{ t('songPacks.createInitialChart') }}</span>
-              <label class="toggle-switch">
-                <input type="checkbox" v-model="createChart" />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-
-            <template v-if="createChart">
-              <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
-              <CustomSelect v-model="createStepsType" variant="form" :options="createStepsTypeOptions" />
-
-              <label class="form-modal-label">{{ t('editor.difficulty') }}</label>
-              <CustomSelect v-model="createDifficulty" variant="form" :options="createDifficultyOptions" />
-
-              <label class="form-modal-label">{{ t('editor.meter') }}</label>
-              <AppNumberField v-model="createMeter" input-class="form-modal-input" :min="1" :max="20" />
-            </template>
-            </div>
-          </div>
-
-          <footer class="form-modal-footer">
-            <div class="form-modal-footer-inner">
-              <button type="button" class="form-modal-btn" @click="close">{{ t('cancel') }}</button>
-              <button
-                type="button"
-                class="form-modal-btn form-modal-btn--primary"
-                :disabled="creatingSong"
-                @click="createSong"
-              >
-                {{ t('confirm') }}
-              </button>
-            </div>
-          </footer>
-        </div>
+      <label class="form-modal-label">{{ t('select.musicSource') }}</label>
+      <div class="form-modal-path-row">
+        <input
+          v-model="createMusicSourcePath"
+          class="form-modal-input form-modal-path-input"
+          :placeholder="t('select.defaultMusicHint')"
+        />
+        <button type="button" class="form-modal-path-btn" @click="pickCreateMusic">{{ t('common.browse') }}</button>
+        <button type="button" class="form-modal-path-btn" @click="clearCreateMusic">{{ t('common.clear') }}</button>
       </div>
-      <p v-if="hintVisible" class="form-modal-mask-hint">{{ bottomHint }}</p>
+
+      <label class="form-modal-label">{{ t('select.coverSource') }}</label>
+      <div class="form-modal-path-row">
+        <input
+          v-model="createCoverSourcePath"
+          class="form-modal-input form-modal-path-input"
+          :placeholder="t('select.defaultCoverHint')"
+        />
+        <button type="button" class="form-modal-path-btn" @click="pickCreateCover">{{ t('common.browse') }}</button>
+        <button type="button" class="form-modal-path-btn" @click="clearCreateCover">{{ t('common.clear') }}</button>
+      </div>
+
+      <label class="form-modal-label">{{ t('select.backgroundSource') }}</label>
+      <div class="form-modal-path-row">
+        <input
+          v-model="createBackgroundSourcePath"
+          class="form-modal-input form-modal-path-input"
+          :placeholder="t('select.defaultBackgroundHint')"
+        />
+        <button type="button" class="form-modal-path-btn" @click="pickCreateBackground">{{ t('common.browse') }}</button>
+        <button type="button" class="form-modal-path-btn" @click="clearCreateBackground">{{ t('common.clear') }}</button>
+      </div>
+
+      <p class="form-modal-hint">{{ t('select.timingDefaultsHint') }}</p>
+      <label class="form-modal-label">{{ t('select.createInitialBpm') }}</label>
+      <BaseNumberField
+        v-model="createBpmBridge"
+        input-class="form-modal-input"
+        nullable
+        :min="20"
+        :max="999"
+        step="0.001"
+        :placeholder="String(DEFAULT_CREATE_BPM)"
+      />
+
+      <label class="form-modal-label">{{ t('editor.metaOffset') }}</label>
+      <BaseNumberField
+        v-model="createOffsetBridge"
+        input-class="form-modal-input"
+        nullable
+        step="0.001"
+        :placeholder="String(DEFAULT_CREATE_OFFSET)"
+      />
+
+      <label class="form-modal-label">{{ t('editor.metaSampleStart') }}</label>
+      <BaseNumberField
+        v-model="createSampleStartBridge"
+        input-class="form-modal-input"
+        nullable
+        :min="0"
+        step="0.001"
+        :placeholder="String(DEFAULT_CREATE_SAMPLE_START)"
+      />
+
+      <label class="form-modal-label">{{ t('editor.metaSampleLength') }}</label>
+      <BaseNumberField
+        v-model="createSampleLengthBridge"
+        input-class="form-modal-input"
+        nullable
+        min="0.01"
+        step="0.001"
+        :placeholder="String(DEFAULT_CREATE_SAMPLE_LENGTH)"
+      />
+
+      <div class="form-modal-check">
+        <span>{{ t('songPacks.createInitialChart') }}</span>
+        <label class="toggle-switch">
+          <input type="checkbox" v-model="createChart" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <template v-if="createChart">
+        <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
+        <BaseSelect v-model="createStepsType" variant="form" :options="createStepsTypeOptions" />
+
+        <label class="form-modal-label">{{ t('editor.difficulty') }}</label>
+        <BaseSelect v-model="createDifficulty" variant="form" :options="createDifficultyOptions" />
+
+        <label class="form-modal-label">{{ t('editor.meter') }}</label>
+        <BaseNumberField v-model="createMeter" input-class="form-modal-input" :min="1" :max="20" />
+      </template>
     </div>
-  </Teleport>
+
+    <template #footer>
+      <div class="form-modal-footer-inner">
+        <button type="button" class="form-modal-btn" @click="close">{{ t('cancel') }}</button>
+        <button
+          type="button"
+          class="form-modal-btn form-modal-btn--primary"
+          :disabled="creatingSong"
+          @click="createSong"
+        >
+          {{ t('confirm') }}
+        </button>
+      </div>
+    </template>
+  </BaseFormModal>
 </template>
 
 <style scoped>
+.create-song-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-modal-path-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.form-modal-path-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.form-modal-path-btn {
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  font-family: 'Rajdhani', sans-serif;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.form-modal-path-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-color);
+}
+
+.form-modal-hint {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.35);
+  margin: 0.25rem 0;
+}
+
 .form-modal-check {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  padding: 0.25rem 0;
 }
 
-.toggle-switch { position: relative; width: 36px; height: 20px; cursor: pointer; flex-shrink: 0; }
-.toggle-switch input { opacity: 0; width: 0; height: 0; }
-.toggle-slider { position: absolute; inset: 0; background: rgba(255,255,255,0.1); border-radius: 22px; transition: 0.2s; }
-.toggle-slider::before { content: ""; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: rgba(255,255,255,0.5); border-radius: 50%; transition: 0.2s; }
-.toggle-switch input:checked + .toggle-slider { background: var(--primary-color); }
-.toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--text-on-primary); }
+.toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  transition: 0.2s;
+}
+
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 3px;
+  bottom: 3px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: var(--primary-color);
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(16px);
+  background: var(--text-on-primary);
+}
 </style>

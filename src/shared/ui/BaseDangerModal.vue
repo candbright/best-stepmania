@@ -74,7 +74,8 @@ watch(
   () => props.modelValue,
   (open) => {
     if (open) {
-      // Reset toggle when modal opens
+      // Each open gets a fresh confirmation state so destructive dialogs
+      // never inherit an old checked toggle from a previous session.
       if (props.toggleConfirm) toggleChecked.value = false;
       window.addEventListener("keydown", onEscKey, true);
     } else {

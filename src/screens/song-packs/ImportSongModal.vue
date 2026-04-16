@@ -4,8 +4,8 @@ import { useI18n } from "@/i18n";
 import { openFileDialog } from "@/utils/platform";
 import type { SongPackInfo } from "@/utils/api";
 import { BaseModal } from "@/shared/ui";
-import { CustomSelect } from "@/shared/ui";
-import { AppNumberField } from "@/shared/ui";
+import { BaseSelect } from "@/shared/ui";
+import { BaseNumberField } from "@/shared/ui";
 
 const props = defineProps<{
   show: boolean;
@@ -174,7 +174,7 @@ function onOpenChange(open: boolean) {
   >
     <div class="form-modal-fields">
       <label class="form-modal-label">{{ t('songPacks.targetPack') }}</label>
-      <CustomSelect v-model="selectedPack" variant="form" :options="packSelectDropdownOptions" />
+      <BaseSelect v-model="selectedPack" variant="form" :options="packSelectDropdownOptions" />
 
       <label class="form-modal-label">{{ t('editor.metaTitle') }} *</label>
       <input
@@ -237,7 +237,7 @@ function onOpenChange(open: boolean) {
       <p class="form-modal-hint">{{ t('select.timingDefaultsHint') }}</p>
 
       <label class="form-modal-label">{{ t('select.createInitialBpm') }}</label>
-      <AppNumberField
+      <BaseNumberField
         v-model="songBpm"
         input-class="form-modal-input"
         :min="20"
@@ -247,7 +247,7 @@ function onOpenChange(open: boolean) {
       />
 
       <label class="form-modal-label">{{ t('editor.metaOffset') }}</label>
-      <AppNumberField v-model="songOffset" input-class="form-modal-input" step="0.001" placeholder="0" />
+      <BaseNumberField v-model="songOffset" input-class="form-modal-input" step="0.001" placeholder="0" />
 
       <div class="form-modal-check">
         <span>{{ t('songPacks.createInitialChart') }}</span>
@@ -259,13 +259,13 @@ function onOpenChange(open: boolean) {
 
       <template v-if="createChart">
         <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
-        <CustomSelect v-model="songStepsType" variant="form" :options="stepsTypeOptions" />
+        <BaseSelect v-model="songStepsType" variant="form" :options="stepsTypeOptions" />
 
         <label class="form-modal-label">{{ t('editor.difficulty') }}</label>
-        <CustomSelect v-model="songDifficulty" variant="form" :options="difficultyOptions" />
+        <BaseSelect v-model="songDifficulty" variant="form" :options="difficultyOptions" />
 
         <label class="form-modal-label">{{ t('editor.meter') }}</label>
-        <AppNumberField v-model="songMeter" input-class="form-modal-input" :min="1" :max="20" />
+        <BaseNumberField v-model="songMeter" input-class="form-modal-input" :min="1" :max="20" />
       </template>
     </div>
 

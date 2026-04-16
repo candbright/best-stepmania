@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import FilterModal from "./select-music/FilterModal.vue";
-import { TwoStepDangerModal } from "@/shared/ui";
-import { SongPackList } from "@/entities";
-import { SongHero } from "@/entities";
-import { SongChartList } from "@/entities";
-import { TopScores } from "@/widgets";
+import BaseConfirmModal from "@/shared/ui/BaseConfirmModal.vue";
+import SongHero from "@/entities/SongHero.vue";
+import SongChartList from "@/entities/SongChartList.vue";
+import SongPackList from "@/entities/SongPackList.vue";
+import TopScores from "@/widgets/TopScores.vue";
 import { useSelectMusicScreen } from "./select-music/useSelectMusicScreen";
 
 const {
@@ -39,6 +40,8 @@ const {
   goBack,
   sortLabel,
   cycleSortMode,
+  refreshSongs,
+  refreshing,
   hasActiveFilter,
   activeFilterCount,
   togglePack,
@@ -47,10 +50,43 @@ const {
   toggleFavorite,
   setShowFavoritesOnly,
   showFavoritesOnly,
-  isFavorite,
+  favoriteSet,
 } = useSelectMusicScreen();
 
+// Resize state
+const songPanelWidth = ref(320);
+const isDragging = ref(false);
+const resizeHandleRef = ref<HTMLElement | null>(null);
+
+const MIN_SONG_PANEL_WIDTH = 200;
+const MIN_DETAIL_PANEL_WIDTH = 400;
+
+const startDrag = (_e: MouseEvent) => {
+  isDragging.value = true;
+  document.addEventListener('mousemove', onDrag);
+  document.addEventListener('mouseup', stopDrag);
+  document.body.style.userSelect = 'none';
+};
+
+const onDrag = (e: MouseEvent) => {
+  if (!isDragging.value) return;
+  const container = document.querySelector('.sms-body') as HTMLElement;
+  if (!container) return;
+  const containerRect = container.getBoundingClientRect();
+  const newWidth = e.clientX - containerRect.left;
+  const maxWidth = containerRect.width - MIN_DETAIL_PANEL_WIDTH;
+  songPanelWidth.value = Math.max(MIN_SONG_PANEL_WIDTH, Math.min(newWidth, maxWidth));
+};
+
+const stopDrag = () => {
+  isDragging.value = false;
+  document.removeEventListener('mousemove', onDrag);
+  document.removeEventListener('mouseup', stopDrag);
+  document.body.style.userSelect = '';
+};
+
 void songScrollRef;
+void resizeHandleRef;
 </script>
 
 <template>
@@ -67,6 +103,10 @@ void songScrollRef;
         <span class="topbar-title">{{ t('select.title') }}</span>
       </div>
       <div class="topbar-actions">
+        <button class="tb-icon-btn" :title="t('select.refresh')" @click="refreshSongs" :disabled="refreshing">
+          <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          <span v-else class="spinner">&#x27F3;</span>
+        </button>
         <button class="tb-btn filter-btn" :class="{ active: hasActiveFilter }" @click="showFilterModal = true">
           {{ t('select.filter') }}
           <span v-if="activeFilterCount > 0" class="filter-badge">{{ activeFilterCount }}</span>
@@ -77,24 +117,31 @@ void songScrollRef;
 
     <div class="sms-body">
       <!-- Song list -->
-      <div class="song-panel">
+      <div class="song-panel" :style="{ width: `${songPanelWidth}px` }">
         <div ref="songScrollRef" class="song-scroll">
           <SongPackList
             :groups="groupedSongs"
             :rootPackKey="ROOT_PACK_KEY"
             :collapsedPacks="collapsedPacks"
             :selectedIndex="game.currentSongIndex"
+            :favoriteSet="favoriteSet"
             :bannerCache="bannerCache"
-            :isCurrentRootEmpty="game.songs.length === 0"
-            :isFavorite="isFavorite"
-            :noSongsLabel="t('select.noSongs')"
+            :t="t"
             @togglePack="togglePack"
             @selectSong="selectSong"
-            @confirmSong="confirmSelection"
+            @dblclickSong="confirmSelection"
             @toggleFavorite="toggleFavorite"
           />
         </div>
       </div>
+
+      <!-- Resize handle -->
+      <div
+        ref="resizeHandleRef"
+        class="resize-handle"
+        :class="{ dragging: isDragging }"
+        @mousedown="startDrag"
+      />
 
       <!-- Detail panel -->
       <div class="detail-panel">
@@ -103,24 +150,24 @@ void songScrollRef;
             :title="game.currentSong.title"
             :subtitle="game.currentSong.subtitle"
             :artist="game.currentSong.artist"
-            :displayBpm="`${game.currentSong.displayBpm} ${t('select.bpmUnit')}`"
+            :displayBpm="game.currentSong.displayBpm"
             :bannerUrl="bannerCache[game.currentSong.path]"
-            :hue="game.currentSongIndex * 37 % 360"
-            :isFavorite="isFavorite(game.currentSong.path)"
-            :favoriteLabel="t('select.favorites')"
+            :hue="game.currentSongIndex * 37"
+            :isFavorite="favoriteSet.has(game.currentSong.path)"
+            :t="t"
             @toggleFavorite="toggleFavorite(game.currentSong.path)"
           />
 
           <div class="detail-panel-inner">
             <SongChartList
               :charts="filteredCharts"
+              :hasSourceCharts="(game.charts?.length ?? 0) > 0"
               :currentChartIndex="game.currentChartIndex"
               :difficultyColors="DIFF_COLORS"
-              :difficultyLabel="difficultyLabel"
-              :stepsTypeLabel="stepsTypeLabel"
-              :chartsLabel="t('select.charts')"
-              :notesLabel="t('select.notes')"
-              :noMatchingChartsLabel="t('select.noMatchingCharts')"
+              :difficultyLabelFn="difficultyLabel"
+              :stepsTypeLabelFn="stepsTypeLabel"
+              :t="t"
+              :noMatchingChartsMessage="t('select.noMatchingCharts')"
               @selectChart="game.selectChart($event)"
             />
 
@@ -131,10 +178,8 @@ void songScrollRef;
               :displayPercentFromDpRatio="displayPercentFromDpRatio"
               :gradeTextGradientStyle="gradeTextGradientStyle"
               :formatPlayedAt="formatPlayedAt"
-              :title="t('select.topScores')"
-              :clearLabel="t('select.clearTopScores')"
-              :fullComboLabel="t('select.fullComboBadge')"
-              @clear="onClearTopScores"
+              :t="t"
+              @clearTopScores="onClearTopScores"
             />
           </div>
 
@@ -153,7 +198,7 @@ void songScrollRef;
       </div>
     </div>
 
-    <TwoStepDangerModal
+    <BaseConfirmModal
       v-model="showClearTopScoresModal"
       :title="t('select.clearTopScoresModalTitle')"
       :step1-message="t('select.clearTopScoresStep1')"
@@ -265,6 +310,26 @@ void songScrollRef;
   color: var(--text-color);
 }
 .tb-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.tb-icon-btn {
+  width: 2rem;
+  height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--section-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tb-icon-btn:hover:not(:disabled) {
+  background: var(--primary-color-bg);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
+  color: var(--text-color);
+}
+.tb-icon-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .sort-btn,
 .filter-btn {
   font-size: 0.7rem;
@@ -288,14 +353,14 @@ void songScrollRef;
 }
 .fav-star {
   position: absolute;
-  top: 4px;
-  left: 4px;
+  top: 0.25rem;
+  left: 0.25rem;
   background: none;
   border: none;
   font-size: 0.9rem;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 2px;
+  padding: 0.125rem;
   opacity: 0.4;
   transition: opacity 0.15s, color 0.15s;
   z-index: 1;
@@ -360,7 +425,7 @@ void songScrollRef;
 
 /* ── Song panel ── */
 .song-panel {
-  width: 320px; flex-shrink: 0;
+  flex-shrink: 0;
   display: flex; flex-direction: column;
   border-right: 1px solid var(--border-color);
   overflow: hidden;
@@ -371,6 +436,40 @@ void songScrollRef;
 .song-scroll::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--primary-color) 45%, transparent);
   border-radius: 2px;
+}
+
+/* ── Resize handle ── */
+.resize-handle {
+  width: 6px;
+  flex-shrink: 0;
+  background: var(--border-color);
+  cursor: col-resize;
+  transition: background 0.15s;
+  position: relative;
+}
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 32px;
+  background: color-mix(in srgb, var(--primary-color) 40%, transparent);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.resize-handle:hover,
+.resize-handle.dragging {
+  background: color-mix(in srgb, var(--primary-color) 50%, var(--border-color));
+}
+.resize-handle:hover::after,
+.resize-handle.dragging::after {
+  opacity: 1;
+}
+.resize-handle.dragging {
+  background: var(--primary-color);
 }
 
 /* Empty state */
@@ -515,14 +614,14 @@ void songScrollRef;
 }
 .hero-fav-tag {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 5%;
+  right: 3%;
   z-index: 2;
   border: none;
   background: transparent;
   padding: 0;
-  width: 24px;
-  height: 30px;
+  width: 1.5rem;
+  height: 1.875rem;
   color: color-mix(in srgb, var(--text-muted) 92%, transparent);
   cursor: pointer;
   transition: color 0.15s, transform 0.15s, filter 0.15s;
@@ -752,12 +851,16 @@ void songScrollRef;
   font-size: 0.75rem;
 }
 
+.spinner { display: inline-block; animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 @media (max-width: 880px) {
   .sms-body { flex-direction: column; }
-  .song-panel { width: 100%; min-height: 42vh; border-right: none; border-bottom: 1px solid var(--border-color); }
+  .song-panel { width: 100% !important; min-height: 42vh; border-right: none; border-bottom: 1px solid var(--border-color); }
   .detail-panel { min-height: 0; }
   .action-row { flex-wrap: wrap; }
   .play-btn { width: 100%; }
+  .resize-handle { display: none; }
 }
 @media (max-width: 640px) {
   .topbar { flex-wrap: wrap; }

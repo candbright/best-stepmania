@@ -1,34 +1,37 @@
 <script setup lang="ts">
 import type { HighScoreInfo } from "@/utils/api";
 
-defineProps<{
-  topScores: HighScoreInfo[];
-  profileId: string | null;
-  clearingTopScores: boolean;
-  displayPercentFromDpRatio: (ratio: number) => number;
-  gradeTextGradientStyle: (grade: string) => Record<string, string>;
-  formatPlayedAt: (iso: string) => string;
-  title: string;
-  clearLabel: string;
-  fullComboLabel: string;
-}>();
+withDefaults(
+  defineProps<{
+    topScores: HighScoreInfo[];
+    profileId: string | null;
+    clearingTopScores: boolean;
+    displayPercentFromDpRatio: (ratio: number) => number;
+    gradeTextGradientStyle: (grade: string) => Record<string, string>;
+    formatPlayedAt: (iso: string) => string;
+    t: (key: string) => string;
+  }>(),
+  {
+    clearingTopScores: false,
+  },
+);
 
 const emit = defineEmits<{
-  (e: "clear"): void;
+  (e: "clearTopScores"): void;
 }>();
 </script>
 
 <template>
   <div v-if="topScores.length > 0" class="top-scores">
     <div class="top-scores-head">
-      <div class="section-label">{{ title }}</div>
+      <div class="section-label">{{ t('select.topScores') }}</div>
       <button
         type="button"
         class="clear-top-scores-btn"
         :disabled="clearingTopScores || !profileId"
-        @click="emit('clear')"
+        @click="emit('clearTopScores')"
       >
-        {{ clearLabel }}
+        {{ t('select.clearTopScores') }}
       </button>
     </div>
     <ul class="top-scores-list">
@@ -40,7 +43,7 @@ const emit = defineEmits<{
         <span class="rank">{{ idx + 1 }}</span>
         <span class="grade" :style="gradeTextGradientStyle(row.grade)">{{ row.grade }}</span>
         <span class="pct">{{ displayPercentFromDpRatio(row.dpPercent).toFixed(2) }}%</span>
-        <span v-if="row.fullCombo" class="fc-badge">{{ fullComboLabel }}</span>
+        <span v-if="row.fullCombo" class="fc-badge">{{ t('select.fullComboBadge') }}</span>
         <span class="played-at">{{ formatPlayedAt(row.playedAt) }}</span>
       </li>
     </ul>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HelpTooltip } from "@/shared/ui";
+import { BaseTooltip } from "@/shared/ui";
 
 const props = defineProps<{
   label: string;
@@ -23,7 +23,7 @@ function onChange(e: Event) {
   <div class="setting-row">
     <label>
       {{ label }}
-      <HelpTooltip v-if="helpKey" :help-key="helpKey" />
+      <BaseTooltip v-if="helpKey" :help-key="helpKey" />
     </label>
     <label class="toggle-switch">
       <input type="checkbox" :checked="modelValue" :disabled="disabled" @change="onChange" />
