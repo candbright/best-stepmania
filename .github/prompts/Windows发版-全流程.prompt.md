@@ -10,10 +10,10 @@
 
 确认后立即进入串行执行，不再等待我下达下一步指令。你必须严格按下面顺序推进，前一步完成后自动进入下一步：
 
-1. 版本准备：[`Windows发版-版本准备.prompt.md`](Windows发版-版本准备.prompt.md)
-2. 本地出包：[`Windows发版-本地出包.prompt.md`](Windows发版-本地出包.prompt.md)
-3. 打标签与发布：[`Windows发版-打标签与发布.prompt.md`](Windows发版-打标签与发布.prompt.md)
-4. 验收与排障：[`Windows发版-验收与排障.prompt.md`](Windows发版-验收与排障.prompt.md)
+1. 版本准备：`@.github/prompts/sub/Windows发版-版本准备.prompt.md`
+2. 本地出包：`@.github/prompts/sub/Windows发版-本地出包.prompt.md`
+3. 打标签与发布：`@.github/prompts/sub/Windows发版-打标签与发布.prompt.md`
+4. 验收与排障：`@.github/prompts/sub/Windows发版-验收与排障.prompt.md`
 
 执行约束：
 
@@ -22,5 +22,5 @@
 - 如果某一步失败，先停止串行流程，明确报错点、原因和修复建议；修复并得到我确认后，从失败步骤继续。
 - Release 文案阶段必须配合 [`Release更新文档.prompt.md`](Release更新文档.prompt.md)。
 - 需要提交与推送时，使用：
-  - [`github提交.prompt.md`](github提交.prompt.md)
-  - [`github推送.prompt.md`](github推送.prompt.md)
+  - `@.github/prompts/sub/github-提交.prompt.md`
+  - `@.github/prompts/sub/github-推送.prompt.md`
