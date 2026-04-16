@@ -1,6 +1,6 @@
 # Best-StepMania User Guide (Simplified)
 
-This guide aligns with **v1.3.1**. Release notes: [changelog/bsm-v1.3.1.md](../changelog/bsm-v1.3.1.md).
+This guide aligns with **v1.3.2**. Release notes: [changelog/bsm-v1.3.2.md](../changelog/bsm-v1.3.2.md).
 
 ## 1. What You Need
 
@@ -23,6 +23,7 @@ Note: do not launch `target/debug/best-stepmania.exe` directly. It expects the `
 
 - Browse songs, then use search/filter/sort.
 - Favorite songs and filter by favorites only.
+- After a library scan or import finishes, returning here refreshes the list automatically.
 - Create song packs to organize your library.
 
 ### Gameplay
@@ -33,7 +34,7 @@ Note: do not launch `target/debug/best-stepmania.exe` directly. It expects the `
 
 ### Editor
 
-- Open a song/chart from the editor entry.
+- Open a song/chart from the editor entry; on the picker screen, drag the divider between the list and details to resize panes.
 - Add, remove, and move notes on the canvas.
 - Edit timing-related values and save back to chart files.
 
