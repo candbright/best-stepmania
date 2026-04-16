@@ -197,13 +197,21 @@ async function pollScanStatus() {
     scanCount.value = status.totalFound;
     scanError.value = status.error;
     if (status.done) {
+      if (status.error) {
+        stopPolling();
+        scanning.value = false;
+        throw new Error(status.error);
+      }
+
       scanDone.value = true;
       stopPolling();
 
       // 首次进入游戏：确保歌曲列表已加载到 store。
       // 之后页面切换不重复加载，只有曲库变更操作才刷新。
+      // 注意：status.done=true 时必须确保 scanSongs 已执行完成，
+      // 否则 getSongList 可能返回空数组。使用 force 确保重新扫描。
       if (game.songs.length === 0) {
-        await game.refreshSongsList();
+        await game.loadSongs(undefined, { force: true });
       }
 
       if (game.songs.length > 0 && player.queue.length === 0) {
@@ -211,8 +219,10 @@ async function pollScanStatus() {
         player.setQueue(game.songs, 0);
       }
     }
-  } catch {
-    // ignore
+  } catch (error: unknown) {
+    stopPolling();
+    scanning.value = false;
+    throw error;
   }
 }
 
@@ -325,6 +335,10 @@ onMounted(() => {
   } else {
     // Ensure overlay is not left open from another screen.
     blockingOverlay.hide();
+    // Returning to title: re-check scan status in case it was left in a scanning state
+    if (!scanDone.value) {
+      void pollScanStatus();
+    }
   }
   applyPlayModeSelectReturnIntent();
   window.addEventListener("keydown", onKeyDown);

@@ -44,7 +44,24 @@ export const useLibraryStore = defineStore("library", () => {
       return;
     }
     const requestId = nextSongsRequestId();
-    await api.scanSongs(dirs);
+    // Preserve multi-directory scans, but fall back to backend default when settings are empty
+    // or contain stale relative paths like "songs".
+    const normalizedDirs = dirs
+      .map((dir) => dir.trim())
+      .filter((dir) => dir.length > 0);
+    const fallbackDir = await api.getSongsDir();
+    const scanDirs = normalizedDirs.length > 0
+      ? normalizedDirs
+      : [fallbackDir];
+    try {
+      await api.scanSongs(scanDirs);
+    } catch (error: unknown) {
+      const shouldFallback = scanDirs.some((dir) => !dir.includes(":") && !dir.startsWith("/") && !dir.startsWith("\\"));
+      if (!shouldFallback) {
+        throw error;
+      }
+      await api.scanSongs([fallbackDir]);
+    }
     const nextSongs = await api.getSongList(sortMode.value);
     if (!isLatestSongsRequest(requestId)) return;
     songs.value = nextSongs;

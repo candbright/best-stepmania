@@ -60,4 +60,5 @@ export default {
   "select.fullComboBadge": "FC",
   "select.bpmUnit": "BPM",
   "select.onlyFavorites": "仅收藏",
+  "select.refresh": "刷新",
 } as const;

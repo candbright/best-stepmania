@@ -28,6 +28,7 @@ export function useSelectMusicScreen() {
   const showClearTopScoresModal = ref(false);
   const clearingTopScores = ref(false);
   const confirmSelectionBusy = ref(false);
+  const refreshing = ref(false);
   const songScrollRef = ref<HTMLElement | null>(null);
   let loadAbortCtrl: AbortController | null = null;
 
@@ -105,8 +106,10 @@ export function useSelectMusicScreen() {
       if (filterPack.value && s.pack !== filterPack.value) return false;
 
       const charts = s.charts ?? [];
-      let hasMatchingChart = false;
+      // Allow songs with no charts to pass through (consistent with EditorSongSelectScreen)
+      if (charts.length === 0) return true;
 
+      let hasMatchingChart = false;
       for (const c of charts) {
         if (game.playMode && !chartFitsPlayMode(c, game.playMode)) continue;
         if (diffMin.value !== null && c.meter < diffMin.value) continue;
@@ -345,6 +348,17 @@ export function useSelectMusicScreen() {
     game.setSortMode(modes[(cur + 1) % modes.length]);
   }
 
+  async function refreshSongs() {
+    refreshing.value = true;
+    try {
+      await game.refreshSongsList();
+      game.needsSongRefresh = false;
+      await library.loadPacks();
+    } finally {
+      refreshing.value = false;
+    }
+  }
+
   async function toggleFavorite(songPath: string) {
     await library.toggleFavorite(songPath);
   }
@@ -452,6 +466,7 @@ export function useSelectMusicScreen() {
       }
       ensureCurrentSongVisible();
       preloadAllBanners();
+      player.preloadAll(game.songs);
     } else {
       ensureCurrentSongVisible();
       preloadAllBanners();
@@ -505,6 +520,8 @@ export function useSelectMusicScreen() {
     goBack,
     sortLabel,
     cycleSortMode,
+    refreshSongs,
+    refreshing,
     hasActiveFilter,
     activeFilterCount,
     togglePack,
@@ -515,5 +532,6 @@ export function useSelectMusicScreen() {
     setShowFavoritesOnly,
     showFavoritesOnly: computed(() => library.showFavoritesOnly),
     isFavorite: (path: string) => library.isFavorite(path),
+    favoriteSet: library.favorites,
   };
 }

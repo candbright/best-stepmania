@@ -60,4 +60,5 @@ export default {
   "select.fullComboBadge": "FC",
   "select.bpmUnit": "BPM",
   "select.onlyFavorites": "Only favorites",
+  "select.refresh": "Refresh",
 } as const;
