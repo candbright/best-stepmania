@@ -17,6 +17,10 @@ export async function audioPause(requestToken?: number): Promise<void> {
   return invoke("audio_pause", { requestToken });
 }
 
+export async function audioPauseForce(): Promise<void> {
+  return invoke("audio_pause_force");
+}
+
 export async function audioSeek(seconds: number, requestToken?: number): Promise<void> {
   return invoke("audio_seek", { seconds, requestToken });
 }
@@ -66,10 +70,28 @@ export async function audioPreview(
   start: number,
   length: number,
   requestToken?: number,
-): Promise<void> {
-  return invoke("audio_preview", { musicPath, start, length, requestToken });
+): Promise<AudioInfo> {
+  return invokeWithRetry<AudioInfo>("audio_preview", { musicPath, start, length, requestToken });
 }
 
 export async function audioPreload(musicPath: string): Promise<void> {
   return invoke("audio_preload", { musicPath });
+}
+
+export async function audioPreloadBatch(musicPaths: string[]): Promise<number> {
+  return invoke<number>("audio_preload_batch", { musicPaths });
+}
+
+export interface AudioDeviceInfo {
+  id: string;
+  name: string;
+  isDefault: boolean;
+}
+
+export async function audioListDevices(): Promise<AudioDeviceInfo[]> {
+  return invoke<AudioDeviceInfo[]>("audio_list_devices");
+}
+
+export async function audioRebuildStream(): Promise<void> {
+  return invoke("audio_rebuild_stream");
 }

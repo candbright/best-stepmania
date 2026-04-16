@@ -1,8 +1,9 @@
 use crate::AppState;
 use serde::Serialize;
+use sm_audio::engine::AudioDeviceInfo;
 use sm_audio::AudioEngine;
 use std::path::{Path, PathBuf};
-use tauri::State;
+use tauri::{Emitter, State};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -104,20 +105,45 @@ pub async fn audio_load(
 }
 
 #[tauri::command]
-pub fn audio_play(state: State<AppState>, request_token: Option<u64>) -> Result<(), String> {
+pub fn audio_play(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    request_token: Option<u64>,
+) -> Result<(), String> {
     if !claim_or_reject_request_token(&state.latest_audio_request_token, request_token)? {
         return Ok(());
     }
     let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
     engine.play();
+    let time = engine.current_time();
+    let duration = engine.duration();
+    let is_playing = engine.is_playing();
+    drop(engine);
+    emit_playback_event(&app, time, duration, is_playing, "play");
     Ok(())
 }
 
 #[tauri::command]
-pub fn audio_pause(state: State<AppState>, request_token: Option<u64>) -> Result<(), String> {
+pub fn audio_pause(
+    app: tauri::AppHandle,
+    state: State<AppState>,
+    request_token: Option<u64>,
+) -> Result<(), String> {
     if !claim_or_reject_request_token(&state.latest_audio_request_token, request_token)? {
         return Ok(());
     }
+    let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    engine.pause();
+    let time = engine.current_time();
+    let duration = engine.duration();
+    drop(engine);
+    emit_playback_event(&app, time, duration, false, "pause");
+    Ok(())
+}
+
+/// Force pause regardless of token — for advanceAfterQueueTrackEnd
+#[tauri::command]
+pub fn audio_pause_force(state: State<AppState>) -> Result<(), String> {
     let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
     engine.pause();
     Ok(())
@@ -125,6 +151,7 @@ pub fn audio_pause(state: State<AppState>, request_token: Option<u64>) -> Result
 
 #[tauri::command]
 pub fn audio_seek(
+    app: tauri::AppHandle,
     state: State<AppState>,
     seconds: f64,
     request_token: Option<u64>,
@@ -134,6 +161,11 @@ pub fn audio_seek(
     }
     let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
     engine.seek(seconds);
+    let time = engine.current_time();
+    let duration = engine.duration();
+    let is_playing = engine.is_playing();
+    drop(engine);
+    emit_playback_event(&app, time, duration, is_playing, "seek");
     Ok(())
 }
 
@@ -154,6 +186,27 @@ pub fn audio_get_duration(state: State<AppState>) -> Result<f64, String> {
 pub struct AudioPlaybackState {
     pub time: f64,
     pub duration: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AudioPlaybackEvent {
+    pub event: String,
+    pub time: f64,
+    pub duration: f64,
+    pub is_playing: bool,
+}
+
+const EVENT_AUDIO_PLAYBACK: &str = "audio-playback";
+
+fn emit_playback_event(app: &tauri::AppHandle, time: f64, duration: f64, is_playing: bool, event: &str) {
+    let payload = AudioPlaybackEvent {
+        event: event.to_string(),
+        time,
+        duration,
+        is_playing,
+    };
+    let _ = app.emit(EVENT_AUDIO_PLAYBACK, payload);
 }
 
 /// Single IPC round-trip for menu progress UI (replaces separate get_time + get_duration polls).
@@ -217,14 +270,15 @@ pub fn audio_clear_cache(state: State<AppState>) -> Result<(), String> {
 /// Uses fast path (no stream rebuild) when the same song is already cached.
 #[tauri::command]
 pub async fn audio_preview(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     music_path: String,
     start: f64,
     length: f64,
     request_token: Option<u64>,
-) -> Result<(), String> {
+) -> Result<AudioInfo, String> {
     if !claim_or_reject_request_token(&state.latest_audio_request_token, request_token)? {
-        return Ok(());
+        return Err("Stale request token".to_string());
     }
 
     let base_dir = {
@@ -242,20 +296,26 @@ pub async fn audio_preview(
     {
         let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
         let duration = engine.duration();
+        let sample_rate = engine.sample_rate();
         let actual_start = if start >= 0.0 {
             start
         } else {
             (duration / 2.0 - length / 2.0).max(0.0)
         };
         if engine.preview_quick(&resolved, actual_start) {
-            return Ok(());
+            drop(engine);
+            emit_playback_event(&app, actual_start, duration, true, "play");
+            return Ok(AudioInfo {
+                duration,
+                sample_rate,
+            });
         }
     }
 
     // Slow path: decode if not cached, then load stream
     ensure_audio_ready(&state.audio_engine, &resolved).await?;
     if !is_current_request_token(&state.latest_audio_request_token, request_token)? {
-        return Ok(());
+        return Err("Stale request token".to_string());
     }
 
     let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
@@ -267,7 +327,14 @@ pub async fn audio_preview(
     };
     engine.seek(actual_start);
     engine.play();
-    Ok(())
+    let time = engine.current_time();
+    let sample_rate = engine.sample_rate();
+    drop(engine);
+    emit_playback_event(&app, time, duration, true, "play");
+    Ok(AudioInfo {
+        duration,
+        sample_rate,
+    })
 }
 
 /// 后台预解码歌曲并存入缓存，不播放。
@@ -307,7 +374,70 @@ pub async fn audio_preload(
 
     // 存入缓存（不播放）
     let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
-    // 仅缓存解码数据，不重建 stream，不影响当前播放
     engine.cache_only(&resolved, decoded);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn audio_preload_batch(
+    state: State<'_, AppState>,
+    music_paths: Vec<String>,
+) -> Result<usize, String> {
+    let base_dir = {
+        state
+            .songs_base_dir
+            .lock()
+            .map_err(|e| e.to_string())?
+            .clone()
+    };
+
+    let resolved_paths: Vec<PathBuf> = music_paths
+        .iter()
+        .filter_map(|p| resolve_path(p, &base_dir))
+        .collect();
+
+    let uncached_paths: Vec<PathBuf> = {
+        let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
+        resolved_paths
+            .into_iter()
+            .filter(|p| !engine.is_cached(p))
+            .collect()
+    };
+
+    if uncached_paths.is_empty() {
+        return Ok(0);
+    }
+
+    let decode_handles: Vec<_> = uncached_paths
+        .iter()
+        .map(|p| {
+            let path = p.clone();
+            tauri::async_runtime::spawn_blocking(move || {
+                sm_audio::decoder::decode_file(&path).map(|d| (path, d))
+            })
+        })
+        .collect();
+
+    let mut loaded = 0;
+    for handle in decode_handles {
+        if let Ok(Ok((path, decoded))) = handle.await {
+            let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
+            engine.cache_only(&path, decoded);
+            loaded += 1;
+        }
+    }
+
+    Ok(loaded)
+}
+
+#[tauri::command]
+pub fn audio_list_devices(state: State<AppState>) -> Result<Vec<AudioDeviceInfo>, String> {
+    let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    Ok(engine.devices())
+}
+
+#[tauri::command]
+pub fn audio_rebuild_stream(state: State<AppState>) -> Result<(), String> {
+    let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    engine.rebuild_stream()
 }

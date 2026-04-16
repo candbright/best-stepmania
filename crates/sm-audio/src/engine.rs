@@ -17,6 +17,16 @@ struct CachedAudio {
     channels: u32,
 }
 
+/// 音频设备信息（用于前端枚举和切换）
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AudioDeviceInfo {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
+}
+
+const MAX_CACHE_SIZE: usize = 50;
+
 pub struct AudioEngine {
     pub master_volume: f32,
     pub music_volume: f32,
@@ -27,6 +37,8 @@ pub struct AudioEngine {
     stream: Option<StreamHandle>,
     device_sample_rate: u32,
     device_channels: usize,
+    /// 当前输出设备的 ID（用于检测设备切换）
+    current_device_id: Option<String>,
     /// 多歌曲解码缓存（进程内保留至 `clear_cache` 或进程退出；不 LRU 驱逐）
     cache: HashMap<PathBuf, CachedAudio>,
     /// 插入顺序记录（用于未来策略/调试；更新已存在键时移到队尾）
@@ -48,6 +60,7 @@ impl Default for AudioEngine {
             stream: None,
             device_sample_rate: 44100,
             device_channels: 2,
+            current_device_id: None,
             cache: HashMap::new(),
             cache_order: Vec::new(),
             current_path: None,
@@ -60,24 +73,31 @@ impl AudioEngine {
         Self::default()
     }
 
-    /// 确保永久 stream 存在。首次调用时建立，之后不再重建。
+    /// 确保永久 stream 存在。首次调用时建立，之后检测到默认设备变化时自动重建。
     fn ensure_stream(&mut self) -> Result<(), String> {
-        if self.stream.is_some() {
-            return Ok(());
-        }
-
         let host = cpal::default_host();
         let device = host
             .default_output_device()
             .ok_or_else(|| "No audio output device found".to_string())?;
+        let device_name = device.name().unwrap_or_else(|_| "unknown".to_string());
+
+        if let Some(stream) = self.stream.take() {
+            if self.current_device_id.as_ref() == Some(&device_name) {
+                self.stream = Some(stream);
+                return Ok(());
+            }
+            drop(stream);
+            self.playback = None;
+        }
+
         let config = device
             .default_output_config()
             .map_err(|e| format!("Failed to get output config: {e}"))?;
 
         self.device_sample_rate = config.sample_rate().0;
         self.device_channels = config.channels() as usize;
+        self.current_device_id = Some(device_name);
 
-        // 用空 samples 初始化 playback state（静音）
         let state = PlaybackState::new(
             vec![],
             self.device_channels as u32,
@@ -88,9 +108,10 @@ impl AudioEngine {
         let playback_ref = Arc::clone(&state);
         let out_channels = self.device_channels;
 
+        let stream_config = config.clone();
         let stream = match config.sample_format() {
             cpal::SampleFormat::F32 => device.build_output_stream(
-                &config.into(),
+                &stream_config.into(),
                 move |data: &mut [f32], _| {
                     playback_ref.fill_buffer(data, out_channels);
                 },
@@ -100,7 +121,7 @@ impl AudioEngine {
             cpal::SampleFormat::I16 => {
                 let pb = Arc::clone(&state);
                 device.build_output_stream(
-                    &config.into(),
+                    &stream_config.into(),
                     move |data: &mut [i16], _| {
                         let mut float_buf = vec![0.0f32; data.len()];
                         pb.fill_buffer(&mut float_buf, out_channels);
@@ -125,13 +146,86 @@ impl AudioEngine {
         Ok(())
     }
 
-    /// 将解码数据存入缓存（不驱逐；内存随曲目增长，由 `clear_cache` 或设置页主动释放）
+    /// 列出所有可用音频输出设备
+    pub fn devices(&self) -> Vec<AudioDeviceInfo> {
+        let host = cpal::default_host();
+        let default_name = host.default_output_device().and_then(|d| d.name().ok());
+
+        let mut result = Vec::new();
+        if let Ok(devices) = host.devices() {
+            for device in devices {
+                let name = device.name().unwrap_or_else(|_| "Unknown".to_string());
+                let is_default = default_name.as_ref() == Some(&name);
+                result.push(AudioDeviceInfo {
+                    id: name.clone(),
+                    name,
+                    is_default,
+                });
+            }
+        }
+        result
+    }
+
+    /// 强制使用当前默认设备重建 stream（用于系统切换输出设备后手动触发）
+    pub fn rebuild_stream(&mut self) -> Result<(), String> {
+        let saved_path = self.current_path.clone();
+        let saved_position = self
+            .playback
+            .as_ref()
+            .map(|p| p.current_second())
+            .unwrap_or(0.0);
+        let was_playing = self
+            .playback
+            .as_ref()
+            .map(|p| p.playing.load(std::sync::atomic::Ordering::Relaxed))
+            .unwrap_or(false);
+
+        self.stream = None;
+        self.playback = None;
+        self.current_device_id = None;
+        self.ensure_stream()?;
+
+        if let Some(ref path) = saved_path {
+            if let Some(ref pb) = self.playback {
+                if let Some(cached) = self.cache.get(path) {
+                    let vol = if was_playing {
+                        self.music_volume as f64 * self.master_volume as f64
+                    } else {
+                        0.0
+                    };
+                    pb.swap_track(
+                        Arc::clone(&cached.samples),
+                        cached.channels,
+                        cached.sample_rate,
+                        saved_position,
+                        vol,
+                    );
+                    if !was_playing {
+                        pb.pause();
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     fn cache_insert(&mut self, path: PathBuf, audio: CachedAudio) {
         if self.cache.contains_key(&path) {
             self.cache_order.retain(|p| p != &path);
             self.cache_order.push(path.clone());
             self.cache.insert(path, audio);
             return;
+        }
+        while self.cache.len() >= MAX_CACHE_SIZE {
+            if let Some(oldest) = self.cache_order.first().cloned() {
+                if Some(&oldest) != self.current_path.as_ref() {
+                    self.cache_order.remove(0);
+                    self.cache.remove(&oldest);
+                    continue;
+                }
+                break;
+            }
         }
         self.cache_order.push(path.clone());
         self.cache.insert(path, audio);

@@ -23,7 +23,12 @@ pub fn decode_file(path: &Path) -> Result<DecodedAudio, String> {
     }
 
     let probed = symphonia::default::get_probe()
-        .format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default())
+        .format(
+            &hint,
+            mss,
+            &FormatOptions::default(),
+            &MetadataOptions::default(),
+        )
         .map_err(|e| format!("Failed to probe audio format: {e}"))?;
 
     let mut format = probed.format;
@@ -32,14 +37,14 @@ pub fn decode_file(path: &Path) -> Result<DecodedAudio, String> {
         .ok_or_else(|| "No audio track found".to_string())?;
 
     let sample_rate = track.codec_params.sample_rate.unwrap_or(44100);
-    let _channels = track.codec_params.channels.map(|c| c.count() as u32).unwrap_or(2);
+    let num_channels = track.codec_params.channels.map(|c| c.count()).unwrap_or(2) as usize;
     let track_id = track.id;
 
     let mut decoder = symphonia::default::get_codecs()
         .make(&track.codec_params, &DecoderOptions::default())
         .map_err(|e| format!("Failed to create decoder: {e}"))?;
 
-    let mut all_samples = Vec::new();
+    let mut all_samples: Vec<Vec<f32>> = vec![Vec::new(); num_channels];
 
     loop {
         let packet = match format.next_packet() {
@@ -64,42 +69,34 @@ pub fn decode_file(path: &Path) -> Result<DecodedAudio, String> {
         match decoded {
             AudioBufferRef::F32(buf) => {
                 for ch in 0..buf.spec().channels.count() {
-                    let chan = buf.chan(ch);
-                    if all_samples.len() <= ch {
-                        all_samples.resize(buf.spec().channels.count(), Vec::new());
-                    }
-                    all_samples[ch].extend_from_slice(chan);
+                    all_samples[ch].extend_from_slice(buf.chan(ch));
                 }
             }
             AudioBufferRef::S16(buf) => {
                 for ch in 0..buf.spec().channels.count() {
-                    let chan = buf.chan(ch);
-                    if all_samples.len() <= ch {
-                        all_samples.resize(buf.spec().channels.count(), Vec::new());
-                    }
-                    all_samples[ch].extend(chan.iter().map(|&s| s as f32 / 32768.0));
+                    all_samples[ch].extend(buf.chan(ch).iter().map(|&s| s as f32 / 32768.0));
                 }
             }
             AudioBufferRef::S32(buf) => {
                 for ch in 0..buf.spec().channels.count() {
-                    let chan = buf.chan(ch);
-                    if all_samples.len() <= ch {
-                        all_samples.resize(buf.spec().channels.count(), Vec::new());
-                    }
-                    all_samples[ch].extend(chan.iter().map(|&s| s as f32 / 2_147_483_648.0));
+                    all_samples[ch]
+                        .extend(buf.chan(ch).iter().map(|&s| s as f32 / 2_147_483_648.0));
                 }
             }
             _ => {}
         }
     }
 
-    // Interleave channels
     let num_channels = all_samples.len().max(1);
     let num_frames = all_samples.first().map(|c| c.len()).unwrap_or(0);
-    let mut interleaved = Vec::with_capacity(num_frames * num_channels);
-    for frame in 0..num_frames {
-        for ch in 0..num_channels {
-            interleaved.push(all_samples[ch].get(frame).copied().unwrap_or(0.0));
+    let total_samples = num_frames * num_channels;
+
+    let mut interleaved = Vec::with_capacity(total_samples);
+    interleaved.resize(total_samples, 0.0_f32);
+
+    for (frame, chunk) in interleaved.chunks_mut(num_channels).enumerate() {
+        for (ch, sample) in chunk.iter_mut().enumerate() {
+            *sample = all_samples[ch].get(frame).copied().unwrap_or(0.0);
         }
     }
 

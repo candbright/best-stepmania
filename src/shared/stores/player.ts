@@ -1,6 +1,6 @@
 /**
  * 全局音乐播放器 Store
- * 参考网易云/Spotify 架构：状态机驱动，单 IPC 进度轮询，防竞态。
+ * 参考网易云/Spotify 架构：状态机驱动，防竞态。
  * 支持两种播放模式：
  * 1. 默认音乐模式：使用 Web Audio API 程序生成，无需加载
  * 2. 普通音乐模式：通过 Tauri IPC 控制 Rust 后端播放
@@ -10,6 +10,8 @@ import { ref, computed } from "vue";
 import type { SongListItem } from "@/utils/api";
 import * as api from "@/utils/api";
 import { getDefaultMusicTrack } from "@/entities/player/defaultMusic";
+import { createAudioPreloadPlanner } from "@/shared/lib/audioPreloadPlanner";
+import { createAudioPlaybackTracker } from "@/shared/lib/audioPlaybackTracker";
 import { logOptionalRejection } from "@/utils/devLog";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused";
@@ -36,9 +38,7 @@ export const usePlayerStore = defineStore("player", () => {
   // 防竞态：每次 loadAndPlay 递增，旧请求检测到 id 不匹配则丢弃
   let loadAbortId = 0;
   let activeAudioRequestToken: number | null = null;
-  /** Menu / preview progress: lower frequency + merged IPC reduces WebView ↔ Rust traffic. */
-  const PROGRESS_POLL_MS = 250;
-  // 进度轮询句柄
+  // 进度轮询句柄（仅用于默认音乐模式）
   let progressTimer: ReturnType<typeof setInterval> | null = null;
   // 防止 playNext 在歌曲结束时被多次调用
   let songEndTriggered = false;
@@ -48,6 +48,35 @@ export const usePlayerStore = defineStore("player", () => {
   const musicPathCache = new Map<string, string>();
   // 时长缓存（避免重复 IPC 调用）
   const durationCache = new Map<string, number>();
+  const tauriPlaybackTracker = createAudioPlaybackTracker({
+    getIsActive: () => status.value === "playing" && !isDefaultMusic.value,
+    getShouldResumeAfterDeviceSwitch: () => status.value === "playing" && !isDefaultMusic.value,
+    getRequestToken: () => activeAudioRequestToken,
+    getDuration: () => duration.value,
+    onPlaybackSnapshot: (time, nextDuration) => {
+      currentTime.value = time;
+      if (nextDuration > 0) {
+        duration.value = nextDuration;
+      }
+      progress.value = nextDuration > 0 ? Math.min(1, time / nextDuration) : 0;
+    },
+    onPauseWhilePlaying: () => {
+      status.value = "paused";
+      stopProgressPoll();
+    },
+    onTrackEnd: () => {
+      if (songEndTriggered) return;
+      songEndTriggered = true;
+      void advanceAfterQueueTrackEnd();
+    },
+  });
+  const audioPreloadPlanner = createAudioPreloadPlanner({
+    getCachedMusicPath: (songPath) => musicPathCache.get(songPath),
+    resolveMusicPath,
+    onResolveError: (scope, error) => {
+      logOptionalRejection(scope, error);
+    },
+  });
 
   // --- 计算属性 ---
   const currentSong = computed(() =>
@@ -78,47 +107,23 @@ export const usePlayerStore = defineStore("player", () => {
     });
   }
 
-  // --- 进度轮询（100ms 间隔）---
   function startProgressPoll() {
     stopProgressPoll();
-    songEndTriggered = false;
-    progressTimer = setInterval(async () => {
-      if (status.value !== "playing") return;
-      
-      try {
-        if (isDefaultMusic.value) {
-          // 默认音乐模式：使用 Web Audio API 时间（BufferSource 已 loop，仅做取模展示）
-          if (!audioContext) return;
-          const elapsed = audioContext.currentTime - defaultMusicStartTime;
-          const raw = defaultMusicStartOffset + elapsed;
-          const d = duration.value;
-          currentTime.value = d > 0 ? raw % d : raw;
-          progress.value = d > 0 ? currentTime.value / d : 0;
-        } else {
-          // 普通音乐模式：单次 IPC 取 time + duration
-          const playback = await api.audioGetPlaybackState();
-          if (status.value !== "playing") return;
-          const t = playback.time;
-          currentTime.value = t;
-          if (duration.value <= 0) {
-            const cached = currentMusicPath.value ? durationCache.get(currentMusicPath.value) : undefined;
-            const fromBackend = playback.duration;
-            duration.value = cached ?? fromBackend;
-            if (cached === undefined && currentMusicPath.value && fromBackend > 0) {
-              durationCache.set(currentMusicPath.value, fromBackend);
-            }
-          }
-          const d = duration.value;
-          progress.value = d > 0 ? Math.min(1, t / d) : 0;
-          if (d > 0 && t >= d - 0.3 && !songEndTriggered) {
-            songEndTriggered = true;
-            await advanceAfterQueueTrackEnd();
-          }
-        }
-      } catch (e: unknown) {
-        logOptionalRejection("player.progressPoll", e);
-      }
-    }, PROGRESS_POLL_MS);
+
+    if (isDefaultMusic.value) {
+      tauriPlaybackTracker.startDevicePolling();
+      songEndTriggered = false;
+      progressTimer = setInterval(() => {
+        if (status.value !== "playing" || !audioContext) return;
+        const elapsed = audioContext.currentTime - defaultMusicStartTime;
+        const raw = defaultMusicStartOffset + elapsed;
+        const d = duration.value;
+        currentTime.value = d > 0 ? raw % d : raw;
+        progress.value = d > 0 ? currentTime.value / d : 0;
+      }, 100);
+    } else {
+      tauriPlaybackTracker.start();
+    }
   }
 
   function stopProgressPoll() {
@@ -126,6 +131,7 @@ export const usePlayerStore = defineStore("player", () => {
       clearInterval(progressTimer);
       progressTimer = null;
     }
+    tauriPlaybackTracker.stop();
   }
 
   // --- 默认音乐播放控制 ---
@@ -254,7 +260,7 @@ export const usePlayerStore = defineStore("player", () => {
 
       if (autoplay) {
         const length = song.sampleLength > 0 ? song.sampleLength : 120;
-        await api.audioPreview(musicPath, 0, length, myId);
+        const info = await api.audioPreview(musicPath, 0, length, myId);
         if (myId !== loadAbortId) {
           // 旧请求可能已经触发了播放，若当前已切到别的歌则立刻停止
           if (queueIndex.value !== idx) {
@@ -262,8 +268,7 @@ export const usePlayerStore = defineStore("player", () => {
           }
           return;
         }
-        // 获取真实时长
-        duration.value = await api.audioGetDuration();
+        duration.value = info.duration;
         if (myId !== loadAbortId) {
           if (queueIndex.value !== idx) {
             await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlay.raceStop2", e));
@@ -375,7 +380,7 @@ export const usePlayerStore = defineStore("player", () => {
    * 队列曲目自然结束：多首时无缝切到下一首（末首回到第一首），单曲则暂停在结尾。
    */
   async function advanceAfterQueueTrackEnd() {
-    await api.audioPause(activeAudioRequestToken ?? undefined).catch((e) =>
+    await api.audioPauseForce().catch((e) =>
       logOptionalRejection("player.advanceAfterQueueTrackEnd.pause", e),
     );
     stopProgressPoll();
@@ -590,35 +595,20 @@ export const usePlayerStore = defineStore("player", () => {
     }
   }
 
-  /**
-   * Eagerly resolve and cache music paths for all songs so switching is instant.
-   * Also pre-decode the first batch of audio files into the backend cache.
-   */
-  function preloadAll(songs: SongListItem[]) {
-    // Phase 1: resolve all music paths (lightweight IPC, caches string mapping)
-    for (const song of songs) {
-      resolveMusicPath(song.path).catch((e) => logOptionalRejection("player.preloadAll.resolvePath", e));
-    }
-    // Phase 2: preload audio data for the first 10 songs around current index
-    const center = Math.max(0, queueIndex.value);
-    const indices: number[] = [];
-    for (let off = 0; indices.length < Math.min(10, songs.length); off++) {
-      if (center + off < songs.length) indices.push(center + off);
-      if (off > 0 && center - off >= 0) indices.push(center - off);
-    }
-    for (const i of indices) {
-      const song = songs[i];
-      if (!song) continue;
-      resolveMusicPath(song.path)
-        .then(mp => api.audioPreload(mp))
-        .catch((e) => logOptionalRejection("player.preloadAll.preload", e));
-    }
+  function preloadAll(songs: SongListItem[], direction: "auto" | "up" | "down" = "auto", count = 10) {
+    audioPreloadPlanner.preloadSelectedSongs(songs, queueIndex.value, direction, count);
+  }
+
+  function preloadIdle(songs: SongListItem[]) {
+    if (status.value === "playing") return;
+    audioPreloadPlanner.preloadIdleSongs(songs);
   }
 
   function cleanup() {
     const token = ++loadAbortId;
     activeAudioRequestToken = token;
     stopProgressPoll();
+    tauriPlaybackTracker.dispose();
     if (isDefaultMusic.value) {
       stopDefaultMusic();
       isDefaultMusic.value = false;
@@ -652,7 +642,7 @@ export const usePlayerStore = defineStore("player", () => {
     setQueue, playSongAt, playNext, playPrev,
     syncQueuePreserveCurrent,
     togglePlayPause, seekTo, stopForGame, pauseTitleMusicForOptions, resumeTitleMusicAfterOptions, cleanup,
-    syncWithBackend, preloadAll, playDefaultMusic,
+    syncWithBackend, preloadAll, preloadIdle, playDefaultMusic,
     waitForLoadComplete,
   };
 });

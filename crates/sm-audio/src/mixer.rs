@@ -61,15 +61,18 @@ impl PlaybackState {
 
         // seek 到目标位置
         let frame = (start_second * sample_rate as f64) as u64;
-        self.position.store(f64::to_bits(frame as f64), Ordering::SeqCst);
+        self.position
+            .store(f64::to_bits(frame as f64), Ordering::SeqCst);
 
         // 设置音量并开始播放
-        self.volume.store(f64::to_bits(volume.clamp(0.0, 2.0)), Ordering::SeqCst);
+        self.volume
+            .store(f64::to_bits(volume.clamp(0.0, 2.0)), Ordering::SeqCst);
         self.playing.store(true, Ordering::SeqCst);
     }
 
     pub fn set_volume(&self, v: f64) {
-        self.volume.store(f64::to_bits(v.clamp(0.0, 2.0)), Ordering::Relaxed);
+        self.volume
+            .store(f64::to_bits(v.clamp(0.0, 2.0)), Ordering::Relaxed);
     }
 
     pub fn get_volume(&self) -> f64 {
@@ -77,7 +80,8 @@ impl PlaybackState {
     }
 
     pub fn set_rate(&self, r: f64) {
-        self.rate.store(f64::to_bits(r.clamp(0.1, 3.0)), Ordering::Relaxed);
+        self.rate
+            .store(f64::to_bits(r.clamp(0.1, 3.0)), Ordering::Relaxed);
     }
 
     pub fn get_rate(&self) -> f64 {
@@ -96,7 +100,8 @@ impl PlaybackState {
         // sample_rate from current track
         let sr = self.track.lock().map(|t| t.sample_rate).unwrap_or(44100);
         let frame = (second * sr as f64) as u64;
-        self.position.store(f64::to_bits(frame as f64), Ordering::Relaxed);
+        self.position
+            .store(f64::to_bits(frame as f64), Ordering::Relaxed);
     }
 
     pub fn current_second(&self) -> f64 {
@@ -114,18 +119,20 @@ impl PlaybackState {
         }
     }
 
-    /// Audio callback — 在 cpal 音频线程中调用，尽量减少锁争用
     pub fn fill_buffer(&self, output: &mut [f32], out_channels: usize) {
         if !self.playing.load(Ordering::Relaxed) {
-            for s in output.iter_mut() { *s = 0.0; }
+            for s in output.iter_mut() {
+                *s = 0.0;
+            }
             return;
         }
 
-        // try_lock：若 swap_track 持有锁则输出静音（极短暂，<1ms）
         let track = match self.track.try_lock() {
             Ok(t) => t,
             Err(_) => {
-                for s in output.iter_mut() { *s = 0.0; }
+                for s in output.iter_mut() {
+                    *s = 0.0;
+                }
                 return;
             }
         };
@@ -150,10 +157,19 @@ impl PlaybackState {
                 continue;
             }
 
+            let frac = pos - src_frame as f64;
             let src_offset = src_frame * src_channels;
+            let is_last_frame = src_frame >= total_frames - 1;
+
             for ch in 0..out_channels {
                 let src_ch = ch % src_channels;
-                output[frame * out_channels + ch] = track.samples[src_offset + src_ch] * volume;
+                let s0 = track.samples[src_offset + src_ch];
+                let s1 = if is_last_frame {
+                    s0
+                } else {
+                    track.samples[src_offset + src_channels + src_ch]
+                };
+                output[frame * out_channels + ch] = (s0 + (s1 - s0) * frac as f32) * volume;
             }
             pos += advance_per_frame;
         }
