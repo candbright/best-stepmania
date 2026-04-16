@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import MusicPlayer from "@/widgets/MusicPlayer.vue";
-import AppLoadingOverlay from "@/shared/ui/BaseLoadingOverlay.vue";
-import CursorLayer from "@/shared/layout/CursorLayer.vue";
+import { MusicPlayer } from "@/widgets";
+import { AppLoadingOverlay } from "@/shared/ui";
+import { CursorLayer } from "@/shared/layout";
 import { useGameStore } from "@/shared/stores/game";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { useGlobalSfxBridge } from "@/shared/composables/useGlobalSfxBridge";

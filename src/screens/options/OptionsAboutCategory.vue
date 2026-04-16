@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { useI18n } from "@/i18n";
-import SettingsSection from "@/features/settings/SettingsSection.vue";
+import { SettingsSection } from "@/features/settings";
 import { exportDiagnosticsAndOpen } from "@/shared/services/tauri/diagnostics";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
 

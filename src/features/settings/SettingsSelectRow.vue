@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import HelpTooltip from "@/shared/ui/BaseTooltip.vue";
-import CustomSelect from "@/shared/ui/BaseSelect.vue";
+import { HelpTooltip } from "@/shared/ui";
+import { CustomSelect } from "@/shared/ui";
 
 type RowValue = string | number;
 

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import FilterModal from "./select-music/FilterModal.vue";
-import TwoStepDangerModal from "@/shared/ui/BaseConfirmModal.vue";
-import SongPackList from "@/entities/SongPackList.vue";
-import SongHero from "@/entities/SongHero.vue";
-import SongChartList from "@/entities/SongChartList.vue";
-import TopScores from "@/widgets/TopScores.vue";
+import { TwoStepDangerModal } from "@/shared/ui";
+import { SongPackList } from "@/entities";
+import { SongHero } from "@/entities";
+import { SongChartList } from "@/entities";
+import { TopScores } from "@/widgets";
 import { useSelectMusicScreen } from "./select-music/useSelectMusicScreen";
 
 const {

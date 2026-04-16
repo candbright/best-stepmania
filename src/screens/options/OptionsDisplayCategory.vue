@@ -2,11 +2,11 @@
 import { computed, inject } from "vue";
 import { useI18n } from "@/i18n";
 import { useGameStore } from "@/shared/stores/game";
-import SettingsSection from "@/features/settings/SettingsSection.vue";
-import SettingsRangeRow from "@/features/settings/SettingsRangeRow.vue";
-import SettingsToggleRow from "@/features/settings/SettingsToggleRow.vue";
-import SettingsSelectRow from "@/features/settings/SettingsSelectRow.vue";
-import SettingsResetRow from "@/features/settings/SettingsResetRow.vue";
+import { SettingsSection } from "@/features/settings";
+import { SettingsRangeRow } from "@/features/settings";
+import { SettingsToggleRow } from "@/features/settings";
+import { SettingsSelectRow } from "@/features/settings";
+import { SettingsResetRow } from "@/features/settings";
 import { WINDOW_DISPLAY_PRESET_IDS } from "@/constants/windowDisplay";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
 

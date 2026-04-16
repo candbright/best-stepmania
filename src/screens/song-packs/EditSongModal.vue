@@ -3,7 +3,7 @@ import { ref, watch } from "vue";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import type { SongListItem } from "@/utils/api";
-import BaseModal from "@/shared/ui/BaseModal.vue";
+import { BaseModal } from "@/shared/ui";
 
 const props = defineProps<{
   song: SongListItem | null;

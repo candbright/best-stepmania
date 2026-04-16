@@ -6,8 +6,8 @@ import { usePlayerStore } from "@/shared/stores/player";
 import { useI18n } from "@/i18n";
 import * as api from "@/utils/api";
 import { openFileDialog } from "@/utils/platform";
-import CustomSelect from "@/shared/ui/BaseSelect.vue";
-import AppNumberField from "@/shared/ui/BaseNumberField.vue";
+import { CustomSelect } from "@/shared/ui";
+import { AppNumberField } from "@/shared/ui";
 import type { Ref } from "vue";
 
 const props = withDefaults(

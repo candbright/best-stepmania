@@ -12,7 +12,7 @@ import { initScoringConfig } from "@/engine/types";
 import { isTauri } from "@/utils/platform";
 import { applyWindowPreset, closeTauriMainWindow, tryCloseWebTab } from "@/shared/services/tauri/window";
 import { applyPlayModeSelection } from "@/utils/applyPlayModeSelection";
-import PlayModeStrip from "@/entities/PlayModeStrip.vue";
+import { PlayModeStrip } from "@/entities";
 import type { SessionPlayMode } from "@/utils/chartPlayMode";
 
 const router = useRouter();

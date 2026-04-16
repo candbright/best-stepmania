@@ -2,10 +2,10 @@
 import { computed, inject } from "vue";
 import { useI18n } from "@/i18n";
 import { useGameStore } from "@/shared/stores/game";
-import SettingsSection from "@/features/settings/SettingsSection.vue";
-import SettingsRangeRow from "@/features/settings/SettingsRangeRow.vue";
-import SettingsToggleRow from "@/features/settings/SettingsToggleRow.vue";
-import SettingsSelectRow from "@/features/settings/SettingsSelectRow.vue";
+import { SettingsSection } from "@/features/settings";
+import { SettingsRangeRow } from "@/features/settings";
+import { SettingsToggleRow } from "@/features/settings";
+import { SettingsSelectRow } from "@/features/settings";
 import { OPTIONS_PANEL_SFX } from "./injectionKeys";
 
 const { t } = useI18n();

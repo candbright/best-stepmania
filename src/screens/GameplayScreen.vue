@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted } from "vue";
-import NoteField from "@/widgets/NoteField.vue";
-import BackgroundVideo from "@/shared/layout/BackgroundVideo.vue";
+import { NoteField } from "@/widgets";
+import { BackgroundVideo } from "@/shared/layout";
 import GameplayPauseMenu from "./gameplay/GameplayPauseMenu.vue";
 import GameplayResultOverlay from "./gameplay/GameplayResultOverlay.vue";
 import GameplayHud from "./gameplay/GameplayHud.vue";

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "@/i18n";
-import AppNumberField from "@/shared/ui/BaseNumberField.vue";
+import { AppNumberField } from "@/shared/ui";
 
 const { t } = useI18n();
 

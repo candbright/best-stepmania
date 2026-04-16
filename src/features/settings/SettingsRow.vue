@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import HelpTooltip from "@/shared/ui/BaseTooltip.vue";
+import { HelpTooltip } from "@/shared/ui";
 
 defineProps<{
   label?: string;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from "@/i18n";
-import HelpTooltip from "@/shared/ui/BaseTooltip.vue";
-import SettingsCard from "@/widgets/SettingsCard.vue";
+import { HelpTooltip } from "@/shared/ui";
+import { SettingsCard } from "@/widgets";
 import type { ChartInfoItem } from "@/utils/api";
 import type { RoutinePlayerColorId } from "@/constants/routinePlayerColors";
 

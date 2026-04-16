@@ -3,8 +3,8 @@ import { computed } from "vue";
 import { useI18n } from "@/i18n";
 import type { ChartInfo } from "@/utils/api";
 import { DIFFICULTIES, DIFF_COLORS } from "./constants";
-import CustomSelect from "@/shared/ui/BaseSelect.vue";
-import AppNumberField from "@/shared/ui/BaseNumberField.vue";
+import { CustomSelect } from "@/shared/ui";
+import { AppNumberField } from "@/shared/ui";
 
 const { t } = useI18n();
 

@@ -5,7 +5,7 @@ import { useGameStore } from "@/shared/stores/game";
 import type { ChartInfoItem } from "@/utils/api";
 import { useI18n } from "@/i18n";
 import { listNoteskins } from "@/api";
-import SettingsCard from "@/widgets/SettingsCard.vue";
+import { SettingsCard } from "@/widgets";
 import { ROUTINE_PLAYER_COLORS, type RoutinePlayerColorId } from "@/constants/routinePlayerColors";
 import { logOptionalRejection } from "@/utils/devLog";
 import { chartFitsPlayMode } from "@/utils/chartPlayMode";

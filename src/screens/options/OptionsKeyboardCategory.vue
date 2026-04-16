@@ -2,8 +2,8 @@
 import { computed, inject } from "vue";
 import { useI18n } from "@/i18n";
 import { useGameStore } from "@/shared/stores/game";
-import SettingsSection from "@/features/settings/SettingsSection.vue";
-import KeyChordPicker from "@/widgets/KeyChordPicker.vue";
+import { SettingsSection } from "@/features/settings";
+import { KeyChordPicker } from "@/widgets";
 import type { KeyChord, ShortcutId } from "@/engine/keyBindings";
 import {
   SHORTCUT_DEFAULTS,

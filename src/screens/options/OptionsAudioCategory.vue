@@ -3,11 +3,11 @@ import { computed, inject, watch } from "vue";
 import { useI18n } from "@/i18n";
 import { useGameStore } from "@/shared/stores/game";
 import type { RhythmSfxStyle } from "@/api/config";
-import HelpTooltip from "@/shared/ui/BaseTooltip.vue";
-import CustomSelect from "@/shared/ui/BaseSelect.vue";
-import AppNumberField from "@/shared/ui/BaseNumberField.vue";
-import SettingsSection from "@/features/settings/SettingsSection.vue";
-import SettingsRangeRow from "@/features/settings/SettingsRangeRow.vue";
+import { HelpTooltip } from "@/shared/ui";
+import { CustomSelect } from "@/shared/ui";
+import { AppNumberField } from "@/shared/ui";
+import { SettingsSection } from "@/features/settings";
+import { SettingsRangeRow } from "@/features/settings";
 import { OPTIONS_PANEL_SFX } from "./injectionKeys";
 
 const { t } = useI18n();
