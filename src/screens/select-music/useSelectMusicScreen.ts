@@ -532,6 +532,6 @@ export function useSelectMusicScreen() {
     setShowFavoritesOnly,
     showFavoritesOnly: computed(() => library.showFavoritesOnly),
     isFavorite: (path: string) => library.isFavorite(path),
-    favoriteSet: library.favorites,
+    favoriteSet: computed(() => library.favorites),
   };
 }

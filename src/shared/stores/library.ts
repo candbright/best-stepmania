@@ -117,11 +117,15 @@ export const useLibraryStore = defineStore("library", () => {
   async function toggleFavorite(songPath: string) {
     try {
       const isFav = await api.toggleFavorite(songPath);
+      // Create new Set to trigger Vue reactivity
+      const next = new Set<string>();
+      favorites.value.forEach((v) => next.add(v));
       if (isFav) {
-        favorites.value.add(songPath);
+        next.add(songPath);
       } else {
-        favorites.value.delete(songPath);
+        next.delete(songPath);
       }
+      favorites.value = next;
     } catch {
       // Silently fail
     }
