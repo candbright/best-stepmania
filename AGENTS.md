@@ -132,19 +132,19 @@ src/
 - **Components**: `PascalCase.vue` (BaseModal.vue, NoteField.vue)
 - **Composables**: `camelCase.ts` (useConfirmDialog.ts)
 - **Stores**: `camelCase.ts` (settings.ts, library.ts)
-- **Screen subdirs**: `kebab-case/` (select-music/, gameplay/, editor/)
+- **Page subdirs**: `kebab-case/` under `pages/` (select-music/, gameplay/, editor/)
 - **Base components**: `Base*` prefix (BaseModal, BaseSelect, BaseConfirmModal)
 
 ### Key Principles
-- **Pages = composition**: Screens should mostly assemble widgets/features, not contain business logic
+- **Pages = composition**: Route pages should mostly assemble widgets/features, not contain business logic
 - **Tauri calls unified**: All `invoke()`, events, window control → `src/api/` only
-- **Global state → Pinia**: Only shared state across screens goes in `shared/stores/`
+- **Global state → Pinia**: Only shared state across pages goes in `shared/stores/`
 - **Local state → composables**: Page-specific state in `pages/[name]/` or `shared/composables/`
 - **No over-splitting**: Keep reasonable granularity. Extract when there's clear reuse or clarity benefit
 - **Don't break contracts**: Never change existing Tauri IPC contracts or function signatures
 
 ### Code Smells to Avoid
-- Giant screens with mixed responsibilities
+- Giant pages with mixed responsibilities
 - Duplicate templates, logic, or styles
 - Store overloading (everything in one store)
 - Components directly manipulating global state
@@ -230,12 +230,12 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 
 ## Adding New Features
 
-1. **New page**: Create `src/pages/NewScreen.vue` + page-scoped modules in `src/pages/new-screen/`. Register route in `src/app/router/index.ts`
+1. **New page**: Create `src/pages/NewScreen.vue` + page-scoped modules in `src/pages/new-screen/`. Register route in `src/router.ts`
 2. **New IPC command**: Add handler in `src-tauri/src/commands/<group>.rs`, register in `lib.rs`, add wrapper in `src/api/<group>.ts`, export from `src/api/index.ts`
 3. **New Rust crate**: Add to workspace root `Cargo.toml` `[workspace.members]` AND to `src-tauri/Cargo.toml` `[dependencies]`
-4. **New game mechanic**: Extend `JudgmentSystem` or `GameEngine` in `src/engine/`, NOT in screen components
+4. **New game mechanic**: Extend `JudgmentSystem` or `GameEngine` in `src/engine/`, NOT in page components
 5. **New NoteSkin**: Add `NoteSkinConfig` to `sm-noteskin`, add commands, frontend loads via `useNoteSkin()`
-6. **New widget**: Add to `src/widgets/` if reusable across screens (NoteField, MusicPlayer pattern)
+6. **New widget**: Add to `src/widgets/` if reusable across pages (NoteField, MusicPlayer pattern)
 7. **New entity**: Add to `src/entities/` if domain model with no business logic (SongRow pattern)
 8. **New feature**: Add to `src/features/<name>/` for business use-cases (not pure styling wrappers)
 9. **New base UI**: Add to `src/shared/ui/` if generic primitive (BaseModal, BaseSelect pattern). Put settings-like generic rows in `src/shared/ui/settings/`
@@ -254,6 +254,6 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 
 - **Do not commit** unless explicitly asked
 - **Maintain low coupling**: Backend crates should not know about Tauri. Tauri commands are the adapter layer
-- **Frontend component-based**: All rendering logic in `NoteField.vue` or `engine/` — NOT in screen components
+- **Frontend component-based**: All rendering logic in `NoteField.vue` or `engine/` — NOT in page components
 - **`as any` / `@ts-ignore`**: Never in production code. Only acceptable for browser API polyfills (e.g., `window.__TAURI_INTERNALS__`)
 - **No `expect()` on user data**: Only on internal invariants with clear panic messages

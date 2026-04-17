@@ -62,7 +62,7 @@
 
 # 前端专项检查清单
 
-## 1) Vue 组件化与 FSD（按当前项目架构）
+## 1) Vue 组件化与 FSD（按分层规范：路由页面目录为 `src/pages/`）
 - 组件/模块是否位于当前项目分层：`app`（启动与编排）、`pages`（路由页面）、`widgets`、`features`、`entities`、`shared`；若放错层，需明确“当前层不合适原因 + 目标层”。
 - `src/app` 仅承载应用级初始化与装配（如 `router`、`providers`、`store`、全局样式）；不得下沉业务细节组件。
 - i18n 归属约束：字典与 i18n runtime 应位于 `src/shared/i18n`；禁止 `src/shared/**` 反向依赖 `src/app/**`（尤其禁止 `@/app/i18n` 引用）。

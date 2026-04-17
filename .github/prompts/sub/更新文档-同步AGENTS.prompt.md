@@ -23,7 +23,7 @@
 ```bash
 # 前端目录 (FSD 结构)
 ls -la src/
-ls -la src/screens/
+ls -la src/pages/
 ls -la src/shared/
 ls -la src/shared/ui/
 ls -la src/shared/layout/
