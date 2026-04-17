@@ -1,0 +1,70 @@
+:root {
+  --bg-color: #0f1118;
+  --text-color: #f4f7ff;
+  --text-muted: #98a6c3;
+  --text-subtle: #7f8aa0;
+  --text-on-primary: #fff;
+  --border-color: rgba(255, 255, 255, 0.16);
+  --section-bg: rgba(255, 255, 255, 0.04);
+  --surface-elevated: rgba(255, 255, 255, 0.08);
+  --primary-color: #58b3ff;
+  --primary-color-hover: #7bc3ff;
+  --primary-color-glow: #8ad0ff;
+  --accent-secondary: #9b7dff;
+  --focus-ring: 0 0 0 2px rgba(88, 179, 255, 0.45);
+  --card-radius: 12px;
+  --control-radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: "Rajdhani", system-ui, sans-serif;
+}
+:root {
+  --bg-color: #0f1118;
+  --text-color: #f4f7ff;
+  --text-muted: #98a6c3;
+  --text-subtle: #7f8aa0;
+  --text-on-primary: #fff;
+  --border-color: rgba(255, 255, 255, 0.16);
+  --section-bg: rgba(255, 255, 255, 0.04);
+  --surface-elevated: rgba(255, 255, 255, 0.08);
+  --primary-color: #58b3ff;
+  --primary-color-hover: #7bc3ff;
+  --primary-color-glow: #8ad0ff;
+  --accent-secondary: #9b7dff;
+  --focus-ring: 0 0 0 2px rgba(88, 179, 255, 0.45);
+  --card-radius: 12px;
+  --control-radius: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: "Rajdhani", system-ui, sans-serif;
+}
