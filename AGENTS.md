@@ -83,24 +83,21 @@ This project uses **Feature-Sliced Design (FSD)** to organize frontend code. FSD
 ### FSD Layer Structure
 ```
 src/
-├── api/              # Tauri IPC wrappers (invoke calls)
-├── constants/        # App constants (gradeColors, appMeta, etc.)
-├── engine/           # Game engine (GameEngine, JudgmentSystem)
-├── entities/         # Business domain models (SongRow, PlayerSettingsPanel)
-├── features/         # Business features (settings rows, auth, etc.)
-├── i18n/             # Internationalization (en, zh)
-├── router/           # Vue Router configuration
-├── screens/          # Route pages (TitleScreen, GameplayScreen, etc.)
-│   └── [screen]/     # Screen-specific composables + sub-components
-├── shared/           # Cross-app shared code (FSD shared layer)
-│   ├── composables/  # Reusable composables (useConfirmDialog, etc.)
-│   ├── layout/       # Layout components (BackgroundVideo, CursorLayer)
-│   ├── lib/          # Shared libraries (sfx audio wrapper)
-│   ├── services/     # Service wrappers (tauri/ window, audio, diagnostics)
-│   ├── stores/       # Pinia stores (settings, library, player, etc.)
-│   └── ui/           # Base UI components (BaseModal, BaseSelect, etc.)
-├── utils/            # Pure helper functions (api, platform, themeCssBridge)
-└── widgets/          # Reusable business blocks (NoteField, MusicPlayer)
+├── app/                   # App composition (router/providers/store/i18n/styles)
+├── entities/              # Domain entities (SongRow, SongPackGroup, PlayModeStrip)
+├── features/              # Business use-cases (non-generic feature slices)
+├── pages/                 # Route pages + page-scoped modules
+├── shared/                # Cross-app shared code
+│   ├── composables/       # Reusable composables
+│   ├── constants/         # Shared constants (gradeColors, routinePlayerColors, etc.)
+│   ├── i18n/              # i18n resources and helpers
+│   ├── layout/            # Layout components (BackgroundVideo, CursorLayer)
+│   ├── lib/               # Shared libraries (sfx, engine helpers, platform)
+│   ├── providers/         # Shared injection keys/types (e.g. options panel context)
+│   ├── services/          # Service wrappers (ipc, tauri adapters)
+│   ├── stores/            # Pinia stores (settings, library, player, etc.)
+│   └── ui/                # Generic UI primitives + shared UI groups (`ui/settings`)
+└── widgets/               # Reusable business blocks (NoteField, MusicPlayer, PlayerSettingsPanel)
 ```
 
 ### Layer Responsibilities
@@ -112,24 +109,24 @@ src/
 | **shared/stores** | Global Pinia state (settings, library, player, session) |
 | **shared/services** | External service wrappers (Tauri IPC wrappers) |
 | **shared/lib** | Cross-app libraries (sfx audio) |
+| **shared/providers** | Shared injection keys and provider contracts |
 | **entities** | Business domain models (SongRow, PlayModeStrip, SongHero) |
-| **widgets** | Reusable business blocks (NoteField, MusicPlayer, SettingsCard) |
-| **features** | Complete business features (SettingsSection with all row types) |
-| **screens** | Route-level page composition (TitleScreen, GameplayScreen) |
-| **api** | Tauri IPC command wrappers only |
+| **widgets** | Reusable business blocks (NoteField, MusicPlayer, SettingsCard, PlayerSettingsPanel) |
+| **features** | User-facing business use-cases (avoid putting pure UI primitives here) |
+| **pages** | Route-level page composition (TitleScreen, GameplayScreen) |
 | **engine** | Game logic (GameEngine, JudgmentSystem) - NOT components |
-| **constants** | Static app constants |
-| **utils** | Pure functions (no side effects, no reactivity) |
-| **i18n** | Localization keys and translation functions |
-| **router** | Route definitions and navigation guards |
+| **app** | App bootstrap/router/provider assembly |
 
 ### Key FSD Principles
 - **Shared = truly shared**: Code used by 2+ unrelated layers goes in `shared/`
 - **Entities = models**: Domain objects with no business logic (SongRow renders itself)
 - **Widgets = composed entities**: Business blocks combining entities (MusicPlayer uses SongRow)
-- **Features = user actions**: Complete feature slices (SettingsSection with all row variants)
-- **Screens = routes**: Page composition that orchestrates widgets/features
+- **Features = user actions**: Keep pure UI primitives in `shared/ui`, not in `features`
+- **Pages = routes**: Route composition that orchestrates widgets/features
 - **Tauri calls = api only**: All `invoke()`, events, window control → `src/api/` or `src/shared/services/tauri/`
+- **Import direction is one-way**: `app -> pages -> widgets -> features -> entities -> shared` (no reverse imports)
+- **Boundary check command**: run `npm run check:fsd-boundaries` before merge when moving modules across layers
+- **Boundary rule in repo**: currently hard-blocks `non-app -> app` imports (e.g. `pages/features/entities/widgets/shared` cannot import `app/*`)
 
 ### Naming Conventions
 - **Components**: `PascalCase.vue` (BaseModal.vue, NoteField.vue)
@@ -142,7 +139,7 @@ src/
 - **Pages = composition**: Screens should mostly assemble widgets/features, not contain business logic
 - **Tauri calls unified**: All `invoke()`, events, window control → `src/api/` only
 - **Global state → Pinia**: Only shared state across screens goes in `shared/stores/`
-- **Local state → composables**: Page-specific state in `screens/[name]/` or `shared/composables/`
+- **Local state → composables**: Page-specific state in `pages/[name]/` or `shared/composables/`
 - **No over-splitting**: Keep reasonable granularity. Extract when there's clear reuse or clarity benefit
 - **Don't break contracts**: Never change existing Tauri IPC contracts or function signatures
 
@@ -221,7 +218,7 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 
 - **Audio preview**: `player.playSongAt(idx)` handles abortId race protection automatically
 - **Config persistence**: `config.rs` reads/writes `config.toml` via `AppState.data_dir`
-- **i18n**: Keys in `src/i18n/en.ts` / `zh.ts`; use `t('ns.key')`; never hardcode strings
+- **i18n**: Keys/resources in `src/shared/i18n/`; use `t('ns.key')`; never hardcode strings
 - **SFX**: `src/shared/lib/sfx.ts` wraps Web Audio API
 - **NoteSkin pipeline**: `sm-noteskin` → IPC commands → `useNoteSkin()` composable → `NoteField.vue`
 - **Chart cache**: `ChartCache` in `lib.rs` is LRU (default 8 entries), configurable via `chart_cache_size`
@@ -233,15 +230,15 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 
 ## Adding New Features
 
-1. **New screen**: Create `src/screens/NewScreen.vue` + composables in `src/screens/new-screen/`. Add route in `src/router.ts`
+1. **New page**: Create `src/pages/NewScreen.vue` + page-scoped modules in `src/pages/new-screen/`. Register route in `src/app/router/index.ts`
 2. **New IPC command**: Add handler in `src-tauri/src/commands/<group>.rs`, register in `lib.rs`, add wrapper in `src/api/<group>.ts`, export from `src/api/index.ts`
 3. **New Rust crate**: Add to workspace root `Cargo.toml` `[workspace.members]` AND to `src-tauri/Cargo.toml` `[dependencies]`
 4. **New game mechanic**: Extend `JudgmentSystem` or `GameEngine` in `src/engine/`, NOT in screen components
 5. **New NoteSkin**: Add `NoteSkinConfig` to `sm-noteskin`, add commands, frontend loads via `useNoteSkin()`
 6. **New widget**: Add to `src/widgets/` if reusable across screens (NoteField, MusicPlayer pattern)
 7. **New entity**: Add to `src/entities/` if domain model with no business logic (SongRow pattern)
-8. **New feature**: Add to `src/features/<name>/` for complete business feature slices (settings pattern)
-9. **New base UI**: Add to `src/shared/ui/` if generic primitive (BaseModal, BaseSelect pattern)
+8. **New feature**: Add to `src/features/<name>/` for business use-cases (not pure styling wrappers)
+9. **New base UI**: Add to `src/shared/ui/` if generic primitive (BaseModal, BaseSelect pattern). Put settings-like generic rows in `src/shared/ui/settings/`
 10. **New shared composable**: Add to `src/shared/composables/` if reusable across multiple features
 
 ---
