@@ -1,6 +1,6 @@
 # Best-StepMania User Guide (Simplified)
 
-This guide aligns with **v1.3.2**. Release notes: [changelog/bsm-v1.3.2.md](../changelog/bsm-v1.3.2.md).
+This guide aligns with **v1.3.3**. Release notes: [changelog/bsm-v1.3.3.md](../changelog/bsm-v1.3.3.md).
 
 ## 1. What You Need
 
