@@ -74,7 +74,7 @@ ls -la src/shared/lib/engine/
 ### 4. 扫描配置与常量
 
 ```bash
-# 版本号
+# 版本号（三处手改 semver；appMeta 由 Vite 从 package.json 注入，无独立版本字面量）
 cat package.json | grep version
 cat src-tauri/Cargo.toml | grep version
 cat src-tauri/tauri.conf.json | grep '"version"'

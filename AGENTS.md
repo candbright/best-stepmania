@@ -248,7 +248,7 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 
 ## Release Notes
 
-- **Version source of truth**: Keep `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and `src/shared/constants/appMeta.ts` on the same semver string (no `v` prefix)
+- **Version source of truth**: Bump the same semver string (no `v` prefix) in **`package.json`**, **`src-tauri/Cargo.toml`**, and **`src-tauri/tauri.conf.json`**. UI “About” and `APP_VERSION` in `src/shared/constants/appMeta.ts` come from `package.json` at build time (Vite `define` in `vite.config.ts`); do not add a duplicate semver literal in `appMeta.ts`.
 - **Changelog**: Maintain `docs/changelog/bsm-vX.Y.Z.md` matching git tag `vX.Y.Z`
 
 ---

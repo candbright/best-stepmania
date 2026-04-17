@@ -19,18 +19,17 @@
 
 ### 1. 同步版本号
 
-确保以下文件的版本号一致（不带 `v` 前缀）：
+确保以下文件的版本号一致（不带 `v` 前缀）。设置 → 关于中的展示版本来自 `package.json`（构建时由 Vite 注入 `APP_VERSION`），**无需**再改 `src/shared/constants/appMeta.ts`。
 
 | 文件 | 字段 |
 |-----|------|
-| `package.json` | `version` |
+| `package.json` | `version`（前端展示与关于页同源） |
 | `src-tauri/Cargo.toml` | `[package].version` |
 | `src-tauri/tauri.conf.json` | 顶层 `version` |
-| `src/shared/constants/appMeta.ts` | `APP_VERSION` |
 
 ```bash
-# 验证版本一致性
-grep -r '"version"' package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json src/shared/constants/appMeta.ts
+# 验证版本一致性（三处手改 semver）
+grep -r '"version"' package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json
 ```
 
 **注意**：不修改 `crates/sm-*/Cargo.toml` 的版本，除非用户明确要求 bump 内部 crate 版本。
@@ -88,7 +87,7 @@ git diff --stat
 | package.json | ✓ |
 | src-tauri/Cargo.toml | ✓ |
 | src-tauri/tauri.conf.json | ✓ |
-| src/shared/constants/appMeta.ts | ✓ |
+| 关于页 / `APP_VERSION`（构建注入） | ✓（与 package.json 一致即可） |
 
 ### 文档同步状态
 | 文档 | 状态 |
