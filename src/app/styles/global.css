@@ -68,3 +68,10 @@ body {
   color: var(--text-color);
   font-family: "Rajdhani", system-ui, sans-serif;
 }
+
+/* Borderless: suppress WebView drag regions (e.g. loading overlay strip) so the window stays on work area. */
+html[data-window-borderless="1"],
+html[data-window-borderless="1"] * {
+  -webkit-app-region: no-drag !important;
+  app-region: no-drag !important;
+}

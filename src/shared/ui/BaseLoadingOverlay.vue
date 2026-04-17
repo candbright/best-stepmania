@@ -17,6 +17,8 @@ const props = withDefaults(
     showRetry?: boolean;
     progress?: number | null;
     escExitsApp?: boolean;
+    /** When false, omit `data-tauri-drag-region` (native hit-test may ignore CSS no-drag). */
+    windowDragStripEnabled?: boolean;
   }>(),
   {
     error: false,
@@ -24,6 +26,7 @@ const props = withDefaults(
     showRetry: false,
     progress: null,
     escExitsApp: false,
+    windowDragStripEnabled: true,
   },
 );
 
@@ -106,7 +109,7 @@ function onRetry() {
         :aria-label="message"
       >
         <div class="app-load-backdrop" aria-hidden="true" />
-        <div class="app-load-drag-strip" data-tauri-drag-region />
+        <div v-if="windowDragStripEnabled" class="app-load-drag-strip" data-tauri-drag-region />
         <div class="app-load-panel">
           <p class="app-load-message" :class="{ 'app-load-message--error': error }">{{ message }}</p>
           <div v-if="!error" class="app-load-bar" aria-hidden="true">

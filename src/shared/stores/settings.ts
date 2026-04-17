@@ -12,6 +12,7 @@ import { clampDoublePanelGapPx, DOUBLE_PANEL_GAP_DEFAULT_PX } from "@/shared/lib
 import { normalizeAppThemeId } from "@/shared/constants/appThemes";
 import { normalizeWindowDisplayPreset } from "@/shared/constants/windowDisplay";
 import type { WindowDisplayPresetId } from "@/shared/constants/windowDisplay";
+import { syncWindowBorderlessDom } from "@/shared/services/tauri/applyWindowDisplay";
 import type { CursorStylePreset, RhythmSfxStyle, UiSfxStyle } from "@/shared/api/config";
 import * as api from "@/shared/api";
 
@@ -160,6 +161,7 @@ export const useSettingsStore = defineStore("settings", () => {
         cfg.windowDisplayPreset ?? undefined,
         cfg.fullscreen,
       );
+      syncWindowBorderlessDom(windowDisplayPreset.value);
       windowWidth.value = Number.isFinite(cfg.windowWidth) ? Math.round(cfg.windowWidth as number) : null;
       windowHeight.value = Number.isFinite(cfg.windowHeight) ? Math.round(cfg.windowHeight as number) : null;
       vsync.value = cfg.vsync;
@@ -371,6 +373,7 @@ export const useSettingsStore = defineStore("settings", () => {
     uiSfxStyle.value = "classic";
     audioOffsetMs.value = 0;
     windowDisplayPreset.value = "normal";
+    syncWindowBorderlessDom("normal");
     windowWidth.value = null;
     windowHeight.value = null;
     vsync.value = true;

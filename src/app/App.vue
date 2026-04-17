@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue";
+import { computed, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { MusicPlayer } from "@/widgets";
 import { AppLoadingOverlay } from "@/shared/ui";
@@ -13,6 +13,8 @@ const router = useRouter();
 const route = useRoute();
 const settings = useSettingsStore();
 const blockingOverlay = useBlockingOverlayStore();
+
+const loadingWindowDragStripEnabled = computed(() => settings.windowDisplayPreset !== "borderless");
 
 const stopSfxBridge = useGlobalSfxBridge(settings);
 const handleGlobalEsc = useGlobalHotkeys(router, route);
@@ -43,6 +45,7 @@ onUnmounted(() => {
       :show-retry="blockingOverlay.showRetry"
       :show-cancel="blockingOverlay.showCancel"
       :progress="blockingOverlay.progress"
+      :window-drag-strip-enabled="loadingWindowDragStripEnabled"
       @cancel="blockingOverlay.invokeCancel"
       @retry="blockingOverlay.invokeRetry"
     />

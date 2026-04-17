@@ -8,6 +8,17 @@ export interface CustomWindowSize {
   height: number;
 }
 
+/** Sync `html[data-window-borderless]` so WebView drag regions are off in borderless mode. */
+export function syncWindowBorderlessDom(preset: WindowDisplayPresetId): void {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  if (preset === "borderless") {
+    root.dataset.windowBorderless = "1";
+  } else {
+    delete root.dataset.windowBorderless;
+  }
+}
+
 /**
  * Applies window decorations, fullscreen, and size for the persisted display preset.
  * No-op outside Tauri (e.g. Vite dev in browser).
@@ -16,6 +27,7 @@ export async function applyWindowDisplayPreset(
   preset: WindowDisplayPresetId,
   customSize?: CustomWindowSize | null,
 ): Promise<void> {
+  syncWindowBorderlessDom(preset);
   if (!isTauri()) return;
   try {
     const { getCurrentWindow, LogicalSize, currentMonitor } = await import("@tauri-apps/api/window");
@@ -26,9 +38,10 @@ export async function applyWindowDisplayPreset(
       await win.setFullscreen(false);
       await win.setDecorations(true);
       await win.setResizable(true);
+      await win.setMaximizable(true);
       const width = customSize?.width;
       const height = customSize?.height;
-      if (width && height && width > 0 && height > 0) {
+      if (width && height && width > 0 && height > 0 && !(await win.isMaximized())) {
         await win.setSize(new LogicalSize(width, height));
       }
       return;
@@ -38,6 +51,7 @@ export async function applyWindowDisplayPreset(
       await win.setFullscreen(false);
       await win.setDecorations(true);
       await win.setResizable(false);
+      await win.setMaximizable(false);
       await win.setFullscreen(true);
       return;
     }
@@ -49,10 +63,12 @@ export async function applyWindowDisplayPreset(
       if (!mon) {
         await win.setDecorations(false);
         await win.setResizable(false);
+        await win.setMaximizable(false);
         return;
       }
       await win.setDecorations(false);
       await win.setResizable(false);
+      await win.setMaximizable(false);
       await win.setPosition(mon.workArea.position);
       await win.setSize(mon.workArea.size);
       return;
@@ -62,6 +78,10 @@ export async function applyWindowDisplayPreset(
 
     const dim = fixedLogicalSizeForPreset(preset);
     if (dim) {
+      await win.setMaximizable(false);
+      if (await win.isMaximized()) {
+        await win.unmaximize();
+      }
       await win.setResizable(false);
       await win.setSize(new LogicalSize(dim.w, dim.h));
       await win.center();
