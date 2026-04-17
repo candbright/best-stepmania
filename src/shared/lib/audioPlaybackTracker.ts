@@ -37,10 +37,22 @@ interface EnginePollState {
 }
 
 const DEFAULT_DEVICE_CHECK_INTERVAL_MS = 5000;
-/** 用引擎时间纠偏外推，避免纯 RAF 漂移导致提前 EOF */
-const ENGINE_POLL_MS = 280;
-/** 轨末 position 与 duration 的容差（秒），与解码块边界对齐 */
-const EOF_EPSILON_SEC = 0.12;
+/** 用引擎时间重锚 RAF 外推，避免纯墙钟漂移；EOF 仅由引擎快照判定 */
+const ENGINE_POLL_MS = 300;
+
+/**
+ * 自然结束容差（秒）：`time`/`duration` 同源但 mixer 以源采样步进、轨末停播时
+ * 二者差值在数帧量级；短曲 duration 的离散化相对更大。不含旧版「墙钟 ≥ duration-0.3」类判据。
+ */
+function eofEpsilonSec(durationSec: number): number {
+  const assumedSr = 48_000;
+  const posStep = 1 / assumedSr;
+  const estSamples = Math.max(1, durationSec * assumedSr);
+  const durationSnapErr = 1 / estSamples;
+  const slack = 0.046;
+  const cappedSnap = Math.min(0.055, 12 * durationSnapErr + 4 * posStep);
+  return Math.min(0.17, slack + cappedSnap);
+}
 
 export function createAudioPlaybackTracker(options: AudioPlaybackTrackerOptions) {
   const devicePoll: DevicePollState = {
@@ -86,6 +98,7 @@ export function createAudioPlaybackTracker(options: AudioPlaybackTrackerOptions)
   function startLocalTracking() {
     stopLocalTracking();
     const tick = () => {
+      // RAF 仅平滑进度；EOF 仅由引擎轮询判定。
       if (options.getIsActive()) {
         const duration = options.getDuration();
         if (duration > 0) {
@@ -116,20 +129,18 @@ export function createAudioPlaybackTracker(options: AudioPlaybackTrackerOptions)
   async function tickEngineFromBackend() {
     if (!options.getIsActive()) return;
     try {
-      const [isPlaying, state] = await Promise.all([
-        api.audioIsPlaying(),
-        api.audioGetPlaybackState(),
-      ]);
+      const state = await api.audioGetPlaybackState();
       const engineDuration =
         state.duration > 0 ? state.duration : options.getDuration();
       eventTracking.lastEventTime = state.time;
       eventTracking.localTimeAtEvent = performance.now() / 1000;
       options.onPlaybackSnapshot(state.time, engineDuration);
 
+      const eps = eofEpsilonSec(engineDuration);
       if (
-        !isPlaying &&
+        !state.isPlaying &&
         engineDuration > 0 &&
-        state.time >= engineDuration - EOF_EPSILON_SEC
+        state.time >= engineDuration - eps
       ) {
         options.onTrackEnd();
       }

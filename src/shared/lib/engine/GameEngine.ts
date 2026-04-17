@@ -56,6 +56,8 @@ const CHART_LEAD_POST_SYNC_GUARD_MS = 320;
 const AUDIO_END_FINISH_GRACE_SEC = 0.35;
 /** Max simulation sub-steps per frame while flushing past audio end (spread across frames if chart tail is long). */
 const MAX_AUDIO_END_FLUSH_STEPS = 1024;
+/** Reject `audioGetTime()` backward jumps larger than this (seconds) once playback has advanced. */
+const AUDIO_BACKEND_MAX_JUMP_BACK_SEC = 0.2;
 
 export class GameEngine {
   public notes: ChartNote[] = [];
@@ -88,6 +90,10 @@ export class GameEngine {
   private audioSyncHandle: ReturnType<typeof setInterval> | null = null;
   private audioSyncPending = false;
   private playbackRate = 1;
+  /** Monotonic guard for backend `getTime()` (raw decode seconds); `-1` = unset this session. */
+  private maxAcceptedBackendAudioSec = -1;
+  /** Once chart time crosses song end + grace, stay true so EOF jitter cannot flip `audioEnded` off. */
+  private latchedChartPastSongEnd = false;
 
   // BPM changes for scroll speed visualization
   public bpmChanges: BpmChange[] = [];
@@ -118,6 +124,11 @@ export class GameEngine {
     this.currentBeat = this.computeCurrentBeatFromTiming();
     this.lastBeatLineSfxBeat = this.currentBeat;
     this.lastRhythmLaneSfxBeat = null;
+  }
+
+  private resetAudioTimelineGuards() {
+    this.maxAcceptedBackendAudioSec = -1;
+    this.latchedChartPastSongEnd = false;
   }
 
   private getPlayerConfig(player: 1 | 2) {
@@ -226,6 +237,7 @@ export class GameEngine {
     this.chartLeadInActive = false;
     this.chartLeadInFinishing = false;
     this.leadInSyncGuardUntilMs = 0;
+    this.resetAudioTimelineGuards();
     // Static chart view during countdown / before startPlaying — align with chart time 0, avoid stale playhead from a prior session
     this.currentSecond = this.audioOffset;
     this.simulatedSecond = this.audioOffset;
@@ -245,6 +257,7 @@ export class GameEngine {
       await this.audioPort.seek(0);
       this.audioLoaded = true;
       this.useAudioSync = true;
+      this.resetAudioTimelineGuards();
       return true;
     } catch (e: unknown) {
       console.warn("Audio load failed, using fallback timer:", e);
@@ -268,6 +281,7 @@ export class GameEngine {
   }
 
   async startPlaying() {
+    this.resetAudioTimelineGuards();
     this.syncAudioOffsetFromConfig();
     this.gameStartWallMs = performance.now();
     this.playingStartTime = performance.now();
@@ -321,6 +335,7 @@ export class GameEngine {
    * Used when previewing from the editor's current scroll position.
    */
   async startPlayingFrom(targetSecond: number, leadInSeconds = 2.0) {
+    this.resetAudioTimelineGuards();
     this.syncAudioOffsetFromConfig();
     const seekTo = Math.max(0, targetSecond - leadInSeconds);
     this.gameStartWallMs = performance.now();
@@ -391,11 +406,26 @@ export class GameEngine {
     if (this.audioSyncPending || this.state !== "playing") return;
     this.audioSyncPending = true;
     try {
-      const backendTime = await this.audioPort?.getTime();
-      if (backendTime == null) return;
+      const backendTimeRaw = await this.audioPort?.getTime();
+      if (backendTimeRaw == null) return;
 
       // Guard: reject out-of-range positions (e.g., stale read from previous song)
-      if (backendTime < 0 || (this.songDuration > 0 && backendTime > this.songDuration + 10)) return;
+      if (backendTimeRaw < 0 || (this.songDuration > 0 && backendTimeRaw > this.songDuration + 10)) return;
+
+      let backendTime = backendTimeRaw;
+      if (this.songDuration > 0) {
+        const clamped = Math.min(backendTimeRaw, this.songDuration);
+        if (this.maxAcceptedBackendAudioSec < 0) {
+          this.maxAcceptedBackendAudioSec = clamped;
+          backendTime = clamped;
+        } else if (clamped < this.maxAcceptedBackendAudioSec - AUDIO_BACKEND_MAX_JUMP_BACK_SEC) {
+          // Stale backward read near EOF (or device glitch) — do not snap anchor backward.
+          return;
+        } else {
+          this.maxAcceptedBackendAudioSec = Math.max(this.maxAcceptedBackendAudioSec, clamped);
+          backendTime = clamped;
+        }
+      }
 
       const now = performance.now();
       const predictedRaw = this.audioAnchorSecond + (now - this.audioAnchorPerfMs) / 1000 * this.playbackRate;
@@ -588,11 +618,23 @@ export class GameEngine {
     // `lastNoteSecond` is far in the future.
     // First, force a small post-end settle step so trailing misses/holds are flushed.
     const songEndSecond = this.songDuration + this.audioOffset;
-    const audioEnded = this.songDuration > 0 && this.currentSecond >= songEndSecond + AUDIO_END_FINISH_GRACE_SEC;
+    const endPastSongChart =
+      this.songDuration > 0 && this.currentSecond >= songEndSecond + AUDIO_END_FINISH_GRACE_SEC;
+    if (endPastSongChart) this.latchedChartPastSongEnd = true;
+    const audioEnded = endPastSongChart || this.latchedChartPastSongEnd;
+
+    const chartTailSecond = this.lastNoteSecond + 2;
+    const endMarkChart = this.songDuration > 0 ? songEndSecond + AUDIO_END_FINISH_GRACE_SEC : -Infinity;
+
     if (audioEnded) {
       // Audio clock stops near `songEndSecond`, but chart notes/holds may extend beyond it.
       // Advance simulation in small steps (needed for rolls / hold tails) until we reach the chart tail.
-      const flushUntil = Math.max(this.currentSecond, this.lastNoteSecond + 2);
+      const flushUntil = Math.max(
+        this.currentSecond,
+        this.simulatedSecond,
+        chartTailSecond,
+        endMarkChart,
+      );
       let flushSteps = 0;
       while (this.simulatedSecond + 1e-9 < flushUntil && flushSteps < MAX_AUDIO_END_FLUSH_STEPS) {
         this.simulatedSecond = Math.min(flushUntil, this.simulatedSecond + SIMULATION_DT);
@@ -604,7 +646,9 @@ export class GameEngine {
     }
 
     // Finish once everything at or before the simulation/audio timeline is settled.
-    const settleLine = Math.max(this.currentSecond, this.simulatedSecond);
+    const settleLine = audioEnded
+      ? Math.max(this.currentSecond, this.simulatedSecond, chartTailSecond, endMarkChart)
+      : Math.max(this.currentSecond, this.simulatedSecond);
     const noPendingPastJudgmentLine = audioEnded
       ? !this.judgment.hasPendingScoreableNotesBefore(settleLine) &&
         !this.judgment.hasPendingHoldsBefore(settleLine)
@@ -683,6 +727,16 @@ export class GameEngine {
   }
 
   getDebugState() {
+    const songEndSecond = this.songDuration > 0 ? this.songDuration + this.audioOffset : 0;
+    const endMarkChart = this.songDuration > 0 ? songEndSecond + AUDIO_END_FINISH_GRACE_SEC : -Infinity;
+    const chartTailSecond = this.lastNoteSecond + 2;
+    const rawAudioEnded = this.songDuration > 0 && this.currentSecond >= endMarkChart;
+    const audioEndedDiag = rawAudioEnded || this.latchedChartPastSongEnd;
+    const settleLine = audioEndedDiag
+      ? Math.max(this.currentSecond, this.simulatedSecond, chartTailSecond, endMarkChart)
+      : Math.max(this.currentSecond, this.simulatedSecond);
+    const j = this.judgment;
+    const playing = this.state === "playing";
     return {
       state: this.state,
       currentSecond: this.currentSecond,
@@ -695,6 +749,12 @@ export class GameEngine {
       driftMs: (this.currentSecond - this.simulatedSecond) * 1000,
       notesCount: this.notes.length,
       lastNoteSecond: this.lastNoteSecond,
+      songDuration: this.songDuration,
+      finishRawAudioEnded: rawAudioEnded,
+      finishLatchedPastSongEnd: this.latchedChartPastSongEnd,
+      finishSettleLineSec: settleLine,
+      finishPendingScoreable: playing && j ? j.hasPendingScoreableNotesBefore(settleLine) : false,
+      finishPendingHolds: playing && j ? j.hasPendingHoldsBefore(settleLine) : false,
     };
   }
 
