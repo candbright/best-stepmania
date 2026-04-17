@@ -2,14 +2,14 @@ import { ref } from "vue";
 import { openDirectoryDialog, isTauri } from "@/shared/lib/platform";
 import * as api from "@/shared/api";
 import type { SongListItem } from "@/shared/api";
-import type { useGameStore } from "@/shared/stores/game";
+import type { useSessionStore } from "@/shared/stores/session";
 import type { usePlayerStore } from "@/shared/stores/player";
 import type { useLibraryStore } from "@/shared/stores/library";
 
 interface UseEditorSongManagementOptions {
-  game: ReturnType<typeof useGameStore>;
-  player: ReturnType<typeof usePlayerStore>;
+  session: ReturnType<typeof useSessionStore>;
   library: ReturnType<typeof useLibraryStore>;
+  player: ReturnType<typeof usePlayerStore>;
   bannerCache: ReturnType<typeof ref<Record<string, string>>>;
   t: (key: string, ...args: unknown[]) => string;
   navigateToEditorWithPrefetch: (routeQuery?: Record<string, string>) => Promise<void>;
@@ -42,7 +42,7 @@ export function useEditorSongManagement(options: UseEditorSongManagementOptions)
   }
 
   function askDeleteCurrentSong() {
-    if (options.game.currentSong) confirmDeleteSong.value = options.game.currentSong;
+    if (options.session.currentSong) confirmDeleteSong.value = options.session.currentSong;
   }
 
   async function handleDeleteSongSuccess() {
@@ -50,28 +50,28 @@ export function useEditorSongManagement(options: UseEditorSongManagementOptions)
     confirmDeleteSong.value = null;
     if (!song) return;
 
-    const removedIndex = options.game.currentSongIndex;
+    const removedIndex = options.session.currentSongIndex;
     const { path: removedPath } = song;
     if (!options.bannerCache.value) {
       options.bannerCache.value = {};
     }
     delete options.bannerCache.value[removedPath];
 
-    await options.game.refreshSongsList();
-    options.game.needsSongRefresh = false;
+    await options.library.refreshSongsList();
+    options.session.needsSongRefresh = false;
     await options.library.cleanupOrphanedFavorites();
 
-    if (options.game.songs.length === 0) {
+    if (options.library.songs.length === 0) {
       options.player.cleanup();
-      await options.game.selectSong(-1);
+      await options.session.selectSong(-1);
       options.player.setQueue([], 0);
       if (options.player.status === "idle") {
         options.player.playDefaultMusic();
       }
     } else {
-      const nextIndex = Math.min(Math.max(removedIndex, 0), options.game.songs.length - 1);
-      await options.game.selectSong(nextIndex);
-      options.player.setQueue(options.game.songs, nextIndex);
+      const nextIndex = Math.min(Math.max(removedIndex, 0), options.library.songs.length - 1);
+      await options.session.selectSong(nextIndex);
+      options.player.setQueue(options.library.songs, nextIndex);
     }
 
     importStatus.value = options.t("songPacks.songDeleted");
@@ -104,17 +104,17 @@ export function useEditorSongManagement(options: UseEditorSongManagementOptions)
         .replace("{0}", String(result.importedCount))
         .replace("{1}", String(result.skippedCount));
       if (result.importedCount > 0) {
-        const oldPaths = new Set(options.game.songs.map((s) => s.path));
-        const newSongs = await api.getSongList(options.game.sortMode);
-        options.game.songs = newSongs;
+        const oldPaths = new Set(options.library.songs.map((s) => s.path));
+        const newSongs = await api.getSongList(options.library.sortMode);
+        options.library.songs = newSongs;
 
         const firstImportedIdx = newSongs.findIndex((s) => !oldPaths.has(s.path));
         const nextIndex = firstImportedIdx >= 0
           ? firstImportedIdx
-          : Math.max(0, Math.min(options.game.currentSongIndex, newSongs.length - 1));
+          : Math.max(0, Math.min(options.session.currentSongIndex, newSongs.length - 1));
 
         if (newSongs.length > 0) {
-          await options.game.selectSong(nextIndex);
+          await options.session.selectSong(nextIndex);
           options.player.setQueue(newSongs, nextIndex);
         }
       }

@@ -1,4 +1,3 @@
-import { useGameStore } from "@/shared/stores/game";
 import type { ShortcutId } from "@/shared/lib/engine/keyBindings";
 import type { EditorState } from "../useEditorState";
 import {
@@ -8,11 +7,9 @@ import {
   NOTE_TYPES,
 } from "../constants";
 
-type GameStore = ReturnType<typeof useGameStore>;
-
 export function createEditorScrollKeyboard(deps: {
   s: EditorState;
-  game: GameStore;
+  shortcutMatches: (e: KeyboardEvent, id: ShortcutId) => boolean;
   cycleQuantize: (dir: 1 | -1) => void;
   redo: () => void;
   undo: () => void;
@@ -37,7 +34,7 @@ export function createEditorScrollKeyboard(deps: {
 }) {
   const {
     s,
-    game,
+    shortcutMatches,
     cycleQuantize,
     redo,
     undo,
@@ -100,7 +97,7 @@ export function createEditorScrollKeyboard(deps: {
       if (!e.ctrlKey && !e.metaKey && !e.altKey) return;
     }
     if (s.allCharts.value.length === 0) {
-      if (game.shortcutMatches(e, "editor.back")) {
+      if (shortcutMatches(e, "editor.back")) {
         if (s.holdStartRow.value !== null) {
           s.holdStartRow.value = null;
           e.preventDefault();
@@ -112,28 +109,28 @@ export function createEditorScrollKeyboard(deps: {
       }
       return;
     }
-    if (game.shortcutMatches(e, "editor.redo")) {
+    if (shortcutMatches(e, "editor.redo")) {
       redo();
       e.preventDefault();
       return;
     }
-    if (game.shortcutMatches(e, "editor.undo")) {
+    if (shortcutMatches(e, "editor.undo")) {
       if (s.undoStack.value.length > 1) undo();
       e.preventDefault();
       return;
     }
-    if (game.shortcutMatches(e, "editor.save")) { void saveToFile(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.copy")) { copySelection(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.cut")) { cutSelection(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.paste")) { pasteSelection(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.selectAll")) { selectAll(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.clearSelection")) {
+    if (shortcutMatches(e, "editor.save")) { void saveToFile(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.copy")) { copySelection(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.cut")) { cutSelection(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.paste")) { pasteSelection(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.selectAll")) { selectAll(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.clearSelection")) {
       const hasSel = s.selectionStart.value !== null || s.additionalSelections.value.length > 0;
       if (hasSel) { clearSelection(); e.preventDefault(); return; }
       // Fall through to editor.back if no selection
     }
-    if (game.shortcutMatches(e, "editor.delete")) { deleteSelection(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.back")) {
+    if (shortcutMatches(e, "editor.delete")) { deleteSelection(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.back")) {
       if (s.showNewChartModal.value) {
         s.showNewChartModal.value = false;
         e.preventDefault();
@@ -149,55 +146,55 @@ export function createEditorScrollKeyboard(deps: {
       goBack();
       return;
     }
-    if (game.shortcutMatches(e, "editor.playPause")) { togglePlayback(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.previewPlay")) { previewPlay(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.addBeat")) { addBeatShiftNotesDown(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.deleteBeat")) { if (canDeleteBeatShiftNotesUp()) { deleteBeatShiftNotesUp(); } e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.scrollUp")) {
+    if (shortcutMatches(e, "editor.playPause")) { togglePlayback(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.previewPlay")) { previewPlay(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.addBeat")) { addBeatShiftNotesDown(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.deleteBeat")) { if (canDeleteBeatShiftNotesUp()) { deleteBeatShiftNotesUp(); } e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.scrollUp")) {
       s.scrollBeat.value = Math.max(0, s.scrollBeat.value - 1);
       if (s.isDragging.value && s.selectionRubberBand.value) syncMarqueeEndFromLastPointer();
       e.preventDefault();
       return;
     }
-    if (game.shortcutMatches(e, "editor.scrollDown")) {
+    if (shortcutMatches(e, "editor.scrollDown")) {
       s.scrollBeat.value += 1;
       if (s.isDragging.value && s.selectionRubberBand.value) syncMarqueeEndFromLastPointer();
       e.preventDefault();
       return;
     }
-    if (game.shortcutMatches(e, "editor.zoomIn")) {
+    if (shortcutMatches(e, "editor.zoomIn")) {
       s.zoom.value = Math.min(EDITOR_ZOOM_MAX, s.zoom.value + EDITOR_ZOOM_STEP_KEY);
       if (s.isDragging.value && s.selectionRubberBand.value) syncMarqueeEndFromLastPointer();
       e.preventDefault();
       return;
     }
-    if (game.shortcutMatches(e, "editor.zoomOut")) {
+    if (shortcutMatches(e, "editor.zoomOut")) {
       s.zoom.value = Math.max(EDITOR_ZOOM_MIN, s.zoom.value - EDITOR_ZOOM_STEP_KEY);
       if (s.isDragging.value && s.selectionRubberBand.value) syncMarqueeEndFromLastPointer();
       e.preventDefault();
       return;
     }
-    if (game.shortcutMatches(e, "editor.quantizeUp")) {
+    if (shortcutMatches(e, "editor.quantizeUp")) {
       cycleQuantize(1);
       e.preventDefault();
       return;
     }
-    if (game.shortcutMatches(e, "editor.quantizeDown")) {
+    if (shortcutMatches(e, "editor.quantizeDown")) {
       cycleQuantize(-1);
       e.preventDefault();
       return;
     }
-    if (game.shortcutMatches(e, "editor.flipH")) { flipHorizontal(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.flipV")) { flipVertical(); e.preventDefault(); return; }
-    if (game.shortcutMatches(e, "editor.flipD")) { flipDiagonal(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.flipH")) { flipHorizontal(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.flipV")) { flipVertical(); e.preventDefault(); return; }
+    if (shortcutMatches(e, "editor.flipD")) { flipDiagonal(); e.preventDefault(); return; }
 
     if (s.activeChart.value?.stepsType === "pump-routine") {
-      if (game.shortcutMatches(e, "editor.routineLayer1")) {
+      if (shortcutMatches(e, "editor.routineLayer1")) {
         s.editorRoutineLayer.value = 1;
         e.preventDefault();
         return;
       }
-      if (game.shortcutMatches(e, "editor.routineLayer2")) {
+      if (shortcutMatches(e, "editor.routineLayer2")) {
         s.editorRoutineLayer.value = 2;
         e.preventDefault();
         return;
@@ -206,7 +203,7 @@ export function createEditorScrollKeyboard(deps: {
 
     for (let typeIdx = 0; typeIdx < NOTE_TYPES.length; typeIdx++) {
       const sid = `editor.noteType${typeIdx + 1}` as ShortcutId;
-      if (game.shortcutMatches(e, sid)) {
+      if (shortcutMatches(e, sid)) {
         const nt = NOTE_TYPES[typeIdx];
         if (nt) s.currentNoteType.value = nt.id;
         e.preventDefault();

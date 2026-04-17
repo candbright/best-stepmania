@@ -1,5 +1,5 @@
 import { computed, ref, watch, type Ref } from "vue";
-import { useGameStore } from "@/shared/stores/game";
+import { useSettingsStore } from "@/shared/stores/settings";
 import { playMenuBack, playMenuConfirm, playMenuMove } from "@/shared/lib/sfx";
 import { getCursorPosition } from "@/shared/lib/platform";
 
@@ -87,7 +87,7 @@ export function syncGlobalCursorClass(enable: boolean) {
 }
 
 export function useCursorLayer() {
-  const game = useGameStore();
+  const settings = useSettingsStore();
 
   const cursor = ref({
     x: window.innerWidth * 0.5,
@@ -99,7 +99,7 @@ export function useCursorLayer() {
   let rippleId = 0;
 
   const shouldRenderCursorLayer = computed(() => true);
-  const cursorPresetClass = computed(() => (game.cursorStylePreset === "b" ? "preset-b" : "preset-a"));
+  const cursorPresetClass = computed(() => (settings.cursorStylePreset === "b" ? "preset-b" : "preset-a"));
   const shouldHideSystemCursor = computed(() => true);
   const isCursorVisible = computed(() => true);
 
@@ -158,10 +158,10 @@ export function useCursorLayer() {
   }
 
   function spawnCursorRipple(x: number, y: number) {
-    if (!game.cursorRippleEnabled) return;
+    if (!settings.cursorRippleEnabled) return;
 
     const id = ++rippleId;
-    const duration = Math.max(120, Math.round(game.cursorRippleDurationMs || 480));
+    const duration = Math.max(120, Math.round(settings.cursorRippleDurationMs || 480));
     cursorRipples.value.push({ id, x, y });
     window.setTimeout(() => {
       cursorRipples.value = cursorRipples.value.filter((r) => r.id !== id);
@@ -270,7 +270,7 @@ export function useCursorLayer() {
   }
 
   return {
-    game,
+    settings,
     cursor: cursor as Ref<{ x: number; y: number; visible: boolean }>,
     cursorVisualState,
     cursorRipples,

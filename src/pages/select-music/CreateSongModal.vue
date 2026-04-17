@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from "vue";
-import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
+import { useLibraryStore } from "@/shared/stores/library";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useI18n } from "@/shared/i18n";
 import * as api from "@/shared/api";
@@ -26,7 +27,8 @@ const emit = defineEmits<{
   (e: "error", status: string): void;
 }>();
 
-const game = useGameStore();
+const session = useSessionStore();
+const library = useLibraryStore();
 const player = usePlayerStore();
 const { t } = useI18n();
 
@@ -161,15 +163,15 @@ async function createSong() {
       meter: createChart.value ? createMeter.value : undefined,
     });
 
-    await game.refreshSongsList();
-    const newSongs = game.songs;
+    await library.refreshSongsList();
+    const newSongs = library.songs;
     const newIndex = newSongs.findIndex((s) => s.path === result.songPath);
     const nextIndex = newIndex >= 0
       ? newIndex
-      : Math.max(0, Math.min(game.currentSongIndex, newSongs.length - 1));
+      : Math.max(0, Math.min(session.currentSongIndex, newSongs.length - 1));
 
     if (newSongs.length > 0) {
-      await game.selectSong(nextIndex);
+      await session.selectSong(nextIndex);
       player.setQueue(newSongs, nextIndex);
     }
 

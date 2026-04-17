@@ -2,7 +2,8 @@
 import { ref, onUnmounted, onMounted, provide } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { useGameStore } from "@/shared/stores/game";
+import { useSettingsStore } from "@/shared/stores/settings";
+import { useSessionStore } from "@/shared/stores/session";
 import { useLibraryStore } from "@/shared/stores/library";
 import {
   previewMetronomeSfx,
@@ -25,7 +26,8 @@ import OptionsAboutCategory from "./options/OptionsAboutCategory.vue";
 
 const router = useRouter();
 const { t } = useI18n();
-const game = useGameStore();
+const settings = useSettingsStore();
+const session = useSessionStore();
 const library = useLibraryStore();
 
 const {
@@ -39,8 +41,8 @@ const {
   close: closeConfirmDialog,
   accept: confirmDialogAccept,
 } = useConfirmDialog();
-const { schedule, flush } = useSettingsSaveQueue(() => game.saveAppConfig(), 800);
-const { stopAll: stopAppSettingsSync } = useAppSettingsSync(game, schedule);
+const { schedule, flush } = useSettingsSaveQueue(() => settings.saveAppConfig(session.profileName), 800);
+const { stopAll: stopAppSettingsSync } = useAppSettingsSync(settings, schedule);
 const sfxGate = useSfxPreviewGate();
 
 function previewUiSfxFromSettings() {

@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
+import { useSettingsStore } from "@/shared/stores/settings";
+import { mergeShortcutBindings, eventMatchesBinding, type ShortcutId } from "@/shared/lib/engine/keyBindings";
 import type { ChartInfoItem } from "@/shared/api";
 import { useI18n } from "@/shared/i18n";
 import { listNoteskins } from "@/shared/api";
@@ -12,8 +14,14 @@ import { chartFitsPlayMode } from "@/shared/lib/chartPlayMode";
 import { setMetronomeSfxEnabled, setRhythmSfxEnabled, setUiSfxEnabled } from "@/shared/lib/sfx";
 
 const router = useRouter();
-const game = useGameStore();
+const session = useSessionStore();
+const settings = useSettingsStore();
 const { t } = useI18n();
+
+function shortcutMatches(e: KeyboardEvent, id: ShortcutId): boolean {
+  const binding = mergeShortcutBindings(settings.shortcutOverrides)[id];
+  return eventMatchesBinding(e, binding);
+}
 
 const SPEED_MODS_C = ["C300", "C400", "C450", "C500", "C550", "C600", "C700", "C800"];
 const SPEED_MODS_X = ["1.0x", "1.5x", "2.0x", "2.5x", "3.0x"];
@@ -24,16 +32,16 @@ const NOTE_STYLES = ["default", "neon", "retro", "tetris", "cyberpunk", "mechani
 const availableP1Colors = computed(() => ROUTINE_PLAYER_COLORS);
 const availableP2Colors = computed(() => ROUTINE_PLAYER_COLORS);
 const routineColorDisabled = (colorId: RoutinePlayerColorId, player: 1 | 2) =>
-  (player === 1 ? game.routineP2ColorId : game.routineP1ColorId) === colorId;
+  (player === 1 ? session.routineP2ColorId : session.routineP1ColorId) === colorId;
 
 function selectP2Color(colorId: RoutinePlayerColorId) {
   if (routineColorDisabled(colorId, 2)) return;
-  game.routineP2ColorId = colorId;
+  session.routineP2ColorId = colorId;
 }
 
 function selectP1Color(colorId: RoutinePlayerColorId) {
   if (routineColorDisabled(colorId, 1)) return;
-  game.routineP1ColorId = colorId;
+  session.routineP1ColorId = colorId;
 }
 
 const availableSkins = ref<string[]>([]);
@@ -51,27 +59,27 @@ async function loadSkinList() {
 }
 
 // Mode-specific computed properties
-const isSingleMode = computed(() => game.playMode === "pump-single");
-const isDoubleMode = computed(() => game.playMode === "pump-double");
-const isRoutineMode = computed(() => game.playMode === "pump-routine");
+const isSingleMode = computed(() => session.playMode === "pump-single");
+const isDoubleMode = computed(() => session.playMode === "pump-double");
+const isRoutineMode = computed(() => session.playMode === "pump-routine");
 
 /** Difficulty chips: only charts for the current play mode (same filter as select-music). */
 const chartsForPlayMode = computed((): ChartInfoItem[] => {
-  const all = game.charts;
-  const mode = game.playMode;
+  const all = session.charts;
+  const mode = session.playMode;
   if (!mode) return all;
   const m = all.filter((c) => chartFitsPlayMode(c, mode));
   return m.length > 0 ? m : all;
 });
 
 function ensureChartIndicesMatchPlayMode() {
-  const all = game.charts;
-  const mode = game.playMode;
+  const all = session.charts;
+  const mode = session.playMode;
   if (!all.length || !mode) return;
-  const cur = all[game.p1ChartIndex];
+  const cur = all[session.p1ChartIndex];
   if (cur && chartFitsPlayMode(cur, mode)) {
     if (isSingleMode.value || isDoubleMode.value) {
-      game.p2ChartIndex = game.p1ChartIndex;
+      session.p2ChartIndex = session.p1ChartIndex;
     }
     return;
   }
@@ -79,10 +87,10 @@ function ensureChartIndicesMatchPlayMode() {
   if (!hit) return;
   const i = all.indexOf(hit);
   if (i >= 0) {
-    game.p1ChartIndex = i;
-    game.currentChartIndex = i;
+    session.p1ChartIndex = i;
+    session.currentChartIndex = i;
     if (isSingleMode.value || isDoubleMode.value) {
-      game.p2ChartIndex = i;
+      session.p2ChartIndex = i;
     }
   }
 }
@@ -90,19 +98,19 @@ function ensureChartIndicesMatchPlayMode() {
 /** Pump single: P1/P2 chart indices follow the difficulty chosen on song select (`currentChartIndex`). */
 function applySingleModeChartsFromSongSelect() {
   if (!isSingleMode.value) return;
-  const all = game.charts;
-  const mode = game.playMode;
+  const all = session.charts;
+  const mode = session.playMode;
   if (!all.length || !mode) return;
-  const i = game.currentChartIndex;
+  const i = session.currentChartIndex;
   if (i >= 0 && i < all.length && chartFitsPlayMode(all[i]!, mode)) {
-    game.p1ChartIndex = i;
-    game.p2ChartIndex = i;
+    session.p1ChartIndex = i;
+    session.p2ChartIndex = i;
   }
 }
 
 // Routine: P2 on, settings locked to P1. Double: P2 off and cannot be enabled (solo both pads).
 const p2Locked = computed(() => isRoutineMode.value);
-const p2RoutineReadonly = computed(() => isRoutineMode.value && game.hasPlayer2);
+const p2RoutineReadonly = computed(() => isRoutineMode.value && session.hasPlayer2);
 
 function difficultyLabel(diff?: string) {
   if (!diff) return "—";
@@ -124,8 +132,8 @@ function noteStyleLabel(st: typeof NOTE_STYLES[number]) {
 }
 
 function canStart() {
-  if (!game.currentSong || game.charts.length === 0) return false;
-  if (!game.hasPlayer1 && !game.hasPlayer2) return false;
+  if (!session.currentSong || session.charts.length === 0) return false;
+  if (!session.hasPlayer1 && !session.hasPlayer2) return false;
   return true;
 }
 
@@ -135,64 +143,64 @@ function confirm() {
     return;
   }
   if (isDoubleMode.value) {
-    game.hasPlayer2 = false;
-    game.p2ChartIndex = game.p1ChartIndex;
-    game.player2Config = { ...game.player1Config };
-  } else if (isRoutineMode.value && game.hasPlayer2) {
-    game.p2ChartIndex = game.p1ChartIndex;
-    game.player2Config = { ...game.player1Config };
+    session.hasPlayer2 = false;
+    session.p2ChartIndex = session.p1ChartIndex;
+    settings.player2Config = { ...settings.player1Config };
+  } else if (isRoutineMode.value && session.hasPlayer2) {
+    session.p2ChartIndex = session.p1ChartIndex;
+    settings.player2Config = { ...settings.player1Config };
   }
-  if (isRoutineMode.value && game.hasPlayer2 && game.routineP1ColorId === game.routineP2ColorId) {
-    const fallback = ROUTINE_PLAYER_COLORS.find((color) => color.id !== game.routineP1ColorId);
-    game.routineP2ColorId = fallback?.id ?? game.routineP2ColorId;
+  if (isRoutineMode.value && session.hasPlayer2 && session.routineP1ColorId === session.routineP2ColorId) {
+    const fallback = ROUTINE_PLAYER_COLORS.find((color) => color.id !== session.routineP1ColorId);
+    session.routineP2ColorId = fallback?.id ?? session.routineP2ColorId;
   }
-  game.currentChartIndex = game.hasPlayer1 ? game.p1ChartIndex : game.p2ChartIndex;
+  session.currentChartIndex = session.hasPlayer1 ? session.p1ChartIndex : session.p2ChartIndex;
   router.push("/gameplay");
 }
 
 function goBack() {
-  if (game.previewReturnToEditor) {
-    game.editorWarmResume = true;
-    game.previewFromSecond = null;
-    game.previewReturnToEditor = false;
+  if (session.previewReturnToEditor) {
+    session.editorWarmResume = true;
+    session.previewFromSecond = null;
+    session.previewReturnToEditor = false;
     router.push("/editor");
     return;
   }
-  game.resumePlaybackOnReturn = true;
+  session.resumePlaybackOnReturn = true;
   router.push("/select-music");
 }
 
 // Prevent disabling both players simultaneously
 function togglePlayer1(val: boolean) {
-  if (!val && !game.hasPlayer2) return;
-  game.hasPlayer1 = val;
+  if (!val && !session.hasPlayer2) return;
+  session.hasPlayer1 = val;
 }
 
 function togglePlayer2(val: boolean) {
   if (isDoubleMode.value) return;
-  if (!val && !game.hasPlayer1) return;
-  game.hasPlayer2 = val;
+  if (!val && !session.hasPlayer1) return;
+  session.hasPlayer2 = val;
 }
 
-const canDisableP1 = computed(() => game.hasPlayer2);
-const canDisableP2 = computed(() => game.hasPlayer1);
+const canDisableP1 = computed(() => session.hasPlayer2);
+const canDisableP2 = computed(() => session.hasPlayer1);
 const p2SwitchDisabled = computed(
-  () => isDoubleMode.value || p2Locked.value || (!canDisableP2.value && game.hasPlayer2),
+  () => isDoubleMode.value || p2Locked.value || (!canDisableP2.value && session.hasPlayer2),
 );
 
 watch(
-  [() => isRoutineMode.value, () => game.p1ChartIndex, () => game.player1Config],
+  [() => isRoutineMode.value, () => session.p1ChartIndex, () => settings.player1Config],
   ([routineEnabled]) => {
     if (!routineEnabled) return;
-    game.p2ChartIndex = game.p1ChartIndex;
-    game.player2Config = { ...game.player1Config };
+    session.p2ChartIndex = session.p1ChartIndex;
+    settings.player2Config = { ...settings.player1Config };
   },
   { immediate: true, deep: true },
 );
 
 // Sync UI sfxEnabled setting with the sfx module
 watch(
-  () => game.uiSfxEnabled,
+  () => settings.uiSfxEnabled,
   (val) => {
     setUiSfxEnabled(val);
   },
@@ -200,7 +208,7 @@ watch(
 );
 
 watch(
-  () => game.metronomeSfxEnabled,
+  () => settings.metronomeSfxEnabled,
   (val) => {
     setMetronomeSfxEnabled(val);
   },
@@ -208,7 +216,7 @@ watch(
 );
 
 watch(
-  () => game.rhythmSfxEnabled,
+  () => settings.rhythmSfxEnabled,
   (val) => {
     setRhythmSfxEnabled(val);
   },
@@ -216,25 +224,25 @@ watch(
 );
 
 function onKeyDown(e: KeyboardEvent) {
-  if (game.shortcutMatches(e, "title.confirm")) {
+  if (shortcutMatches(e, "title.confirm")) {
     if (!canStart()) return;
     e.preventDefault();
     confirm();
     return;
   }
-  if (game.shortcutMatches(e, "global.back")) {
+  if (shortcutMatches(e, "global.back")) {
     e.preventDefault();
     goBack();
   }
 }
 
 watch(
-  () => game.playMode,
+  () => session.playMode,
   (mode) => {
     if (mode !== "pump-double") return;
-    game.hasPlayer2 = false;
-    game.p2ChartIndex = game.p1ChartIndex;
-    game.player2Config = { ...game.player1Config };
+    session.hasPlayer2 = false;
+    session.p2ChartIndex = session.p1ChartIndex;
+    settings.player2Config = { ...settings.player1Config };
   },
 );
 
@@ -244,19 +252,19 @@ onMounted(() => {
   applySingleModeChartsFromSongSelect();
   ensureChartIndicesMatchPlayMode();
   // Ensure P1 is always enabled when entering player options
-  game.hasPlayer1 = true;
+  session.hasPlayer1 = true;
   if (isDoubleMode.value) {
-    game.hasPlayer2 = false;
-    game.p2ChartIndex = game.p1ChartIndex;
-    game.player2Config = { ...game.player1Config };
+    session.hasPlayer2 = false;
+    session.p2ChartIndex = session.p1ChartIndex;
+    settings.player2Config = { ...settings.player1Config };
   } else if (isRoutineMode.value) {
-    game.hasPlayer2 = true;
+    session.hasPlayer2 = true;
   }
 });
 
 onUnmounted(() => {
   window.removeEventListener("keydown", onKeyDown);
-  game.saveAppConfig().catch((e) => logOptionalRejection("playerOptions.unmount.saveAppConfig", e));
+  settings.saveAppConfig(session.profileName).catch((e) => logOptionalRejection("playerOptions.unmount.saveAppConfig", e));
 });
 </script>
 
@@ -273,8 +281,8 @@ onUnmounted(() => {
       <section class="option-card song-preview">
         <h3>{{ t('playerOpt.song') }}</h3>
         <div class="preview-info">
-          <p class="song-t">{{ game.currentSong?.title ?? '—' }}</p>
-          <p class="song-a">{{ game.currentSong?.artist ?? '' }}</p>
+          <p class="song-t">{{ session.currentSong?.title ?? '—' }}</p>
+          <p class="song-a">{{ session.currentSong?.artist ?? '' }}</p>
         </div>
       </section>
 
@@ -285,12 +293,12 @@ onUnmounted(() => {
         <SettingsCard
           class="p1-card"
           :title="t('playerOpt.player1')"
-          :disabled="!game.hasPlayer1"
-          :class="{ disabled: !game.hasPlayer1 }"
+          :disabled="!session.hasPlayer1"
+          :class="{ disabled: !session.hasPlayer1 }"
         >
           <template #header>
             <label class="toggle-switch" :title="canDisableP1 ? '' : t('playerOpt.cannotDisableBoth')">
-              <input type="checkbox" :checked="game.hasPlayer1" @change="togglePlayer1(($event.target as HTMLInputElement).checked)" :disabled="!canDisableP1 && game.hasPlayer1" />
+              <input type="checkbox" :checked="session.hasPlayer1" @change="togglePlayer1(($event.target as HTMLInputElement).checked)" :disabled="!canDisableP1 && session.hasPlayer1" />
               <span class="toggle-slider"></span>
             </label>
           </template>
@@ -301,8 +309,8 @@ onUnmounted(() => {
               <span class="setting-label">{{ t('playerOpt.difficulty') }}</span>
               <div class="diff-grid">
                 <button v-for="chart in chartsForPlayMode" :key="chart.chartIndex"
-                  class="diff-chip" :class="{ active: game.p1ChartIndex === chart.chartIndex }"
-                  @click="game.p1ChartIndex = chart.chartIndex">
+                  class="diff-chip" :class="{ active: session.p1ChartIndex === chart.chartIndex }"
+                  @click="session.p1ChartIndex = chart.chartIndex">
                   {{ difficultyLabel(chart.difficulty) }} {{ chart.meter }}
                 </button>
               </div>
@@ -314,13 +322,13 @@ onUnmounted(() => {
               <div class="speed-mod-rows">
                 <div class="chip-grid-inline">
                   <button v-for="mod in SPEED_MODS_C" :key="mod"
-                    class="chip-sm" :class="{ active: game.player1Config.speedMod === mod }"
-                    @click="game.player1Config.speedMod = mod">{{ mod }}</button>
+                    class="chip-sm" :class="{ active: settings.player1Config.speedMod === mod }"
+                    @click="settings.player1Config.speedMod = mod">{{ mod }}</button>
                 </div>
                 <div class="chip-grid-inline">
                   <button v-for="mod in SPEED_MODS_X" :key="mod"
-                    class="chip-sm" :class="{ active: game.player1Config.speedMod === mod }"
-                    @click="game.player1Config.speedMod = mod">{{ mod }}</button>
+                    class="chip-sm" :class="{ active: settings.player1Config.speedMod === mod }"
+                    @click="settings.player1Config.speedMod = mod">{{ mod }}</button>
                 </div>
               </div>
             </div>
@@ -330,8 +338,8 @@ onUnmounted(() => {
               <span class="setting-label">{{ t('playerOpt.colorScheme') }}</span>
               <div class="chip-grid-inline">
                 <button v-for="ns in availableSkins" :key="ns"
-                  class="chip-sm" :class="{ active: game.player1Config.noteskin === ns }"
-                  @click="game.player1Config.noteskin = ns">{{ noteskinLabel(ns) }}</button>
+                  class="chip-sm" :class="{ active: settings.player1Config.noteskin === ns }"
+                  @click="settings.player1Config.noteskin = ns">{{ noteskinLabel(ns) }}</button>
               </div>
             </div>
 
@@ -340,8 +348,8 @@ onUnmounted(() => {
               <span class="setting-label">{{ t('playerOpt.noteStyle') }}</span>
               <div class="chip-grid-inline">
                 <button v-for="st in NOTE_STYLES" :key="st"
-                  class="chip-sm" :class="{ active: game.player1Config.noteStyle === st }"
-                  @click="game.player1Config.noteStyle = st">{{ noteStyleLabel(st) }}</button>
+                  class="chip-sm" :class="{ active: settings.player1Config.noteStyle === st }"
+                  @click="settings.player1Config.noteStyle = st">{{ noteStyleLabel(st) }}</button>
               </div>
             </div>
 
@@ -350,8 +358,8 @@ onUnmounted(() => {
               <span class="setting-label">{{ t('playerOpt.noteScale') }}</span>
               <div class="chip-grid-inline">
                 <button v-for="sc in NOTE_SCALE_OPTIONS" :key="sc"
-                  class="chip-sm" :class="{ active: game.player1Config.noteScale === sc }"
-                  @click="game.player1Config.noteScale = sc">{{ sc }}x</button>
+                  class="chip-sm" :class="{ active: settings.player1Config.noteScale === sc }"
+                  @click="settings.player1Config.noteScale = sc">{{ sc }}x</button>
               </div>
             </div>
 
@@ -360,7 +368,7 @@ onUnmounted(() => {
               <span class="setting-label">{{ t('playerOpt.routineP1Color') }}</span>
               <div class="color-picker">
                 <button v-for="color in availableP1Colors" :key="color.id"
-                  class="color-btn" :class="{ active: game.routineP1ColorId === color.id, disabled: routineColorDisabled(color.id, 1) }"
+                  class="color-btn" :class="{ active: session.routineP1ColorId === color.id, disabled: routineColorDisabled(color.id, 1) }"
                   :style="{ backgroundColor: color.hex }"
                   :disabled="routineColorDisabled(color.id, 1)"
                   @click="selectP1Color(color.id)" />
@@ -370,23 +378,23 @@ onUnmounted(() => {
             <!-- Toggles -->
             <div class="setting-row">
               <span class="setting-label">{{ t('playerOpt.reverse') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="game.player1Config.reverse" /><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.reverse" /><span class="toggle-slider"></span></label>
             </div>
             <div class="setting-row">
               <span class="setting-label">{{ t('playerOpt.mirror') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="game.player1Config.mirror" /><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.mirror" /><span class="toggle-slider"></span></label>
             </div>
             <div class="setting-row">
               <span class="setting-label">{{ t('playerOpt.sudden') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="game.player1Config.sudden" /><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.sudden" /><span class="toggle-slider"></span></label>
             </div>
             <div class="setting-row">
               <span class="setting-label">{{ t('playerOpt.hidden') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="game.player1Config.hidden" /><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.hidden" /><span class="toggle-slider"></span></label>
             </div>
             <div class="setting-row">
               <span class="setting-label">{{ t('playerOpt.rotate') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="game.player1Config.rotate" /><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.rotate" /><span class="toggle-slider"></span></label>
             </div>
           </template>
         </SettingsCard>
@@ -395,13 +403,13 @@ onUnmounted(() => {
         <SettingsCard
           class="p2-card"
           :title="t('playerOpt.player2')"
-          :disabled="!game.hasPlayer2"
-          :locked="p2Locked && game.hasPlayer2"
-          :class="{ disabled: !game.hasPlayer2, locked: p2Locked && game.hasPlayer2 }"
+          :disabled="!session.hasPlayer2"
+          :locked="p2Locked && session.hasPlayer2"
+          :class="{ disabled: !session.hasPlayer2, locked: p2Locked && session.hasPlayer2 }"
         >
           <template #header>
             <label class="toggle-switch" :class="{ 'toggle-disabled': p2SwitchDisabled }" :title="canDisableP2 ? '' : t('playerOpt.cannotDisableBoth')">
-              <input type="checkbox" :checked="game.hasPlayer2" @change="togglePlayer2(($event.target as HTMLInputElement).checked)" :disabled="p2SwitchDisabled" />
+              <input type="checkbox" :checked="session.hasPlayer2" @change="togglePlayer2(($event.target as HTMLInputElement).checked)" :disabled="p2SwitchDisabled" />
               <span class="toggle-slider"></span>
             </label>
           </template>
@@ -412,9 +420,9 @@ onUnmounted(() => {
               <span class="setting-label">{{ t('playerOpt.difficulty') }}</span>
               <div class="diff-grid">
                 <button v-for="chart in chartsForPlayMode" :key="chart.chartIndex"
-                  class="diff-chip" :class="{ active: game.p2ChartIndex === chart.chartIndex }"
+                  class="diff-chip" :class="{ active: session.p2ChartIndex === chart.chartIndex }"
                   :disabled="p2RoutineReadonly"
-                  @click="game.p2ChartIndex = chart.chartIndex">
+                  @click="session.p2ChartIndex = chart.chartIndex">
                   {{ difficultyLabel(chart.difficulty) }} {{ chart.meter }}
                 </button>
               </div>
@@ -426,15 +434,15 @@ onUnmounted(() => {
               <div class="speed-mod-rows">
                 <div class="chip-grid-inline">
                   <button v-for="mod in SPEED_MODS_C" :key="mod"
-                    class="chip-sm" :class="{ active: game.player2Config.speedMod === mod }"
+                    class="chip-sm" :class="{ active: settings.player2Config.speedMod === mod }"
                     :disabled="p2RoutineReadonly"
-                    @click="game.player2Config.speedMod = mod">{{ mod }}</button>
+                    @click="settings.player2Config.speedMod = mod">{{ mod }}</button>
                 </div>
                 <div class="chip-grid-inline">
                   <button v-for="mod in SPEED_MODS_X" :key="mod"
-                    class="chip-sm" :class="{ active: game.player2Config.speedMod === mod }"
+                    class="chip-sm" :class="{ active: settings.player2Config.speedMod === mod }"
                     :disabled="p2RoutineReadonly"
-                    @click="game.player2Config.speedMod = mod">{{ mod }}</button>
+                    @click="settings.player2Config.speedMod = mod">{{ mod }}</button>
                 </div>
               </div>
             </div>
@@ -444,8 +452,8 @@ onUnmounted(() => {
               <span class="setting-label">{{ t('playerOpt.colorScheme') }}</span>
               <div class="chip-grid-inline">
                 <button v-for="ns in availableSkins" :key="ns"
-                  class="chip-sm" :class="{ active: game.player2Config.noteskin === ns }"
-                  @click="game.player2Config.noteskin = ns">{{ noteskinLabel(ns) }}</button>
+                  class="chip-sm" :class="{ active: settings.player2Config.noteskin === ns }"
+                  @click="settings.player2Config.noteskin = ns">{{ noteskinLabel(ns) }}</button>
               </div>
             </div>
 
@@ -454,9 +462,9 @@ onUnmounted(() => {
               <span class="setting-label">{{ t('playerOpt.noteStyle') }}</span>
               <div class="chip-grid-inline">
                 <button v-for="st in NOTE_STYLES" :key="st"
-                  class="chip-sm" :class="{ active: game.player2Config.noteStyle === st }"
+                  class="chip-sm" :class="{ active: settings.player2Config.noteStyle === st }"
                   :disabled="p2RoutineReadonly"
-                  @click="game.player2Config.noteStyle = st">{{ noteStyleLabel(st) }}</button>
+                  @click="settings.player2Config.noteStyle = st">{{ noteStyleLabel(st) }}</button>
               </div>
             </div>
 
@@ -465,9 +473,9 @@ onUnmounted(() => {
               <span class="setting-label">{{ t('playerOpt.noteScale') }}</span>
               <div class="chip-grid-inline">
                 <button v-for="sc in NOTE_SCALE_OPTIONS" :key="sc"
-                  class="chip-sm" :class="{ active: game.player2Config.noteScale === sc }"
+                  class="chip-sm" :class="{ active: settings.player2Config.noteScale === sc }"
                   :disabled="p2RoutineReadonly"
-                  @click="game.player2Config.noteScale = sc">{{ sc }}x</button>
+                  @click="settings.player2Config.noteScale = sc">{{ sc }}x</button>
               </div>
             </div>
 
@@ -476,7 +484,7 @@ onUnmounted(() => {
               <span class="setting-label">{{ t('playerOpt.routineP2Color') }}</span>
               <div class="color-picker">
                 <button v-for="color in availableP2Colors" :key="color.id"
-                  class="color-btn" :class="{ active: game.routineP2ColorId === color.id, disabled: routineColorDisabled(color.id, 2) }"
+                  class="color-btn" :class="{ active: session.routineP2ColorId === color.id, disabled: routineColorDisabled(color.id, 2) }"
                   :style="{ backgroundColor: color.hex }"
                   :disabled="routineColorDisabled(color.id, 2)"
                   @click="selectP2Color(color.id)" />
@@ -486,23 +494,23 @@ onUnmounted(() => {
             <!-- Toggles -->
             <div class="setting-row">
               <span class="setting-label">{{ t('playerOpt.reverse') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="game.player2Config.reverse" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.reverse" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
             </div>
             <div class="setting-row">
               <span class="setting-label">{{ t('playerOpt.mirror') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="game.player2Config.mirror" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.mirror" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
             </div>
             <div class="setting-row">
               <span class="setting-label">{{ t('playerOpt.sudden') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="game.player2Config.sudden" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.sudden" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
             </div>
             <div class="setting-row">
               <span class="setting-label">{{ t('playerOpt.hidden') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="game.player2Config.hidden" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.hidden" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
             </div>
             <div class="setting-row">
               <span class="setting-label">{{ t('playerOpt.rotate') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="game.player2Config.rotate" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
+              <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.rotate" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
             </div>
           </template>
         </SettingsCard>
@@ -517,8 +525,8 @@ onUnmounted(() => {
         <h3>{{ t('playerOpt.playbackRate') }}</h3>
         <div class="chip-grid">
           <button v-for="r in RATE_OPTIONS" :key="r"
-            class="chip" :class="{ active: game.playbackRate === r }"
-            @click="game.playbackRate = r">{{ r }}x</button>
+            class="chip" :class="{ active: settings.playbackRate === r }"
+            @click="settings.playbackRate = r">{{ r }}x</button>
         </div>
       </section>
 
@@ -528,21 +536,21 @@ onUnmounted(() => {
         <div class="setting-row">
           <span class="setting-label">{{ t('playerOpt.autoPlay') }}</span>
           <label class="toggle-switch">
-            <input type="checkbox" v-model="game.autoPlay" />
+            <input type="checkbox" v-model="settings.autoPlay" />
             <span class="toggle-slider"></span>
           </label>
         </div>
         <div class="setting-row">
           <span class="setting-label">{{ t('settings.rhythmSfxEnabled') }}</span>
           <label class="toggle-switch">
-            <input type="checkbox" v-model="game.rhythmSfxEnabled" />
+            <input type="checkbox" v-model="settings.rhythmSfxEnabled" />
             <span class="toggle-slider"></span>
           </label>
         </div>
         <div class="setting-row">
           <span class="setting-label">{{ t('playerOpt.sfx') }}</span>
           <label class="toggle-switch">
-            <input type="checkbox" v-model="game.metronomeSfxEnabled" />
+            <input type="checkbox" v-model="settings.metronomeSfxEnabled" />
             <span class="toggle-slider"></span>
           </label>
         </div>

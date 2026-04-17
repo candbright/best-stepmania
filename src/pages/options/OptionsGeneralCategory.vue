@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { useI18n } from "@/shared/i18n";
-import { useGameStore } from "@/shared/stores/game";
+import { useSettingsStore } from "@/shared/stores/settings";
+import { useSessionStore } from "@/shared/stores/session";
+import { useLibraryStore } from "@/shared/stores/library";
 import { SettingsSection } from "@/features/settings";
 import { SettingsSelectRow } from "@/features/settings";
 import { APP_THEME_IDS } from "@/shared/constants/appThemes";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
 
 const { t } = useI18n();
-const game = useGameStore();
+const settings = useSettingsStore();
+const session = useSessionStore();
+const library = useLibraryStore();
 const sfx = inject(OPTIONS_PANEL_SFX)!;
 const dialog = inject(OPTIONS_DIALOG)!;
 
@@ -23,8 +27,9 @@ const themeOptions = computed(() =>
 
 async function resetAllSettings() {
   try {
-    await game.resetAllSettingsToDefaults();
-    await game.loadSongs(undefined, { force: true });
+    settings.resetToFactoryDefaults();
+    await settings.saveAppConfig(session.profileName);
+    await library.loadSongs(settings.songDirectories, { force: true });
   } catch (e: unknown) {
     console.error(e);
   }
@@ -46,16 +51,16 @@ function onResetAllSettings() {
     <SettingsSelectRow
       :label="t('settings.language')"
       help-key="language"
-      :model-value="game.language"
+      :model-value="settings.language"
       :options="languageOptions"
-      @update:model-value="(v) => (game.language = v as 'en' | 'zh-CN')"
+      @update:model-value="(v) => (settings.language = v as 'en' | 'zh-CN')"
     />
     <SettingsSelectRow
       :label="t('settings.theme')"
       help-key="theme"
-      :model-value="game.theme"
+      :model-value="settings.theme"
       :options="themeOptions"
-      @update:model-value="(v) => (game.theme = String(v) as typeof game.theme)"
+      @update:model-value="(v) => (settings.theme = String(v) as typeof settings.theme)"
     />
     <div class="reset-all-settings-block">
       <button

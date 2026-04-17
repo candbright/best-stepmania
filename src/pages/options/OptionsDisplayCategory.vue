@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { useI18n } from "@/shared/i18n";
-import { useGameStore } from "@/shared/stores/game";
+import { useSettingsStore } from "@/shared/stores/settings";
 import { SettingsSection } from "@/features/settings";
 import { SettingsRangeRow } from "@/features/settings";
 import { SettingsToggleRow } from "@/features/settings";
@@ -11,7 +11,7 @@ import { WINDOW_DISPLAY_PRESET_IDS } from "@/shared/constants/windowDisplay";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
 
 const { t } = useI18n();
-const game = useGameStore();
+const settings = useSettingsStore();
 const sfx = inject(OPTIONS_PANEL_SFX)!;
 const dialog = inject(OPTIONS_DIALOG)!;
 
@@ -37,44 +37,44 @@ const cursorStylePresetOptions = computed(() => [
 
 const canResetCursorCoreSettings = computed(() => {
   return (
-    game.cursorEnabled !== true ||
-    game.cursorStylePreset !== "a" ||
-    game.cursorScale !== 1 ||
-    game.cursorOpacity !== 0.9 ||
-    game.cursorGlow !== 0.35 ||
-    game.cursorTrailsEnabled !== true
+    settings.cursorEnabled !== true ||
+    settings.cursorStylePreset !== "a" ||
+    settings.cursorScale !== 1 ||
+    settings.cursorOpacity !== 0.9 ||
+    settings.cursorGlow !== 0.35 ||
+    settings.cursorTrailsEnabled !== true
   );
 });
 
 const canResetClickEffectSettings = computed(() => {
   return (
-    game.cursorRippleEnabled !== true ||
-    game.cursorRippleDurationMs !== 480 ||
-    game.cursorRippleMinScale !== 0.65 ||
-    game.cursorRippleMaxScale !== 6.2 ||
-    game.cursorRippleOpacity !== 0.7 ||
-    game.cursorRippleLineWidth !== 1 ||
-    game.cursorRippleGlow !== 0.26
+    settings.cursorRippleEnabled !== true ||
+    settings.cursorRippleDurationMs !== 480 ||
+    settings.cursorRippleMinScale !== 0.65 ||
+    settings.cursorRippleMaxScale !== 6.2 ||
+    settings.cursorRippleOpacity !== 0.7 ||
+    settings.cursorRippleLineWidth !== 1 ||
+    settings.cursorRippleGlow !== 0.26
   );
 });
 
 function resetCursorCoreSettings() {
-  game.cursorEnabled = true;
-  game.cursorStylePreset = "a";
-  game.cursorScale = 1;
-  game.cursorOpacity = 0.9;
-  game.cursorGlow = 0.35;
-  game.cursorTrailsEnabled = true;
+  settings.cursorEnabled = true;
+  settings.cursorStylePreset = "a";
+  settings.cursorScale = 1;
+  settings.cursorOpacity = 0.9;
+  settings.cursorGlow = 0.35;
+  settings.cursorTrailsEnabled = true;
 }
 
 function resetClickEffectSettings() {
-  game.cursorRippleEnabled = true;
-  game.cursorRippleDurationMs = 480;
-  game.cursorRippleMinScale = 0.65;
-  game.cursorRippleMaxScale = 6.2;
-  game.cursorRippleOpacity = 0.7;
-  game.cursorRippleLineWidth = 1;
-  game.cursorRippleGlow = 0.26;
+  settings.cursorRippleEnabled = true;
+  settings.cursorRippleDurationMs = 480;
+  settings.cursorRippleMinScale = 0.65;
+  settings.cursorRippleMaxScale = 6.2;
+  settings.cursorRippleOpacity = 0.7;
+  settings.cursorRippleLineWidth = 1;
+  settings.cursorRippleGlow = 0.26;
 }
 
 function onResetCursorCoreSettings() {
@@ -98,7 +98,7 @@ function onResetClickEffectSettings() {
 }
 
 function toggleClickEffectEnabledFromSectionHead() {
-  game.cursorRippleEnabled = !(game.cursorRippleEnabled ?? true);
+  settings.cursorRippleEnabled = !(settings.cursorRippleEnabled ?? true);
 }
 </script>
 
@@ -108,34 +108,34 @@ function toggleClickEffectEnabledFromSectionHead() {
     <SettingsSelectRow
       :label="t('settings.windowDisplayMode')"
       help-key="windowDisplay"
-      :model-value="game.windowDisplayPreset"
+      :model-value="settings.windowDisplayPreset"
       :options="windowDisplayPresetOptions"
-      @update:model-value="(v) => (game.windowDisplayPreset = String(v) as typeof game.windowDisplayPreset)"
+      @update:model-value="(v) => (settings.windowDisplayPreset = String(v) as typeof settings.windowDisplayPreset)"
     />
     <SettingsToggleRow
       :label="t('settings.vsync')"
       help-key="vsync"
-      :model-value="game.vsync"
+      :model-value="settings.vsync"
       :on-toggle-sound="sfx.playToggleClickSfx"
-      @update:model-value="(v) => (game.vsync = v)"
+      @update:model-value="(v) => (settings.vsync = v)"
     />
     <SettingsSelectRow
       :label="t('settings.targetFps')"
       help-key="targetFps"
-      :model-value="game.targetFps"
+      :model-value="settings.targetFps"
       :options="targetFpsOptions"
-      @update:model-value="(v) => (game.targetFps = Number(v))"
+      @update:model-value="(v) => (settings.targetFps = Number(v))"
     />
     <SettingsRangeRow
       :label="t('settings.uiScale')"
       help-key="uiScale"
-      :model-value="Math.round(game.uiScale * 100)"
+      :model-value="Math.round(settings.uiScale * 100)"
       :min="75"
       :max="150"
       :step="5"
-      :display-value="`${Math.round(game.uiScale * 100)}%`"
+      :display-value="`${Math.round(settings.uiScale * 100)}%`"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.uiScale = v / 100)"
+      @update:model-value="(v) => (settings.uiScale = v / 100)"
     />
   </SettingsSection>
 
@@ -148,42 +148,42 @@ function toggleClickEffectEnabledFromSectionHead() {
     <SettingsSelectRow
       :label="t('settings.cursorStylePreset')"
       help-key="cursorStylePreset"
-      :model-value="game.cursorStylePreset"
+      :model-value="settings.cursorStylePreset"
       :options="cursorStylePresetOptions"
-      @update:model-value="(v) => (game.cursorStylePreset = v as 'a' | 'b')"
+      @update:model-value="(v) => (settings.cursorStylePreset = v as 'a' | 'b')"
     />
     <SettingsRangeRow
       :label="t('settings.cursorScale')"
       help-key="cursorScale"
-      :model-value="Math.round(game.cursorScale * 100)"
+      :model-value="Math.round(settings.cursorScale * 100)"
       :min="70"
       :max="160"
       :step="5"
-      :display-value="`${Math.round(game.cursorScale * 100)}%`"
+      :display-value="`${Math.round(settings.cursorScale * 100)}%`"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.cursorScale = v / 100)"
+      @update:model-value="(v) => (settings.cursorScale = v / 100)"
     />
     <SettingsRangeRow
       :label="t('settings.cursorOpacity')"
       help-key="cursorOpacity"
-      :model-value="Math.round(game.cursorOpacity * 100)"
+      :model-value="Math.round(settings.cursorOpacity * 100)"
       :min="10"
       :max="100"
       :step="1"
-      :display-value="`${Math.round(game.cursorOpacity * 100)}%`"
+      :display-value="`${Math.round(settings.cursorOpacity * 100)}%`"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.cursorOpacity = v / 100)"
+      @update:model-value="(v) => (settings.cursorOpacity = v / 100)"
     />
     <SettingsRangeRow
       :label="t('settings.cursorGlow')"
       help-key="cursorGlow"
-      :model-value="Math.round(game.cursorGlow * 100)"
+      :model-value="Math.round(settings.cursorGlow * 100)"
       :min="0"
       :max="100"
       :step="1"
-      :display-value="`${Math.round(game.cursorGlow * 100)}%`"
+      :display-value="`${Math.round(settings.cursorGlow * 100)}%`"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.cursorGlow = v / 100)"
+      @update:model-value="(v) => (settings.cursorGlow = v / 100)"
     />
     <SettingsResetRow
       variant="card"
@@ -202,7 +202,7 @@ function toggleClickEffectEnabledFromSectionHead() {
           <button
             type="button"
             class="toggle-switch ui-sfx-toggle-switch"
-            :class="{ active: game.cursorRippleEnabled }"
+            :class="{ active: settings.cursorRippleEnabled }"
             data-sfx="off"
             :title="t('settings.cursorRippleEnabled')"
             @click="sfx.playControlClickSfx(); toggleClickEffectEnabledFromSectionHead()"
@@ -212,72 +212,72 @@ function toggleClickEffectEnabledFromSectionHead() {
         </div>
       </div>
     </template>
-    <template v-if="game.cursorRippleEnabled">
+    <template v-if="settings.cursorRippleEnabled">
       <SettingsRangeRow
         :label="t('settings.cursorRippleDurationMs')"
         help-key="cursorRippleDurationMs"
-        :model-value="game.cursorRippleDurationMs"
+        :model-value="settings.cursorRippleDurationMs"
         :min="180"
         :max="1200"
         :step="10"
-        :display-value="`${game.cursorRippleDurationMs}ms`"
+        :display-value="`${settings.cursorRippleDurationMs}ms`"
         :on-interact="sfx.playSliderClickSfx"
-        @update:model-value="(v) => (game.cursorRippleDurationMs = v)"
+        @update:model-value="(v) => (settings.cursorRippleDurationMs = v)"
       />
       <SettingsRangeRow
         :label="t('settings.cursorRippleMinScale')"
         help-key="cursorRippleMinScale"
-        :model-value="Math.round(game.cursorRippleMinScale * 100)"
+        :model-value="Math.round(settings.cursorRippleMinScale * 100)"
         :min="20"
         :max="240"
         :step="5"
-        :display-value="`${game.cursorRippleMinScale.toFixed(2)}x`"
+        :display-value="`${settings.cursorRippleMinScale.toFixed(2)}x`"
         :on-interact="sfx.playSliderClickSfx"
-        @update:model-value="(v) => (game.cursorRippleMinScale = v / 100)"
+        @update:model-value="(v) => (settings.cursorRippleMinScale = v / 100)"
       />
       <SettingsRangeRow
         :label="t('settings.cursorRippleMaxScale')"
         help-key="cursorRippleMaxScale"
-        :model-value="Math.round(game.cursorRippleMaxScale * 100)"
+        :model-value="Math.round(settings.cursorRippleMaxScale * 100)"
         :min="120"
         :max="1200"
         :step="10"
-        :display-value="`${game.cursorRippleMaxScale.toFixed(2)}x`"
+        :display-value="`${settings.cursorRippleMaxScale.toFixed(2)}x`"
         :on-interact="sfx.playSliderClickSfx"
-        @update:model-value="(v) => (game.cursorRippleMaxScale = v / 100)"
+        @update:model-value="(v) => (settings.cursorRippleMaxScale = v / 100)"
       />
       <SettingsRangeRow
         :label="t('settings.cursorRippleOpacity')"
         help-key="cursorRippleOpacity"
-        :model-value="Math.round(game.cursorRippleOpacity * 100)"
+        :model-value="Math.round(settings.cursorRippleOpacity * 100)"
         :min="0"
         :max="100"
         :step="1"
-        :display-value="`${Math.round(game.cursorRippleOpacity * 100)}%`"
+        :display-value="`${Math.round(settings.cursorRippleOpacity * 100)}%`"
         :on-interact="sfx.playSliderClickSfx"
-        @update:model-value="(v) => (game.cursorRippleOpacity = v / 100)"
+        @update:model-value="(v) => (settings.cursorRippleOpacity = v / 100)"
       />
       <SettingsRangeRow
         :label="t('settings.cursorRippleLineWidth')"
         help-key="cursorRippleLineWidth"
-        :model-value="Math.round(game.cursorRippleLineWidth * 10)"
+        :model-value="Math.round(settings.cursorRippleLineWidth * 10)"
         :min="5"
         :max="30"
         :step="1"
-        :display-value="`${game.cursorRippleLineWidth.toFixed(1)}px`"
+        :display-value="`${settings.cursorRippleLineWidth.toFixed(1)}px`"
         :on-interact="sfx.playSliderClickSfx"
-        @update:model-value="(v) => (game.cursorRippleLineWidth = v / 10)"
+        @update:model-value="(v) => (settings.cursorRippleLineWidth = v / 10)"
       />
       <SettingsRangeRow
         :label="t('settings.cursorRippleGlow')"
         help-key="cursorRippleGlow"
-        :model-value="Math.round(game.cursorRippleGlow * 100)"
+        :model-value="Math.round(settings.cursorRippleGlow * 100)"
         :min="0"
         :max="100"
         :step="1"
-        :display-value="`${Math.round(game.cursorRippleGlow * 100)}%`"
+        :display-value="`${Math.round(settings.cursorRippleGlow * 100)}%`"
         :on-interact="sfx.playSliderClickSfx"
-        @update:model-value="(v) => (game.cursorRippleGlow = v / 100)"
+        @update:model-value="(v) => (settings.cursorRippleGlow = v / 100)"
       />
     </template>
     <SettingsResetRow

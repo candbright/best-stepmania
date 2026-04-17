@@ -2,7 +2,8 @@ import { computed, nextTick, ref, watch } from "vue";
 import { defaultQuantizeFromTimeSignatures } from "./quantizeFromTimeSignature";
 import type { EditorState } from "./useEditorState";
 import type { EditorCanvas } from "./useEditorCanvas";
-import type { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
+import { useGameStore } from "@/shared/stores/game";
 import type { EditorChartBackupStored } from "@/pages/editor/editorChartBackup";
 import {
   applyEditorChartBackupToState,
@@ -14,17 +15,16 @@ import {
   writeEditorChartBackup,
 } from "@/pages/editor/editorChartBackup";
 
-type GameStore = ReturnType<typeof useGameStore>;
-
 export function useEditorDraftGuard(deps: {
   s: EditorState;
   canvas: EditorCanvas;
-  game: GameStore;
   reseedUndoStackAfterHydrate: () => void;
   saveToFile: () => Promise<boolean>;
   saveMetadata: () => Promise<boolean>;
 }) {
-  const { s, canvas, game, reseedUndoStackAfterHydrate, saveToFile, saveMetadata } = deps;
+  const { s, canvas, reseedUndoStackAfterHydrate, saveToFile, saveMetadata } = deps;
+  const session = useSessionStore();
+  const gameFacade = useGameStore();
 
   const draftChartSerialized = ref("");
   const draftMetaSerialized = ref("");
@@ -53,7 +53,7 @@ export function useEditorDraftGuard(deps: {
     backupDebounce = setTimeout(() => {
       backupDebounce = null;
       bumpDraftFromState();
-      const song = game.currentSong;
+      const song = session.currentSong;
       if (!song || s.allCharts.value.length === 0) return;
       if (!isDirty.value) {
         clearEditorChartBackup(song.path, s.activeChartIndex.value);
@@ -99,7 +99,7 @@ export function useEditorDraftGuard(deps: {
   );
 
   function offerBackupDraftIfNeeded() {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song || s.allCharts.value.length === 0) return;
     const idx = s.activeChartIndex.value;
     const backup = readEditorChartBackup(song.path, idx);
@@ -120,7 +120,7 @@ export function useEditorDraftGuard(deps: {
   }
 
   function onBackupRestoreLoad() {
-    const song = game.currentSong;
+    const song = session.currentSong;
     const b = pendingBackupForModal.value;
     if (!song || !b) {
       showBackupRestoreModal.value = false;
@@ -138,14 +138,14 @@ export function useEditorDraftGuard(deps: {
   }
 
   function onBackupRestoreUseDisk() {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (song) clearEditorChartBackup(song.path, s.activeChartIndex.value);
     showBackupRestoreModal.value = false;
     pendingBackupForModal.value = null;
   }
 
   function installEditorBackGuard() {
-    game.setEditorBackGuard(async () => {
+    gameFacade.setEditorBackGuard(async () => {
       if (!isDirty.value) return true;
       return await new Promise<boolean>((resolve) => {
         unsavedExitResolve = resolve;
@@ -155,7 +155,7 @@ export function useEditorDraftGuard(deps: {
   }
 
   function uninstallEditorBackGuard() {
-    game.setEditorBackGuard(null);
+    gameFacade.setEditorBackGuard(null);
     if (unsavedExitResolve) {
       unsavedExitResolve(false);
       unsavedExitResolve = null;
@@ -164,7 +164,7 @@ export function useEditorDraftGuard(deps: {
   }
 
   async function onUnsavedSaveAndLeave() {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song) return;
     if (isChartDirty.value) {
       const chartOk = await saveToFile();
@@ -183,7 +183,7 @@ export function useEditorDraftGuard(deps: {
   }
 
   function onUnsavedDiscardAndLeave() {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (song) clearEditorChartBackup(song.path, s.activeChartIndex.value);
     showUnsavedExitModal.value = false;
     const r = unsavedExitResolve;
@@ -193,7 +193,7 @@ export function useEditorDraftGuard(deps: {
 
   /** Exit without writing SM/SSC; force current editor state into localStorage backup for next session. */
   function onUnsavedStashAndLeave() {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song || s.allCharts.value.length === 0) {
       showUnsavedExitModal.value = false;
       const r = unsavedExitResolve;

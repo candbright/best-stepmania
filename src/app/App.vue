@@ -4,17 +4,17 @@ import { useRoute, useRouter } from "vue-router";
 import { MusicPlayer } from "@/widgets";
 import { AppLoadingOverlay } from "@/shared/ui";
 import { CursorLayer } from "@/shared/layout";
-import { useGameStore } from "@/shared/stores/game";
+import { useSettingsStore } from "@/shared/stores/settings";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { useGlobalSfxBridge } from "@/shared/composables/useGlobalSfxBridge";
 import { useGlobalHotkeys } from "@/shared/composables/useGlobalHotkeys";
 
 const router = useRouter();
 const route = useRoute();
-const game = useGameStore();
+const settings = useSettingsStore();
 const blockingOverlay = useBlockingOverlayStore();
 
-const stopSfxBridge = useGlobalSfxBridge(game);
+const stopSfxBridge = useGlobalSfxBridge(settings);
 const handleGlobalEsc = useGlobalHotkeys(router, route);
 
 onMounted(() => {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
-import { useGameStore } from "@/shared/stores/game";
+import { useSettingsStore } from "@/shared/stores/settings";
 import type { RhythmSfxStyle } from "@/shared/api/config";
 import { BaseTooltip } from "@/shared/ui";
 import { BaseSelect } from "@/shared/ui";
@@ -11,7 +11,7 @@ import { SettingsRangeRow } from "@/features/settings";
 import { OPTIONS_PANEL_SFX } from "./injectionKeys";
 
 const { t } = useI18n();
-const game = useGameStore();
+const settings = useSettingsStore();
 const sfx = inject(OPTIONS_PANEL_SFX)!;
 
 const uiSfxStyleOptions = computed(() => [
@@ -33,27 +33,27 @@ const rhythmSfxStyleOptions = computed(() => [
 ]);
 
 watch(
-  () => game.metronomeSfxStyle,
+  () => settings.metronomeSfxStyle,
   (next, prev) => {
-    if (next !== prev && game.metronomeSfxEnabled) {
+    if (next !== prev && settings.metronomeSfxEnabled) {
       sfx.previewMetronomeSfxFromSettings();
     }
   },
 );
 
 watch(
-  () => game.rhythmSfxStyle,
+  () => settings.rhythmSfxStyle,
   (next, prev) => {
-    if (next !== prev && game.rhythmSfxEnabled) {
+    if (next !== prev && settings.rhythmSfxEnabled) {
       sfx.previewRhythmSfxFromSettings();
     }
   },
 );
 
 watch(
-  () => game.uiSfxStyle,
+  () => settings.uiSfxStyle,
   (next, prev) => {
-    if (next !== prev && game.uiSfxEnabled) {
+    if (next !== prev && settings.uiSfxEnabled) {
       sfx.previewUiSfxFromSettings();
     }
   },
@@ -66,37 +66,37 @@ watch(
     <SettingsRangeRow
       :label="t('settings.masterVolume')"
       help-key="masterVolume"
-      :model-value="game.masterVolume"
+      :model-value="settings.masterVolume"
       :min="0"
       :max="100"
-      :display-value="`${game.masterVolume}%`"
+      :display-value="`${settings.masterVolume}%`"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.masterVolume = v)"
+      @update:model-value="(v) => (settings.masterVolume = v)"
     />
     <SettingsRangeRow
       :label="t('settings.musicVolume')"
       help-key="musicVolume"
-      :model-value="game.musicVolume"
+      :model-value="settings.musicVolume"
       :min="0"
       :max="100"
-      :display-value="`${game.musicVolume}%`"
+      :display-value="`${settings.musicVolume}%`"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.musicVolume = v)"
+      @update:model-value="(v) => (settings.musicVolume = v)"
     />
     <SettingsRangeRow
       :label="t('settings.effectVolume')"
       help-key="effectVolume"
-      :model-value="game.effectVolume"
+      :model-value="settings.effectVolume"
       :min="0"
       :max="100"
-      :display-value="`${game.effectVolume}%`"
+      :display-value="`${settings.effectVolume}%`"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.effectVolume = v)"
+      @update:model-value="(v) => (settings.effectVolume = v)"
     />
     <div class="setting-row">
       <label>{{ t("settings.audioOffset") }} <BaseTooltip help-key="audioOffset" /></label>
       <BaseNumberField
-        v-model="game.audioOffsetMs"
+        v-model="settings.audioOffsetMs"
         input-class="audio-offset-ms-input"
         :step="1"
         hide-steppers
@@ -109,7 +109,7 @@ watch(
       <div class="section-head">
         <h3>{{ t("settings.metronomeSfx") }}</h3>
         <label class="toggle-switch section-head-toggle" :title="t('settings.metronomeSfxEnabled')">
-          <input type="checkbox" v-model="game.metronomeSfxEnabled" @change="sfx.playToggleClickSfx" />
+          <input type="checkbox" v-model="settings.metronomeSfxEnabled" @change="sfx.playToggleClickSfx" />
           <span class="toggle-slider" />
         </label>
       </div>
@@ -117,13 +117,13 @@ watch(
     <SettingsRangeRow
       :label="t('settings.metronomeSfxVolume')"
       help-key="metronomeSfxVolume"
-      :model-value="game.metronomeSfxVolume"
+      :model-value="settings.metronomeSfxVolume"
       :min="0"
       :max="100"
-      :display-value="`${game.metronomeSfxVolume}%`"
-      :disabled="!game.metronomeSfxEnabled"
+      :display-value="`${settings.metronomeSfxVolume}%`"
+      :disabled="!settings.metronomeSfxEnabled"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.metronomeSfxVolume = v)"
+      @update:model-value="(v) => (settings.metronomeSfxVolume = v)"
     />
     <div class="setting-row">
       <label>
@@ -132,7 +132,7 @@ watch(
           type="button"
           class="sfx-preview-icon-btn"
           data-sfx="off"
-          :disabled="!game.metronomeSfxEnabled"
+          :disabled="!settings.metronomeSfxEnabled"
           :title="t('settings.sfxPreviewMetronome')"
           aria-label="preview metronome sfx"
           @pointerup.stop.prevent="sfx.previewMetronomeSfxFromSettings"
@@ -142,10 +142,10 @@ watch(
         </button>
       </label>
       <BaseSelect
-        :model-value="game.metronomeSfxStyle"
+        :model-value="settings.metronomeSfxStyle"
         :options="metronomeSfxStyleOptions"
-        :disabled="!game.metronomeSfxEnabled"
-        @update:model-value="(v) => (game.metronomeSfxStyle = v as RhythmSfxStyle)"
+        :disabled="!settings.metronomeSfxEnabled"
+        @update:model-value="(v) => (settings.metronomeSfxStyle = v as RhythmSfxStyle)"
       />
     </div>
   </SettingsSection>
@@ -155,7 +155,7 @@ watch(
       <div class="section-head">
         <h3>{{ t("settings.rhythmSfx") }}</h3>
         <label class="toggle-switch section-head-toggle" :title="t('settings.rhythmSfxEnabled')">
-          <input type="checkbox" v-model="game.rhythmSfxEnabled" @change="sfx.playToggleClickSfx" />
+          <input type="checkbox" v-model="settings.rhythmSfxEnabled" @change="sfx.playToggleClickSfx" />
           <span class="toggle-slider" />
         </label>
       </div>
@@ -163,13 +163,13 @@ watch(
     <SettingsRangeRow
       :label="t('settings.rhythmSfxVolume')"
       help-key="rhythmSfxVolume"
-      :model-value="game.rhythmSfxVolume"
+      :model-value="settings.rhythmSfxVolume"
       :min="0"
       :max="100"
-      :display-value="`${game.rhythmSfxVolume}%`"
-      :disabled="!game.rhythmSfxEnabled"
+      :display-value="`${settings.rhythmSfxVolume}%`"
+      :disabled="!settings.rhythmSfxEnabled"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.rhythmSfxVolume = v)"
+      @update:model-value="(v) => (settings.rhythmSfxVolume = v)"
     />
     <div class="setting-row">
       <label>
@@ -178,7 +178,7 @@ watch(
           type="button"
           class="sfx-preview-icon-btn"
           data-sfx="off"
-          :disabled="!game.rhythmSfxEnabled"
+          :disabled="!settings.rhythmSfxEnabled"
           :title="t('settings.sfxPreviewRhythm')"
           aria-label="preview rhythm sfx"
           @pointerup.stop.prevent="sfx.previewRhythmSfxFromSettings"
@@ -188,10 +188,10 @@ watch(
         </button>
       </label>
       <BaseSelect
-        :model-value="game.rhythmSfxStyle"
+        :model-value="settings.rhythmSfxStyle"
         :options="rhythmSfxStyleOptions"
-        :disabled="!game.rhythmSfxEnabled"
-        @update:model-value="(v) => (game.rhythmSfxStyle = v as RhythmSfxStyle)"
+        :disabled="!settings.rhythmSfxEnabled"
+        @update:model-value="(v) => (settings.rhythmSfxStyle = v as RhythmSfxStyle)"
       />
     </div>
   </SettingsSection>
@@ -201,20 +201,20 @@ watch(
       <div class="section-head">
         <h3>{{ t("settings.uiSfxStyle") }}</h3>
         <label class="toggle-switch section-head-toggle" :title="t('settings.uiSfxEnabled')">
-          <input type="checkbox" v-model="game.uiSfxEnabled" @change="sfx.playToggleClickSfx" />
+          <input type="checkbox" v-model="settings.uiSfxEnabled" @change="sfx.playToggleClickSfx" />
           <span class="toggle-slider" />
         </label>
       </div>
     </template>
     <SettingsRangeRow
       :label="t('settings.uiSfxVolume')"
-      :model-value="game.uiSfxVolume"
+      :model-value="settings.uiSfxVolume"
       :min="0"
       :max="100"
-      :display-value="`${game.uiSfxVolume}%`"
-      :disabled="!game.uiSfxEnabled"
+      :display-value="`${settings.uiSfxVolume}%`"
+      :disabled="!settings.uiSfxEnabled"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.uiSfxVolume = v)"
+      @update:model-value="(v) => (settings.uiSfxVolume = v)"
     />
     <div class="setting-row">
       <label>
@@ -223,7 +223,7 @@ watch(
           type="button"
           class="sfx-preview-icon-btn"
           data-sfx="off"
-          :disabled="!game.uiSfxEnabled"
+          :disabled="!settings.uiSfxEnabled"
           :title="t('settings.sfxPreviewPlay')"
           aria-label="preview ui sfx"
           @pointerup.stop.prevent="sfx.previewUiSfxFromSettings"
@@ -233,10 +233,10 @@ watch(
         </button>
       </label>
       <BaseSelect
-        :model-value="game.uiSfxStyle"
+        :model-value="settings.uiSfxStyle"
         :options="uiSfxStyleOptions"
-        :disabled="!game.uiSfxEnabled"
-        @update:model-value="(v) => (game.uiSfxStyle = v as 'classic' | 'soft' | 'arcade')"
+        :disabled="!settings.uiSfxEnabled"
+        @update:model-value="(v) => (settings.uiSfxStyle = v as 'classic' | 'soft' | 'arcade')"
       />
     </div>
   </SettingsSection>

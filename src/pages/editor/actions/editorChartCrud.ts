@@ -1,15 +1,18 @@
-import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
+import { useLibraryStore } from "@/shared/stores/library";
 import * as api from "@/shared/api";
 import { logOptionalRejection } from "@/shared/lib/devLog";
 import type { SaveChartNote } from "@/shared/api";
 import type { EditorState } from "../useEditorState";
 import { STEPS_TYPE_NUM_TRACKS } from "../constants";
 
-type GameStore = ReturnType<typeof useGameStore>;
+type SessionStore = ReturnType<typeof useSessionStore>;
+type LibraryStore = ReturnType<typeof useLibraryStore>;
 
 export interface EditorChartCrudDeps {
   s: EditorState;
-  game: GameStore;
+  session: SessionStore;
+  library: LibraryStore;
   t: (key: string) => string;
   setSaveMessage: (msg: string, errorMs?: number, successMs?: number) => void;
   loadChartNotes: (expectedSongPath?: string) => Promise<void>;
@@ -17,7 +20,7 @@ export interface EditorChartCrudDeps {
 }
 
 export function createEditorChartCrud(deps: EditorChartCrudDeps) {
-  const { s, game, t, setSaveMessage, loadChartNotes, clearSelection } = deps;
+  const { s, session, library, t, setSaveMessage, loadChartNotes, clearSelection } = deps;
 
   async function switchChart(index: number) {
     if (index < 0 || index >= s.allCharts.value.length) return;
@@ -31,7 +34,7 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
   }
 
   async function createNewChart() {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song) return;
     try {
       const newIndex = await api.createNewChart(
@@ -46,13 +49,13 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
       s.syncEditChartPropertiesFromActive();
       await loadChartNotes();
       s.afterChartNotesLoaded.value?.();
-      const refreshedSongs = await api.getSongList(game.sortMode);
-      game.songs = refreshedSongs;
-      game.needsSongRefresh = true;
+      const refreshedSongs = await api.getSongList(library.sortMode);
+      library.songs = refreshedSongs;
+      session.needsSongRefresh = true;
       const refreshedIdx = refreshedSongs.findIndex((ss) => ss.path === song.path);
       if (refreshedIdx >= 0) {
-        await game.selectSong(refreshedIdx);
-        game.selectChart(newIndex);
+        await session.selectSong(refreshedIdx);
+        session.selectChart(newIndex);
       }
       s.saveMessage.value = t("editor.chartCreated");
       setSaveMessage(t("editor.chartCreated"));
@@ -62,7 +65,7 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
   }
 
   async function performDeleteCurrentChart() {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song || s.allCharts.value.length === 0) return;
     try {
       s.playing.value = false;
@@ -77,13 +80,13 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
       await loadChartNotes();
       s.afterChartNotesLoaded.value?.();
       s.syncEditChartPropertiesFromActive();
-      const refreshedSongs = await api.getSongList(game.sortMode);
-      game.songs = refreshedSongs;
-      game.needsSongRefresh = true;
+      const refreshedSongs = await api.getSongList(library.sortMode);
+      library.songs = refreshedSongs;
+      session.needsSongRefresh = true;
       const refreshedIdx = refreshedSongs.findIndex((ss) => ss.path === song.path);
       if (refreshedIdx >= 0) {
-        await game.selectSong(refreshedIdx);
-        game.selectChart(
+        await session.selectSong(refreshedIdx);
+        session.selectChart(
           s.allCharts.value.length > 0 ? Math.min(s.activeChartIndex.value, s.allCharts.value.length - 1) : 0,
         );
       }
@@ -95,7 +98,7 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
   }
 
   async function applyChartProperties() {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song || s.allCharts.value.length === 0) return;
     const chart = s.allCharts.value[s.activeChartIndex.value];
     if (!chart) return;
@@ -121,13 +124,13 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
       s.syncEditChartPropertiesFromActive();
       await loadChartNotes();
       s.afterChartNotesLoaded.value?.();
-      const refreshedSongs = await api.getSongList(game.sortMode);
-      game.songs = refreshedSongs;
-      game.needsSongRefresh = true;
+      const refreshedSongs = await api.getSongList(library.sortMode);
+      library.songs = refreshedSongs;
+      session.needsSongRefresh = true;
       const refreshedIdx = refreshedSongs.findIndex((ss) => ss.path === song.path);
       if (refreshedIdx >= 0) {
-        await game.selectSong(refreshedIdx);
-        game.selectChart(s.activeChartIndex.value);
+        await session.selectSong(refreshedIdx);
+        session.selectChart(s.activeChartIndex.value);
       }
       setSaveMessage(t("editor.chartPropertiesSaved"));
     } catch (e: unknown) {
@@ -156,7 +159,7 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
   }
 
   async function duplicateCurrentChart() {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song || s.allCharts.value.length === 0) return;
     const sourceIndex = s.activeChartIndex.value;
     try {
@@ -181,12 +184,12 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
       s.allCharts.value = await api.loadChart(song.path);
       s.activeChartIndex.value = newIndex;
       s.syncEditChartPropertiesFromActive();
-      game.selectChart(newIndex);
+      session.selectChart(newIndex);
       await loadChartNotes(song.path);
       s.afterChartNotesLoaded.value?.();
-      const refreshedSongs = await api.getSongList(game.sortMode);
-      game.songs = refreshedSongs;
-      game.needsSongRefresh = true;
+      const refreshedSongs = await api.getSongList(library.sortMode);
+      library.songs = refreshedSongs;
+      session.needsSongRefresh = true;
       setSaveMessage(t("editor.chartDuplicated"));
     } catch (e: unknown) {
       setSaveMessage(t("editor.saveError") + ": " + String(e));

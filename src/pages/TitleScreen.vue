@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import { useGameStore } from "@/shared/stores/game";
 import { useSessionStore } from "@/shared/stores/session";
+import { useSettingsStore } from "@/shared/stores/settings";
+import { useLibraryStore } from "@/shared/stores/library";
+import { mergeShortcutBindings, eventMatchesBinding, type ShortcutId } from "@/shared/lib/engine/keyBindings";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { onBeforeMount, onMounted, onUnmounted, ref, watch, nextTick, computed } from "vue";
@@ -18,16 +20,22 @@ import type { SessionPlayMode } from "@/shared/lib/chartPlayMode";
 const router = useRouter();
 const route = useRoute();
 const { t } = useI18n();
-const game = useGameStore();
 const session = useSessionStore();
+const settings = useSettingsStore();
+const library = useLibraryStore();
 const player = usePlayerStore();
+
+function shortcutMatches(e: KeyboardEvent, id: ShortcutId): boolean {
+  const binding = mergeShortcutBindings(settings.shortcutOverrides)[id];
+  return eventMatchesBinding(e, binding);
+}
 const blockingOverlay = useBlockingOverlayStore();
 
-const needsBootstrap = computed(() => !game.configLoaded || !game.profileId);
+const needsBootstrap = computed(() => !settings.configLoaded || !session.profileId);
 
-const hasCachedSongs = game.songs.length > 0;
+const hasCachedSongs = library.songs.length > 0;
 const scanDone = ref(hasCachedSongs);
-const scanCount = ref(hasCachedSongs ? game.songs.length : 0);
+const scanCount = ref(hasCachedSongs ? library.songs.length : 0);
 const scanError = ref<string | null>(null);
 const scanning = ref(!hasCachedSongs);
 const showModeSelect = ref(false);
@@ -210,13 +218,13 @@ async function pollScanStatus() {
       // 之后页面切换不重复加载，只有曲库变更操作才刷新。
       // 注意：status.done=true 时必须确保 scanSongs 已执行完成，
       // 否则 getSongList 可能返回空数组。使用 force 确保重新扫描。
-      if (game.songs.length === 0) {
-        await game.loadSongs(undefined, { force: true });
+      if (library.songs.length === 0) {
+        await library.loadSongs(settings.songDirectories, { force: true });
       }
 
-      if (game.songs.length > 0 && player.queue.length === 0) {
+      if (library.songs.length > 0 && player.queue.length === 0) {
         // 初始化播放队列但不立即播放，等待用户进入选歌界面
-        player.setQueue(game.songs, 0);
+        player.setQueue(library.songs, 0);
       }
     }
   } catch (error: unknown) {
@@ -237,45 +245,45 @@ function stopPolling() {
 async function runTitleBootstrap(): Promise<void> {
   blockingOverlay.updateMessage(t("loadingPhase.appConfig"));
   blockingOverlay.setProgress(10);
-  await game.loadAppConfig();
+  await settings.loadAppConfig();
   applyGameplayRhythmSfxSettings({
-    effectVolume: game.effectVolume ?? 90,
-    metronomeSfxEnabled: game.metronomeSfxEnabled ?? true,
-    metronomeSfxVolume: game.metronomeSfxVolume ?? 100,
-    metronomeSfxStyle: game.metronomeSfxStyle ?? "bright",
-    rhythmSfxEnabled: game.rhythmSfxEnabled ?? true,
-    rhythmSfxVolume: game.rhythmSfxVolume ?? 100,
-    rhythmSfxStyle: game.rhythmSfxStyle ?? "bright",
+    effectVolume: settings.effectVolume ?? 90,
+    metronomeSfxEnabled: settings.metronomeSfxEnabled ?? true,
+    metronomeSfxVolume: settings.metronomeSfxVolume ?? 100,
+    metronomeSfxStyle: settings.metronomeSfxStyle ?? "bright",
+    rhythmSfxEnabled: settings.rhythmSfxEnabled ?? true,
+    rhythmSfxVolume: settings.rhythmSfxVolume ?? 100,
+    rhythmSfxStyle: settings.rhythmSfxStyle ?? "bright",
   });
   // normal：须传入持久化宽高才会 setSize（与 useAppSettingsSync 一致）
   await applyWindowPreset(
-    game.windowDisplayPreset,
-    game.windowDisplayPreset === "normal" && game.windowWidth != null && game.windowHeight != null
-      ? { width: game.windowWidth, height: game.windowHeight }
+    settings.windowDisplayPreset,
+    settings.windowDisplayPreset === "normal" && settings.windowWidth != null && settings.windowHeight != null
+      ? { width: settings.windowWidth, height: settings.windowHeight }
       : null,
   );
   blockingOverlay.updateMessage(t("loadingPhase.appAudio"));
   blockingOverlay.setProgress(22);
   // 首次进入时立即把配置里的音量同步到音频后端，避免“设置值”与“实际音量”不一致。
-  await api.audioSetVolume((game.musicVolume ?? 70) / 100, (game.masterVolume ?? 80) / 100);
-  setUiSfxVolume((game.uiSfxVolume ?? 70) / 100);
+  await api.audioSetVolume((settings.musicVolume ?? 70) / 100, (settings.masterVolume ?? 80) / 100);
+  setUiSfxVolume((settings.uiSfxVolume ?? 70) / 100);
   // Apply saved theme
-  document.body.setAttribute("data-theme", game.theme || "default");
+  document.body.setAttribute("data-theme", settings.theme || "default");
   // Apply saved UI scale
-  document.documentElement.style.fontSize = `${(game.uiScale ?? 1) * 16}px`;
+  document.documentElement.style.fontSize = `${(settings.uiScale ?? 1) * 16}px`;
   blockingOverlay.updateMessage(t("loadingPhase.appScoring"));
   blockingOverlay.setProgress(38);
   // Load scoring constants from Rust backend (single source of truth)
   await initScoringConfig();
   blockingOverlay.updateMessage(t("loadingPhase.appProfile"));
   blockingOverlay.setProgress(55);
-  await game.initProfile();
+  await session.initProfile();
 
   // 已有曲库缓存时，回到主界面不再重新触发扫描/加载流程。
-  if (game.songs.length > 0) {
+  if (library.songs.length > 0) {
     scanDone.value = true;
     scanning.value = false;
-    scanCount.value = game.songs.length;
+    scanCount.value = library.songs.length;
     blockingOverlay.setProgress(100);
   } else {
     blockingOverlay.updateMessage(t("loadingPhase.appLibrary"));
@@ -352,7 +360,7 @@ onUnmounted(() => {
 });
 
 function onKeyDown(e: KeyboardEvent) {
-  if (showModeSelect.value && game.shortcutMatches(e, "global.back")) {
+  if (showModeSelect.value && shortcutMatches(e, "global.back")) {
     e.preventDefault();
     playMenuBack();
     cancelModeSelect();
@@ -385,7 +393,7 @@ function onKeyDown(e: KeyboardEvent) {
     return;
   }
 
-  if (game.shortcutMatches(e, "title.confirm")) {
+  if (shortcutMatches(e, "title.confirm")) {
     e.preventDefault();
     if (showModeSelect.value) {
       let i = modeMenuFocusIndex.value;
@@ -414,7 +422,7 @@ function startGame() {
 }
 
 async function selectMode(mode: SessionPlayMode) {
-  await applyPlayModeSelection(game, player, mode);
+  await applyPlayModeSelection(session, settings, library, player, mode);
   router.push("/select-music");
 }
 
@@ -484,7 +492,7 @@ async function exitApp() {
             <div v-if="showModeSelect" key="modes" class="menu-panel">
               <PlayModeStrip
                 layout="title"
-                :current="game.playMode"
+                :current="session.playMode"
                 :disabled="!scanDone"
                 :keyboard-highlight-index="modeMenuFocusIndex < 3 ? modeMenuFocusIndex : null"
                 @pick="selectMode"

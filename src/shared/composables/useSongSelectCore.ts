@@ -1,17 +1,18 @@
 import { ref, computed, watch } from "vue";
-import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useLibraryStore } from "@/shared/stores/library";
 import { useI18n } from "@/shared/i18n";
 import { playMenuMove } from "@/shared/lib/sfx";
 import * as api from "@/shared/api";
+import type { SongListItem, ChartInfoItem } from "@/shared/api";
 import { PHYSICAL_ROOT_PACK } from "@/shared/constants/songLibrary";
 
 export interface UseSongSelectCoreOptions {
   /** Additional filter for filteredSongs (e.g., playMode filtering) */
-  additionalSongFilter?: (song: ReturnType<typeof useGameStore>["songs"][0]) => boolean;
+  additionalSongFilter?: (song: SongListItem) => boolean;
   /** Additional filter for filteredCharts */
-  additionalChartFilter?: (chart: ReturnType<typeof useGameStore>["charts"][0]) => boolean;
+  additionalChartFilter?: (chart: ChartInfoItem) => boolean;
   /** Called when song selection changes (can be overridden for custom behavior) */
   onSelectSong?: (idx: number) => void;
   /** Called on keyboard navigation */
@@ -20,7 +21,8 @@ export interface UseSongSelectCoreOptions {
   selectSongImpl?: (
     idx: number,
     ctx: {
-      game: ReturnType<typeof useGameStore>;
+      session: ReturnType<typeof useSessionStore>;
+      library: ReturnType<typeof useLibraryStore>;
       player: ReturnType<typeof usePlayerStore>;
       loadBannerLazy: (index: number) => void;
     },
@@ -28,7 +30,7 @@ export interface UseSongSelectCoreOptions {
 }
 
 export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
-  const game = useGameStore();
+  const session = useSessionStore();
   const player = usePlayerStore();
   const library = useLibraryStore();
   const { t } = useI18n();
@@ -54,30 +56,30 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
 
   // === Filter State (bidirectional with game store) ===
   const diffMin = computed({
-    get: () => game.selectFilterDiffMin,
+    get: () => session.selectFilterDiffMin,
     set: (v: number | null) => {
-      game.selectFilterDiffMin = v;
+      session.selectFilterDiffMin = v;
     },
   });
 
   const diffMax = computed({
-    get: () => game.selectFilterDiffMax,
+    get: () => session.selectFilterDiffMax,
     set: (v: number | null) => {
-      game.selectFilterDiffMax = v;
+      session.selectFilterDiffMax = v;
     },
   });
 
   const filterSearch = computed({
-    get: () => game.selectFilterSearch,
+    get: () => session.selectFilterSearch,
     set: (v: string) => {
-      game.selectFilterSearch = v;
+      session.selectFilterSearch = v;
     },
   });
 
   const filterPack = computed({
-    get: () => game.selectFilterPack,
+    get: () => session.selectFilterPack,
     set: (v: string) => {
-      game.selectFilterPack = v;
+      session.selectFilterPack = v;
     },
   });
 
@@ -101,7 +103,7 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
 
   // === Computed: Filtered Songs ===
   const filteredSongs = computed(() => {
-    return game.songs.filter((s) => {
+    return library.songs.filter((s) => {
       if (library.showFavoritesOnly && !library.favorites.has(s.path)) return false;
       if (filterSearch.value) {
         const q = filterSearch.value.toLowerCase();
@@ -127,7 +129,7 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
 
   // === Computed: Filtered Charts ===
   const filteredCharts = computed(() => {
-    let charts = game.charts ?? [];
+    let charts = session.charts ?? [];
     if (options.additionalChartFilter) {
       charts = charts.filter(options.additionalChartFilter);
     }
@@ -145,11 +147,11 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
   // === Computed: Grouped Songs ===
   const groupedSongs = computed(() => {
     const indexByPath = new Map<string, number>();
-    game.songs.forEach((s, i) => indexByPath.set(s.path, i));
+    library.songs.forEach((s, i) => indexByPath.set(s.path, i));
     const groups: {
       packKey: string;
       packLabel: string;
-      songs: { song: (typeof game.songs)[0]; idx: number }[];
+      songs: { song: (typeof library.songs)[0]; idx: number }[];
     }[] = [];
     const packMap = new Map<string, (typeof groups)[0]>();
     filteredSongs.value.forEach((song) => {
@@ -184,7 +186,7 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
   // === Computed: Existing Packs ===
   const existingPacks = computed(() => {
     const uniq = new Set<string>();
-    for (const s of game.songs) {
+    for (const s of library.songs) {
       const p = (s.pack ?? "").trim();
       if (p && p !== PHYSICAL_ROOT_PACK) uniq.add(p);
     }
@@ -193,7 +195,7 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
 
   // === Computed: Sort Label ===
   const sortLabel = computed(() => {
-    const key = `select.sort.${game.sortMode}` as const;
+    const key = `select.sort.${library.sortMode}` as const;
     const translated = t(key);
     if (translated !== key) return translated;
     return t("select.sort.default");
@@ -201,7 +203,7 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
 
   // === Banner Loading ===
   function loadBannerLazy(idx: number) {
-    const song = game.songs[idx];
+    const song = library.songs[idx];
     if (!song || bannerCache.value[song.path]) return;
     const load = async () => {
       try {
@@ -219,11 +221,11 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
     const batchSize = 5;
     let i = 0;
     function nextBatch() {
-      const end = Math.min(i + batchSize, game.songs.length);
+      const end = Math.min(i + batchSize, library.songs.length);
       for (; i < end; i++) {
         loadBannerLazy(i);
       }
-      if (i < game.songs.length) {
+      if (i < library.songs.length) {
         setTimeout(nextBatch, 50);
       }
     }
@@ -233,14 +235,15 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
   // === Song Selection ===
   function selectSong(idx: number) {
     if (options.selectSongImpl) {
-      options.selectSongImpl(idx, { game, player, loadBannerLazy });
+      options.selectSongImpl(idx, { session, library, player, loadBannerLazy });
     } else {
-      game.selectSong(idx);
+      void session.selectSong(idx);
       playMenuMove();
       const queueSynced =
-        player.queue.length === game.songs.length && player.queue.every((s, i) => s.path === game.songs[i]?.path);
+        player.queue.length === library.songs.length &&
+        player.queue.every((s, i) => s.path === library.songs[i]?.path);
       if (!queueSynced) {
-        player.setQueue(game.songs, idx);
+        player.setQueue(library.songs, idx);
       } else {
         player.playSongAt(idx);
       }
@@ -253,15 +256,15 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
   function focusSongByDelta(delta: number) {
     if (filteredSongs.value.length === 0) return;
 
-    const currentPath = game.currentSong?.path;
+    const currentPath = session.currentSong?.path;
     const currentFilteredIndex = currentPath ? filteredSongs.value.findIndex((s) => s.path === currentPath) : -1;
     const baseIndex = currentFilteredIndex >= 0 ? currentFilteredIndex : 0;
     const nextFilteredIndex = (baseIndex + delta + filteredSongs.value.length) % filteredSongs.value.length;
     const nextSong = filteredSongs.value[nextFilteredIndex];
     if (!nextSong) return;
 
-    const nextIndex = game.songs.findIndex((s) => s.path === nextSong.path);
-    if (nextIndex >= 0 && nextIndex !== game.currentSongIndex) {
+    const nextIndex = library.songs.findIndex((s) => s.path === nextSong.path);
+    if (nextIndex >= 0 && nextIndex !== session.currentSongIndex) {
       selectSong(nextIndex);
       ensureCurrentSongVisible();
     }
@@ -270,7 +273,7 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
   function ensureCurrentSongVisible() {
     requestAnimationFrame(() => {
       const container = songScrollRef.value;
-      if (!container || game.currentSongIndex < 0) return;
+      if (!container || session.currentSongIndex < 0) return;
       const selected = container.querySelector(".song-row.selected") as HTMLElement | null;
       selected?.scrollIntoView({ block: "nearest", inline: "nearest" });
     });
@@ -298,8 +301,8 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
   // === Sort ===
   function cycleSortMode() {
     const modes = ["title", "artist", "bpm", "pack"] as const;
-    const cur = modes.indexOf(game.sortMode);
-    game.setSortMode(modes[(cur + 1) % modes.length]);
+    const cur = modes.indexOf(library.sortMode);
+    void library.setSortMode(modes[(cur + 1) % modes.length]);
   }
 
   // === Favorites ===
@@ -319,8 +322,8 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
   async function refreshSongs() {
     refreshing.value = true;
     try {
-      await game.refreshSongsList();
-      game.needsSongRefresh = false;
+      await library.refreshSongsList();
+      session.needsSongRefresh = false;
       await library.loadPacks();
     } finally {
       refreshing.value = false;
@@ -353,12 +356,13 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
   }
 
   // === Watch: Ensure visible on song change ===
-  watch(() => game.currentSongIndex, () => ensureCurrentSongVisible());
+  watch(() => session.currentSongIndex, () => ensureCurrentSongVisible());
 
   return {
     // State
     t,
-    game,
+    session,
+    library,
     bannerCache,
     showFilterModal,
     songScrollRef,

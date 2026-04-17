@@ -1,9 +1,9 @@
 import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { useGameStore } from "@/shared/stores/game";
 import { useSessionStore } from "@/shared/stores/session";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useLibraryStore } from "@/shared/stores/library";
+import { useSettingsStore } from "@/shared/stores/settings";
 import { useI18n } from "@/shared/i18n";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { playMenuMove, playMenuBack } from "@/shared/lib/sfx";
@@ -18,7 +18,7 @@ type SongSelectCoreReturn = ReturnType<typeof useSongSelectCore>;
 export interface UseEditorSongSelectScreenReturn {
   // === Shared state from core ===
   t: ReturnType<typeof useI18n>["t"];
-  game: ReturnType<typeof useGameStore>;
+  session: ReturnType<typeof useSessionStore>;
   bannerCache: ReturnType<typeof ref<Record<string, string>>>;
   showFilterModal: ReturnType<typeof ref<boolean>>;
   songScrollRef: ReturnType<typeof ref<HTMLElement | null>>;
@@ -87,10 +87,10 @@ export interface UseEditorSongSelectScreenReturn {
  */
 export function useEditorSongSelectScreen() {
   const router = useRouter();
-  const game = useGameStore();
   const session = useSessionStore();
   const player = usePlayerStore();
   const library = useLibraryStore();
+  const settings = useSettingsStore();
   const blockingOverlay = useBlockingOverlayStore();
   const { t } = useI18n();
 
@@ -107,7 +107,7 @@ export function useEditorSongSelectScreen() {
       return chart.stepsType === filterStepsType.value;
     },
     selectSongImpl: (idx, ctx) => {
-      ctx.game.selectSong(idx);
+      void ctx.session.selectSong(idx);
       playMenuMove();
       ctx.player.playSongAt(idx);
       ctx.loadBannerLazy(idx);
@@ -160,7 +160,7 @@ export function useEditorSongSelectScreen() {
 
   // === Computed ===
   const canEditCurrentSong = computed(() => {
-    return game.currentSong != null;
+    return session.currentSong != null;
   });
   const canEditCurrentSongFn = () => canEditCurrentSong.value;
   const {
@@ -188,15 +188,16 @@ export function useEditorSongSelectScreen() {
     handleDeleteSongError,
     importSongs,
   } = useEditorSongManagement({
-    game,
-    player,
+    session,
     library,
+    player,
     bannerCache,
     t,
     navigateToEditorWithPrefetch,
   });
   const { onMountedHandler: onMountedCore, syncFilteredSelection } = useEditorSongSelectLifecycle({
-    game,
+    session,
+    settings,
     player,
     library,
     filteredSongs: () => filteredSongs.value,
@@ -246,7 +247,7 @@ export function useEditorSongSelectScreen() {
   return {
     // Shared state
     t,
-    game,
+    session,
     bannerCache,
     showFilterModal,
     songScrollRef,

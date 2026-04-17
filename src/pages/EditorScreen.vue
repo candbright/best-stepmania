@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, nextTick, onActivated, onDeactivated, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useRoute } from "vue-router";
-import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useSessionStore } from "@/shared/stores/session";
+import { useSettingsStore } from "@/shared/stores/settings";
 import { useI18n } from "@/shared/i18n";
 import * as api from "@/shared/api";
 import {
@@ -19,28 +19,44 @@ import EditorStatusBar from "./editor/EditorStatusBar.vue";
 import EditorPromptModals from "./editor/EditorPromptModals.vue";
 import { ensureMinElapsed } from "@/shared/lib/loadingGate";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
-import { routineColorHex } from "@/shared/constants/routinePlayerColors";
 import { logOptionalRejection } from "@/shared/lib/devLog";
-import { BaseConfirmModal } from "@/shared/ui";
-import { BaseModal } from "@/shared/ui";
-import { BaseSelect } from "@/shared/ui";
-import { BaseNumberField } from "@/shared/ui";
-import { formatBinding, mergeShortcutBindings } from "@/shared/lib/engine/keyBindings";
+import { mergeShortcutBindings, eventMatchesBinding } from "@/shared/lib/engine/keyBindings";
 import type { ShortcutId } from "@/shared/lib/engine/keyBindings";
 import { useEditorDraftGuard } from "./editor/useEditorDraftGuard";
+import { useEditorScreenChrome } from "./editor/useEditorScreenChrome";
+import { useEditorScreenLifecycle } from "./editor/useEditorScreenLifecycle";
+import EditorScreenChartModals from "./editor/EditorScreenChartModals.vue";
 
 defineOptions({ name: "EditorScreen" });
 
 const route = useRoute();
-const game = useGameStore();
 const player = usePlayerStore();
 const session = useSessionStore();
+const settings = useSettingsStore();
+
+function shortcutMatches(e: KeyboardEvent, id: ShortcutId): boolean {
+  const binding = mergeShortcutBindings(settings.shortcutOverrides)[id];
+  return eventMatchesBinding(e, binding);
+}
 const blockingOverlay = useBlockingOverlayStore();
 const { t } = useI18n();
 
 const s = useEditorState();
 const canvas = useEditorCanvas(s);
 const actions = useEditorActions(s, canvas, route);
+
+const {
+  isPumpRoutineChart,
+  routineP1Accent,
+  routineP2Accent,
+  editorToolbarEditingEnabled,
+  noteStatsTapPct,
+  noteStatsHoldPct,
+  noteStatsDonutStyle,
+  sc,
+  toggleRhythmSfx,
+  toggleMetronomeSfx,
+} = useEditorScreenChrome(session, settings, s);
 
 // Destructure frequently-used state for the template
 const {
@@ -61,54 +77,6 @@ const {
   scrollbarThumbRatio, scrollbarThumbTop,
   editorRoutineLayer,
 } = s;
-
-const isPumpRoutineChart = computed(() => activeChart.value?.stepsType === "pump-routine");
-const routineP1Accent = computed(() => routineColorHex(game.routineP1ColorId) ?? "#00bfff");
-const routineP2Accent = computed(() => routineColorHex(game.routineP2ColorId) ?? "#ff4444");
-
-const NOTE_STATS_TAP_COLOR = "#4fc3f7";
-const NOTE_STATS_HOLD_COLOR = "#ffb74d";
-
-const noteStatsTapPct = computed(() => {
-  const tot = noteStatTotalCount.value;
-  if (tot <= 0) return 0;
-  return Math.round((noteStatTapCount.value / tot) * 1000) / 10;
-});
-
-const noteStatsHoldPct = computed(() => {
-  const tot = noteStatTotalCount.value;
-  if (tot <= 0) return 0;
-  return Math.round((noteStatHoldCount.value / tot) * 1000) / 10;
-});
-
-/** Top toolbar editing controls (note tools, playback, save, etc.); back / new chart stay enabled. */
-const editorToolbarEditingEnabled = computed(() => allCharts.value.length > 0);
-
-const noteStatsDonutStyle = computed(() => {
-  const tot = noteStatTotalCount.value;
-  if (tot <= 0) {
-    return { background: "conic-gradient(rgba(255,255,255,0.12) 0deg 360deg)" };
-  }
-  const tapDeg = (noteStatTapCount.value / tot) * 360;
-  return {
-    background: `conic-gradient(${NOTE_STATS_TAP_COLOR} 0deg ${tapDeg}deg, ${NOTE_STATS_HOLD_COLOR} ${tapDeg}deg 360deg)`,
-  };
-});
-
-/** Get formatted shortcut string for display in button titles */
-function sc(id: ShortcutId): string {
-  const binding = mergeShortcutBindings(game.shortcutOverrides)[id];
-  const formatted = formatBinding(binding);
-  return formatted ? ` (${formatted})` : "";
-}
-
-function toggleRhythmSfx() {
-  game.rhythmSfxEnabled = !game.rhythmSfxEnabled;
-}
-
-function toggleMetronomeSfx() {
-  game.metronomeSfxEnabled = !game.metronomeSfxEnabled;
-}
 
 // Shorthand refs used in template
 const {
@@ -151,7 +119,6 @@ const {
 } = useEditorDraftGuard({
   s,
   canvas,
-  game,
   reseedUndoStackAfterHydrate,
   saveToFile,
   saveMetadata,
@@ -287,21 +254,21 @@ async function enterEditor() {
       }
     }
 
-    const songPath = game.currentSong?.path;
+    const songPath = session.currentSong?.path;
     blockingOverlay.updateMessage(t("loadingPhase.editorCharts"));
     await loadAllCharts(songPath);
 
     blockingOverlay.updateMessage(t("loadingPhase.editorAudio"));
-    if (game.currentSong) {
+    if (session.currentSong) {
       if (!audioPrimed) {
-        const musicPath = await api.getSongMusicPath(game.currentSong.path);
+        const musicPath = await api.getSongMusicPath(session.currentSong.path);
         await api.audioLoad(musicPath);
       }
       session.editorEntryAudioPrimed = false;
     }
 
     canvas.initCanvas();
-    loadWaveformData(game.currentSong?.path).catch((e) => logOptionalRejection("editor.enter.loadWaveform", e));
+    loadWaveformData(session.currentSong?.path).catch((e) => logOptionalRejection("editor.enter.loadWaveform", e));
   } catch (e: unknown) {
     session.clearEditorEntryPrime();
     blockingOverlay.setFailed(t("loadingOverlay.failed"), () => {
@@ -327,7 +294,7 @@ function retryEditorEnter() {
 }
 
 function onToolbarSelectKeydown(e: KeyboardEvent) {
-  if (game.shortcutMatches(e, "editor.playPause")) {
+  if (shortcutMatches(e, "editor.playPause")) {
     e.preventDefault();
     togglePlayback();
   }
@@ -335,38 +302,11 @@ function onToolbarSelectKeydown(e: KeyboardEvent) {
 
 const editorToolbarRef = ref<InstanceType<typeof EditorToolbar> | null>(null);
 const editorStatusBarRef = ref<InstanceType<typeof EditorStatusBar> | null>(null);
-let editorHorizontalWheelCleanups: Array<() => void> = [];
-
-/** Vertical wheel (or horizontal trackpad delta) scrolls these strips sideways; needs non-passive listener. */
-function editorHorizontalWheelOnEl(el: HTMLElement, e: WheelEvent) {
-  if (el.scrollWidth <= el.clientWidth + 1) return;
-  const raw = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-  if (raw === 0) return;
-  let px = raw;
-  if (e.deltaMode === WheelEvent.DOM_DELTA_LINE) px *= 16;
-  else if (e.deltaMode === WheelEvent.DOM_DELTA_PAGE) px *= el.clientWidth;
-  e.preventDefault();
-  el.scrollLeft += px;
-}
 
 function handleEditorWindowResize() {
   canvas.resizeCanvas();
   const bounds = canvas.getWaveformPanelOffsetBounds();
   s.waveformPanelOffsetX.value = Math.max(bounds.min, Math.min(bounds.max, s.waveformPanelOffsetX.value));
-}
-
-function attachWindowListeners() {
-  window.addEventListener("resize", handleEditorWindowResize);
-  window.addEventListener("keydown", handleKeyDown);
-  window.addEventListener("mousemove", handleMouseMove);
-  window.addEventListener("mouseup", handleMouseUp);
-}
-
-function detachWindowListeners() {
-  window.removeEventListener("resize", handleEditorWindowResize);
-  window.removeEventListener("keydown", handleKeyDown);
-  window.removeEventListener("mousemove", handleMouseMove);
-  window.removeEventListener("mouseup", handleMouseUp);
 }
 
 /** After preview/gameplay: same chart in memory, only reset IPC audio + canvas loop. */
@@ -383,8 +323,8 @@ async function resumeEditorLight() {
       return;
     }
 
-    if (game.currentSong) {
-      const musicPath = await api.getSongMusicPath(game.currentSong.path);
+    if (session.currentSong) {
+      const musicPath = await api.getSongMusicPath(session.currentSong.path);
       await api.audioLoad(musicPath);
       await api.audioSetRate(s.editorRate.value).catch((e) => logOptionalRejection("editor.resumeLight.audioSetRateEditor", e));
     }
@@ -399,60 +339,33 @@ async function resumeEditorLight() {
 }
 
 async function handleEditorActivate() {
-  if (game.editorWarmResume) {
-    game.editorWarmResume = false;
+  if (session.editorWarmResume) {
+    session.editorWarmResume = false;
     await resumeEditorLight();
     return;
   }
   await enterEditor();
 }
 
-onMounted(() => {
-  s.afterChartNotesLoaded.value = onAfterEditorSnapshotReady;
-  void nextTick(() => {
-    const attach = (el: HTMLElement | null) => {
-      if (!el) return;
-      const fn = (e: WheelEvent) => editorHorizontalWheelOnEl(el, e);
-      el.addEventListener("wheel", fn, { passive: false });
-      editorHorizontalWheelCleanups.push(() => {
-        el.removeEventListener("wheel", fn);
-      });
-    };
-    attach(editorToolbarRef.value?.getScrollTrackEl() ?? null);
-    attach(editorStatusBarRef.value?.getScrollTrackEl() ?? null);
-  });
-});
-
-onActivated(() => {
-  installEditorBackGuard();
-  attachWindowListeners();
-  void handleEditorActivate();
-});
-
-onDeactivated(() => {
-  uninstallEditorBackGuard();
-  s.playing.value = false;
-  detachWindowListeners();
-  canvas.destroyCanvas();
-  api.audioStop().catch((e) => logOptionalRejection("editor.deactivate.audioStop", e));
-  api.audioSetRate(1.0).catch((e) => logOptionalRejection("editor.deactivate.audioSetRate", e));
-});
-
-onUnmounted(() => {
-  s.afterChartNotesLoaded.value = null;
-  uninstallEditorBackGuard();
-  disposeDraftGuard();
-  editorHorizontalWheelCleanups.forEach((off) => off());
-  editorHorizontalWheelCleanups = [];
-  detachWindowListeners();
-  canvas.destroyCanvas();
-  api.audioStop().catch((e) => logOptionalRejection("editor.unmount.audioStop", e));
-  api.audioSetRate(1.0).catch((e) => logOptionalRejection("editor.unmount.audioSetRate", e));
+useEditorScreenLifecycle({
+  s,
+  canvas,
+  editorToolbarRef,
+  editorStatusBarRef,
+  installEditorBackGuard,
+  uninstallEditorBackGuard,
+  disposeDraftGuard,
+  onAfterEditorSnapshotReady,
+  handleEditorWindowResize,
+  handleKeyDown,
+  handleMouseMove,
+  handleMouseUp,
+  handleEditorActivate,
 });
 </script>
 
 <template>
-  <div class="editor-screen" :style="{ transform: `scale(${game.uiScale})`, transformOrigin: 'top left', width: `${100 / game.uiScale}%`, height: `${100 / game.uiScale}%` }">
+  <div class="editor-screen" :style="{ transform: `scale(${settings.uiScale})`, transformOrigin: 'top left', width: `${100 / settings.uiScale}%`, height: `${100 / settings.uiScale}%` }">
     <EditorToolbar
       ref="editorToolbarRef"
       v-model:quantize="quantize"
@@ -461,9 +374,9 @@ onUnmounted(() => {
       v-model:show-track-grid="showTrackGrid"
       v-model:current-note-type="currentNoteType"
       v-model:editor-routine-layer="editorRoutineLayer"
-      :song-title="game.currentSong?.title ?? ''"
-      :rhythm-sfx-enabled="game.rhythmSfxEnabled"
-      :metronome-sfx-enabled="game.metronomeSfxEnabled"
+      :song-title="session.currentSong?.title ?? ''"
+      :rhythm-sfx-enabled="settings.rhythmSfxEnabled"
+      :metronome-sfx-enabled="settings.metronomeSfxEnabled"
       :editor-toolbar-editing-enabled="editorToolbarEditingEnabled"
       :playing="playing"
       :can-delete-beat="canDeleteBeatShiftNotesUp()"
@@ -629,38 +542,17 @@ onUnmounted(() => {
       @unsaved-save="onUnsavedSaveAndLeave"
     />
 
-    <BaseConfirmModal
-      v-model="showDeleteChartModal"
-      :title="t('editor.deleteChartModalTitle')"
-      :step1-message="t('editor.confirmDeleteStep1')"
-      :step2-message="t('editor.confirmDeleteStep2')"
-      :continue-label="t('continue')"
-      :cancel-label="t('cancel')"
-      :back-label="t('stepBack')"
-      :confirm-label="t('editor.confirmDeleteAction')"
-      @confirm="onDeleteChartConfirmed"
+    <EditorScreenChartModals
+      v-model:show-delete-chart-modal="showDeleteChartModal"
+      v-model:show-new-chart-modal="showNewChartModal"
+      v-model:new-chart-steps-type="newChartStepsType"
+      v-model:new-chart-difficulty="newChartDifficulty"
+      v-model:new-chart-meter="newChartMeter"
+      :new-chart-modal-steps-options="newChartModalStepsOptions"
+      :new-chart-modal-difficulty-options="newChartModalDifficultyOptions"
+      @confirm-delete="onDeleteChartConfirmed"
+      @create-new-chart="() => void createNewChart()"
     />
-
-    <BaseModal
-      v-model="showNewChartModal"
-      :title="t('editor.newChart')"
-      width="min(400px, 92vw)"
-    >
-      <div class="form-modal-fields">
-        <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
-        <BaseSelect v-model="newChartStepsType" variant="form" :options="newChartModalStepsOptions" />
-        <label class="form-modal-label">{{ t('editor.difficulty') }}</label>
-        <BaseSelect v-model="newChartDifficulty" variant="form" :options="newChartModalDifficultyOptions" />
-        <label class="form-modal-label">{{ t('editor.meter') }}</label>
-        <BaseNumberField v-model="newChartMeter" input-class="form-modal-input" :min="1" :max="99" />
-      </div>
-      <template #footer>
-        <div class="form-modal-footer-inner">
-          <button type="button" class="form-modal-btn" @click="showNewChartModal = false">{{ t('cancel') }}</button>
-          <button type="button" class="form-modal-btn form-modal-btn--primary" @click="createNewChart">{{ t('confirm') }}</button>
-        </div>
-      </template>
-    </BaseModal>
 
     <EditorStatusBar
       ref="editorStatusBarRef"

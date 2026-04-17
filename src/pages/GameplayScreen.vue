@@ -8,7 +8,8 @@ import GameplayHud from "./gameplay/GameplayHud.vue";
 import { useGameplaySession } from "./gameplay/useGameplaySession";
 
 const {
-  game,
+  session,
+  settings,
   t,
   engine,
   noteFieldRef,
@@ -58,7 +59,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="gp" :class="{ 'gp--pump-double': game.playMode === 'pump-double' }">
+  <div class="gp" :class="{ 'gp--pump-double': session.playMode === 'pump-double' }">
     <BackgroundVideo
       :video-path="bgVideoPath"
       :bg-image-path="bgImagePath"
@@ -73,22 +74,22 @@ onUnmounted(() => {
         :engine="engine"
         :skin-config="skinConfig"
         :skin-config2="skinConfig2"
-        :play-mode="game.playMode"
-        :routine-p1-color-id="game.routineP1ColorId"
-        :routine-p2-color-id="game.routineP2ColorId"
-        :double-panel-gap-px="game.doublePanelGapPx"
-        :target-fps="game.targetFps"
-        :ui-scale="game.uiScale"
+        :play-mode="session.playMode"
+        :routine-p1-color-id="session.routineP1ColorId"
+        :routine-p2-color-id="session.routineP2ColorId"
+        :double-panel-gap-px="settings.doublePanelGapPx"
+        :target-fps="settings.targetFps"
+        :ui-scale="settings.uiScale"
       />
     </div>
 
     <GameplayHud
-      :has-player1="game.hasPlayer1"
-      :has-player2="game.hasPlayer2"
-      :play-mode="game.playMode"
-      :song-title="game.currentSong?.title ?? ''"
-      :current-difficulty="game.currentDifficulty"
-      :current-chart-meter="game.currentChart?.meter ?? ''"
+      :has-player1="session.hasPlayer1"
+      :has-player2="session.hasPlayer2"
+      :play-mode="session.playMode"
+      :song-title="session.currentSong?.title ?? ''"
+      :current-difficulty="session.currentDifficulty"
+      :current-chart-meter="session.currentChart?.meter ?? ''"
       :life-percent="lifePercent"
       :life-class="lifeClass"
       :p2-life-percent="p2LifePercent"
@@ -120,7 +121,7 @@ onUnmounted(() => {
     <!-- Judgment text overlay (DOM layer, centre of screen) -->
     <transition name="fade-quick">
       <div
-        v-if="game.hasPlayer1 && game.hasPlayer2 && lastJudgmentText"
+        v-if="session.hasPlayer1 && session.hasPlayer2 && lastJudgmentText"
         class="judgment-overlay"
         :style="{ color: lastJudgmentColor }"
       >{{ lastJudgmentText }}</div>

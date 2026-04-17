@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { useI18n } from "@/shared/i18n";
-import { useGameStore } from "@/shared/stores/game";
+import { useSettingsStore } from "@/shared/stores/settings";
 import { SettingsSection } from "@/features/settings";
 import { KeyChordPicker } from "@/widgets";
 import type { KeyChord, ShortcutId } from "@/shared/lib/engine/keyBindings";
@@ -17,47 +17,47 @@ import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
 import { OPTIONS_SHORTCUT_SECTIONS } from "./shortcutSections";
 
 const { t } = useI18n();
-const game = useGameStore();
+const settings = useSettingsStore();
 const sfx = inject(OPTIONS_PANEL_SFX)!;
 const dialog = inject(OPTIONS_DIALOG)!;
 
 function chordsForShortcut(id: ShortcutId): KeyChord[] {
-  return bindingToChordList(mergeShortcutBindings(game.shortcutOverrides)[id]);
+  return bindingToChordList(mergeShortcutBindings(settings.shortcutOverrides)[id]);
 }
 
 function applyShortcut(id: ShortcutId, chords: KeyChord[]) {
   const def = SHORTCUT_DEFAULTS[id];
-  const next = { ...game.shortcutOverrides };
+  const next = { ...settings.shortcutOverrides };
   if (bindingsEqual(chords, def)) {
     delete next[id];
   } else {
     next[id] = chords.map((c) => ({ ...c }));
   }
-  game.shortcutOverrides = next;
+  settings.shortcutOverrides = next;
 }
 
 function laneChordsForIndex(i: number): KeyChord[] {
-  const lanes = resolveGameplayPumpDoubleLanes(game.gameplayPumpDoubleLanes);
+  const lanes = resolveGameplayPumpDoubleLanes(settings.gameplayPumpDoubleLanes);
   const fallback = GAMEPLAY_10_LANE_DEFAULT_CODES[i] ?? "KeyZ";
   return [{ code: lanes[i] ?? fallback }];
 }
 
 function applyLaneCode(i: number, chords: KeyChord[]) {
   const code = chords[0]?.code?.trim() ?? "";
-  const base = [...resolveGameplayPumpDoubleLanes(game.gameplayPumpDoubleLanes)];
+  const base = [...resolveGameplayPumpDoubleLanes(settings.gameplayPumpDoubleLanes)];
   base[i] = code.length > 0 ? code : base[i] ?? "KeyZ";
-  game.gameplayPumpDoubleLanes = base;
+  settings.gameplayPumpDoubleLanes = base;
 }
 
 const canResetKeyBindings = computed(() => {
-  const hasLaneOverrides = game.gameplayPumpDoubleLanes !== null;
-  const hasShortcutOverrides = Object.keys(game.shortcutOverrides).length > 0;
+  const hasLaneOverrides = settings.gameplayPumpDoubleLanes !== null;
+  const hasShortcutOverrides = Object.keys(settings.shortcutOverrides).length > 0;
   return hasLaneOverrides || hasShortcutOverrides;
 });
 
 function resetAllKeyBindings() {
-  game.gameplayPumpDoubleLanes = null;
-  game.shortcutOverrides = {};
+  settings.gameplayPumpDoubleLanes = null;
+  settings.shortcutOverrides = {};
 }
 
 function onResetAllKeyBindings() {

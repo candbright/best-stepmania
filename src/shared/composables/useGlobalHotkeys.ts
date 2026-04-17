@@ -1,11 +1,17 @@
 import type { Router } from "vue-router";
 import type { RouteLocationNormalizedLoaded } from "vue-router";
 import { playMenuBack } from "@/shared/lib/sfx";
-import { useGameStore } from "@/shared/stores/game";
 import { useSessionStore } from "@/shared/stores/session";
+import { useSettingsStore } from "@/shared/stores/settings";
+import { mergeShortcutBindings, eventMatchesBinding, type ShortcutId } from "@/shared/lib/engine/keyBindings";
 
-type GameStore = ReturnType<typeof useGameStore>;
 type SessionStore = ReturnType<typeof useSessionStore>;
+type SettingsStore = ReturnType<typeof useSettingsStore>;
+
+function shortcutMatches(settings: SettingsStore, e: KeyboardEvent, id: ShortcutId): boolean {
+  const binding = mergeShortcutBindings(settings.shortcutOverrides)[id];
+  return eventMatchesBinding(e, binding);
+}
 
 function shouldIgnoreEscTarget(target: HTMLElement | null): boolean {
   if (!target) return false;
@@ -21,12 +27,12 @@ function shouldIgnoreEscTarget(target: HTMLElement | null): boolean {
 export function createGlobalEscHandler(
   router: Router,
   route: RouteLocationNormalizedLoaded,
-  game: GameStore,
+  settings: SettingsStore,
   session: SessionStore,
 ) {
   return (e: KeyboardEvent) => {
     if (e.defaultPrevented) return;
-    if (!game.shortcutMatches(e, "global.back")) return;
+    if (!shortcutMatches(settings, e, "global.back")) return;
     if (shouldIgnoreEscTarget(e.target as HTMLElement | null)) return;
 
     if (route.path === "/editor") {
@@ -44,14 +50,14 @@ export function createGlobalEscHandler(
     if (route.path === "/player-options") {
       e.preventDefault();
       playMenuBack();
-      if (game.previewReturnToEditor) {
-        game.editorWarmResume = true;
-        game.previewFromSecond = null;
-        game.previewReturnToEditor = false;
+      if (session.previewReturnToEditor) {
+        session.editorWarmResume = true;
+        session.previewFromSecond = null;
+        session.previewReturnToEditor = false;
         void router.push("/editor");
         return;
       }
-      game.resumePlaybackOnReturn = true;
+      session.resumePlaybackOnReturn = true;
       void router.push("/select-music");
       return;
     }
@@ -73,7 +79,7 @@ export function createGlobalEscHandler(
 }
 
 export function useGlobalHotkeys(router: Router, route: RouteLocationNormalizedLoaded) {
-  const game = useGameStore();
+  const settings = useSettingsStore();
   const session = useSessionStore();
-  return createGlobalEscHandler(router, route, game, session);
+  return createGlobalEscHandler(router, route, settings, session);
 }

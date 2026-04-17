@@ -6,19 +6,19 @@ import {
   setUiSfxStyle,
   setUiSfxVolume,
 } from "@/shared/lib/sfx";
-import { useGameStore } from "@/shared/stores/game";
+import { useSettingsStore } from "@/shared/stores/settings";
 
-type GameStore = ReturnType<typeof useGameStore>;
+type SettingsStore = ReturnType<typeof useSettingsStore>;
 
 /**
  * Keeps WebAudio SFX engine in sync with persisted settings app-wide.
  */
-export function useGlobalSfxBridge(game: GameStore): () => void {
+export function useGlobalSfxBridge(settings: SettingsStore): () => void {
   const stops: WatchStopHandle[] = [];
 
   stops.push(
     watch(
-      () => [game.uiSfxVolume, game.uiSfxEnabled, game.uiSfxStyle] as const,
+      () => [settings.uiSfxVolume, settings.uiSfxEnabled, settings.uiSfxStyle] as const,
       ([uiVolume, enabled, style]) => {
         setUiSfxVolume((uiVolume ?? 70) / 100);
         setUiSfxEnabled(enabled ?? true);
@@ -29,13 +29,13 @@ export function useGlobalSfxBridge(game: GameStore): () => void {
     watch(
       () =>
         [
-          game.effectVolume,
-          game.metronomeSfxEnabled,
-          game.metronomeSfxVolume,
-          game.metronomeSfxStyle,
-          game.rhythmSfxEnabled,
-          game.rhythmSfxVolume,
-          game.rhythmSfxStyle,
+          settings.effectVolume,
+          settings.metronomeSfxEnabled,
+          settings.metronomeSfxVolume,
+          settings.metronomeSfxStyle,
+          settings.rhythmSfxEnabled,
+          settings.rhythmSfxVolume,
+          settings.rhythmSfxStyle,
         ] as const,
       ([effectVol, metronomeEnabled, metronomeVol, metronomeStyle, rhythmEnabled, rhythmVol, rhythmStyle]) => {
         applyGameplayRhythmSfxSettings({

@@ -2,10 +2,16 @@ import { setUiSfxVolume } from "@/shared/lib/sfx";
 import { syncSelectionToFilteredSongs } from "../select-music/syncSelectionToFilteredSongs";
 import type { SongListItem } from "@/shared/api";
 
-interface GameLike {
+interface SettingsLike {
   uiSfxVolume?: number;
+}
+
+interface SessionLike {
   resumeFromEditor: boolean;
   currentSongIndex: number;
+}
+
+interface LibraryLikeSongs {
   songs: SongListItem[];
 }
 
@@ -18,12 +24,13 @@ interface PlayerLike {
   playDefaultMusic: () => void;
 }
 
-interface LibraryLike {
+interface LibraryLike extends LibraryLikeSongs {
   loadFavorites: () => Promise<void>;
 }
 
 interface UseEditorSongSelectLifecycleOptions {
-  game: GameLike;
+  settings: SettingsLike;
+  session: SessionLike;
   player: PlayerLike;
   library: LibraryLike;
   filteredSongs: () => SongListItem[];
@@ -34,15 +41,15 @@ interface UseEditorSongSelectLifecycleOptions {
 
 export function useEditorSongSelectLifecycle(options: UseEditorSongSelectLifecycleOptions) {
   async function onMountedHandler() {
-    setUiSfxVolume((options.game.uiSfxVolume ?? 70) / 100);
+    setUiSfxVolume((options.settings.uiSfxVolume ?? 70) / 100);
     void options.library.loadFavorites();
 
-    if (options.game.resumeFromEditor) {
-      options.game.resumeFromEditor = false;
-      if (options.game.currentSongIndex >= 0) {
+    if (options.session.resumeFromEditor) {
+      options.session.resumeFromEditor = false;
+      if (options.session.currentSongIndex >= 0) {
         options.player.cleanup();
-        options.player.setQueue(options.game.songs, options.game.currentSongIndex);
-        options.player.playSongAt(options.game.currentSongIndex, true);
+        options.player.setQueue(options.library.songs, options.session.currentSongIndex);
+        options.player.playSongAt(options.session.currentSongIndex, true);
       }
       options.ensureCurrentSongVisible();
       options.preloadAllBanners();
@@ -51,8 +58,8 @@ export function useEditorSongSelectLifecycle(options: UseEditorSongSelectLifecyc
     }
 
     // 初次加载由主界面统一完成；这里只消费缓存。
-    if (options.player.queue.length === 0 && options.game.songs.length > 0) {
-      options.player.setQueue(options.game.songs, 0);
+    if (options.player.queue.length === 0 && options.library.songs.length > 0) {
+      options.player.setQueue(options.library.songs, 0);
       if (options.player.status === "idle") {
         options.player.playDefaultMusic();
       }

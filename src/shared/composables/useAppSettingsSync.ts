@@ -10,9 +10,9 @@ import {
 import { logOptionalRejection } from "@/shared/lib/devLog";
 import { syncAudioVolume } from "@/shared/services/tauri/audio";
 import { applyWindowPreset } from "@/shared/services/tauri/window";
-import { useGameStore } from "@/shared/stores/game";
+import { useSettingsStore } from "@/shared/stores/settings";
 
-type GameStore = ReturnType<typeof useGameStore>;
+type SettingsStore = ReturnType<typeof useSettingsStore>;
 
 export interface AppSettingsSyncHandles {
   syncCustomWindowSize: () => void;
@@ -23,56 +23,56 @@ export interface AppSettingsSyncHandles {
  * Side effects for persisted settings while the options screen is mounted:
  * audio IPC, SFX engine, window preset, locale/theme, UI scale, debounced save triggers.
  */
-export function useAppSettingsSync(game: GameStore, scheduleSave: () => void): AppSettingsSyncHandles {
+export function useAppSettingsSync(settings: SettingsStore, scheduleSave: () => void): AppSettingsSyncHandles {
   const stops: WatchStopHandle[] = [];
 
   function syncCustomWindowSize() {
-    if (game.windowDisplayPreset !== "normal" || typeof window === "undefined") return;
-    game.windowWidth = Math.max(0, Math.round(window.innerWidth));
-    game.windowHeight = Math.max(0, Math.round(window.innerHeight));
+    if (settings.windowDisplayPreset !== "normal" || typeof window === "undefined") return;
+    settings.windowWidth = Math.max(0, Math.round(window.innerWidth));
+    settings.windowHeight = Math.max(0, Math.round(window.innerHeight));
   }
 
   stops.push(
     watchEffect(() => {
-      game.masterVolume;
-      game.musicVolume;
-      game.effectVolume;
-      game.metronomeSfxEnabled;
-      game.metronomeSfxVolume;
-      game.metronomeSfxStyle;
-      game.rhythmSfxEnabled;
-      game.rhythmSfxVolume;
-      game.rhythmSfxStyle;
-      game.uiSfxEnabled;
-      game.uiSfxVolume;
-      game.uiSfxStyle;
-      game.audioOffsetMs;
-      game.windowDisplayPreset;
-      game.windowWidth;
-      game.windowHeight;
-      game.vsync;
-      game.targetFps;
-      game.language;
-      game.theme;
-      game.uiScale;
-      game.doublePanelGapPx;
-      game.judgmentStyle;
-      game.showOffset;
-      game.lifeType;
-      game.batteryLives;
-      game.showParticles;
-      game.cursorEnabled;
-      game.cursorStylePreset;
-      game.cursorScale;
-      game.cursorOpacity;
-      game.cursorGlow;
-      game.cursorRippleEnabled;
-      game.cursorRippleDurationMs;
-      game.cursorRippleMinScale;
-      game.cursorRippleMaxScale;
-      game.cursorRippleOpacity;
-      game.cursorRippleLineWidth;
-      game.cursorRippleGlow;
+      settings.masterVolume;
+      settings.musicVolume;
+      settings.effectVolume;
+      settings.metronomeSfxEnabled;
+      settings.metronomeSfxVolume;
+      settings.metronomeSfxStyle;
+      settings.rhythmSfxEnabled;
+      settings.rhythmSfxVolume;
+      settings.rhythmSfxStyle;
+      settings.uiSfxEnabled;
+      settings.uiSfxVolume;
+      settings.uiSfxStyle;
+      settings.audioOffsetMs;
+      settings.windowDisplayPreset;
+      settings.windowWidth;
+      settings.windowHeight;
+      settings.vsync;
+      settings.targetFps;
+      settings.language;
+      settings.theme;
+      settings.uiScale;
+      settings.doublePanelGapPx;
+      settings.judgmentStyle;
+      settings.showOffset;
+      settings.lifeType;
+      settings.batteryLives;
+      settings.showParticles;
+      settings.cursorEnabled;
+      settings.cursorStylePreset;
+      settings.cursorScale;
+      settings.cursorOpacity;
+      settings.cursorGlow;
+      settings.cursorRippleEnabled;
+      settings.cursorRippleDurationMs;
+      settings.cursorRippleMinScale;
+      settings.cursorRippleMaxScale;
+      settings.cursorRippleOpacity;
+      settings.cursorRippleLineWidth;
+      settings.cursorRippleGlow;
 
       scheduleSave();
     }),
@@ -80,14 +80,14 @@ export function useAppSettingsSync(game: GameStore, scheduleSave: () => void): A
 
   stops.push(
     watch(
-      () => [game.masterVolume, game.musicVolume],
+      () => [settings.masterVolume, settings.musicVolume],
       ([master, music]) => {
         syncAudioVolume(music ?? 70, master ?? 80);
       },
       { immediate: true },
     ),
     watch(
-      () => [game.uiSfxVolume, game.uiSfxEnabled, game.uiSfxStyle] as const,
+      () => [settings.uiSfxVolume, settings.uiSfxEnabled, settings.uiSfxStyle] as const,
       ([uiVol, enabled, style]) => {
         setUiSfxVolume((uiVol ?? 70) / 100);
         setUiSfxEnabled(enabled ?? true);
@@ -98,13 +98,13 @@ export function useAppSettingsSync(game: GameStore, scheduleSave: () => void): A
     watch(
       () =>
         [
-          game.effectVolume,
-          game.metronomeSfxEnabled,
-          game.metronomeSfxVolume,
-          game.metronomeSfxStyle,
-          game.rhythmSfxEnabled,
-          game.rhythmSfxVolume,
-          game.rhythmSfxStyle,
+          settings.effectVolume,
+          settings.metronomeSfxEnabled,
+          settings.metronomeSfxVolume,
+          settings.metronomeSfxStyle,
+          settings.rhythmSfxEnabled,
+          settings.rhythmSfxVolume,
+          settings.rhythmSfxStyle,
         ] as const,
       ([effectVol, metronomeEnabled, metronomeVol, metronomeStyle, rhythmEnabled, rhythmVol, rhythmStyle]) => {
         applyGameplayRhythmSfxSettings({
@@ -120,7 +120,7 @@ export function useAppSettingsSync(game: GameStore, scheduleSave: () => void): A
       { immediate: true },
     ),
     watch(
-      () => [game.windowDisplayPreset, game.windowWidth, game.windowHeight] as const,
+      () => [settings.windowDisplayPreset, settings.windowWidth, settings.windowHeight] as const,
       ([preset, width, height]) => {
         void applyWindowPreset(
           preset,
@@ -130,7 +130,7 @@ export function useAppSettingsSync(game: GameStore, scheduleSave: () => void): A
       { immediate: true },
     ),
     watch(
-      () => [game.windowDisplayPreset, game.windowWidth, game.windowHeight] as const,
+      () => [settings.windowDisplayPreset, settings.windowWidth, settings.windowHeight] as const,
       () => {
         syncCustomWindowSize();
         scheduleSave();
@@ -138,7 +138,7 @@ export function useAppSettingsSync(game: GameStore, scheduleSave: () => void): A
       { flush: "post" },
     ),
     watch(
-      () => [game.language, game.theme] as const,
+      () => [settings.language, settings.theme] as const,
       ([lang, thm]) => {
         if (lang) {
           currentLocale.value = lang as "en" | "zh-CN";
@@ -151,14 +151,14 @@ export function useAppSettingsSync(game: GameStore, scheduleSave: () => void): A
       { immediate: true },
     ),
     watch(
-      () => game.uiScale,
+      () => settings.uiScale,
       (scale) => {
         document.documentElement.style.fontSize = `${(scale ?? 1) * 16}px`;
       },
       { immediate: true },
     ),
     watch(
-      () => [game.gameplayPumpDoubleLanes, game.shortcutOverrides] as const,
+      () => [settings.gameplayPumpDoubleLanes, settings.shortcutOverrides] as const,
       () => scheduleSave(),
       { deep: true },
     ),

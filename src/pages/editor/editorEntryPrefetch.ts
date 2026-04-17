@@ -1,6 +1,5 @@
 import * as api from "@/shared/api";
 import { logOptionalRejection } from "@/shared/lib/devLog";
-import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useSessionStore } from "@/shared/stores/session";
 
@@ -14,7 +13,6 @@ export async function primeEditorEntryResources(
   signal?: AbortSignal,
 ): Promise<void> {
   const player = usePlayerStore();
-  const game = useGameStore();
   const session = useSessionStore();
   session.clearEditorEntryPrime();
 
@@ -35,7 +33,7 @@ export async function primeEditorEntryResources(
     throw new Error("Audio load timeout");
   }
 
-  const song = game.currentSong;
+  const song = session.currentSong;
   if (!song) {
     throw new Error("No song selected");
   }

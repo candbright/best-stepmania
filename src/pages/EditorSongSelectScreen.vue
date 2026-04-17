@@ -15,7 +15,7 @@ import DeleteSongModal from "./song-packs/DeleteSongModal.vue";
 
 const {
   t,
-  game,
+  session,
   bannerCache,
   showFilterModal,
   DIFF_COLORS,
@@ -115,7 +115,7 @@ onUnmounted(() => {
         :groups="groupedSongs"
         :rootPackKey="ROOT_PACK_KEY"
         :collapsedPacks="collapsedPacks"
-        :selectedIndex="game.currentSongIndex"
+        :selectedIndex="session.currentSongIndex"
         :favoriteSet="favoriteSet"
         :bannerCache="bannerCache"
         :showNoChartsBadge="true"
@@ -129,13 +129,13 @@ onUnmounted(() => {
 
     <template #detail-panel>
       <SongSelectDetailPanel
-        :currentSong="game.currentSong"
-        :currentSongIndex="game.currentSongIndex"
-        :bannerUrl="game.currentSong ? bannerCache[game.currentSong.path] : undefined"
-        :isFavorite="game.currentSong ? favoriteSet.has(game.currentSong.path) : false"
+        :currentSong="session.currentSong"
+        :currentSongIndex="session.currentSongIndex"
+        :bannerUrl="session.currentSong ? bannerCache[session.currentSong.path] : undefined"
+        :isFavorite="session.currentSong ? favoriteSet.has(session.currentSong.path) : false"
         :filteredCharts="filteredCharts"
-        :hasSourceCharts="(game.charts?.length ?? 0) > 0"
-        :currentChartIndex="game.currentChartIndex"
+        :hasSourceCharts="(session.charts?.length ?? 0) > 0"
+        :currentChartIndex="session.currentChartIndex"
         :difficultyColors="DIFF_COLORS"
         :difficultyLabelFn="difficultyLabel"
         :stepsTypeLabelFn="stepsTypeLabel"
@@ -143,8 +143,8 @@ onUnmounted(() => {
         :noMatchingChartsMessage="t('select.noMatchingCharts')"
         :noSelectionText="t('select.selectSong')"
         :t="t"
-        @toggleFavorite="game.currentSong && toggleFavorite(game.currentSong.path)"
-        @selectChart="game.selectChart($event)"
+        @toggleFavorite="session.currentSong && toggleFavorite(session.currentSong.path)"
+        @selectChart="session.selectChart($event)"
       >
         <template #actions>
           <SongSelectActionRow

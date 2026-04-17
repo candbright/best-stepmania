@@ -3,7 +3,7 @@ import { onMounted, onUnmounted } from "vue";
 import { useCursorLayer } from "@/shared/composables/useCursorLayer";
 
 const {
-  game,
+  settings,
   cursor,
   cursorVisualState,
   cursorRipples,
@@ -33,20 +33,20 @@ onUnmounted(() => {
         :style="{
           left: `${cursor.x}px`,
           top: `${cursor.y}px`,
-          opacity: String(game.cursorOpacity),
-          transform: `translate(-2px, -2px) scale(${game.cursorScale})`,
-          filter: `drop-shadow(0 0 ${4 + 10 * game.cursorGlow}px color-mix(in srgb, var(--primary-color) ${Math.round(20 + game.cursorGlow * 56)}%, transparent))`,
+          opacity: String(settings.cursorOpacity),
+          transform: `translate(-2px, -2px) scale(${settings.cursorScale})`,
+          filter: `drop-shadow(0 0 ${4 + 10 * settings.cursorGlow}px color-mix(in srgb, var(--primary-color) ${Math.round(20 + settings.cursorGlow * 56)}%, transparent))`,
         }"
       >
         <svg
-          v-if="(cursorVisualState === 'default' || cursorVisualState === 'pointer') && game.cursorStylePreset === 'a'"
+          v-if="(cursorVisualState === 'default' || cursorVisualState === 'pointer') && settings.cursorStylePreset === 'a'"
           viewBox="0 0 24 24"
           class="cursor-icon"
         >
           <path d="M4 2L4 21L9.3 15.8L12.7 22L15 20.9L11.6 14.7H19.5L4 2Z" />
         </svg>
         <svg
-          v-else-if="(cursorVisualState === 'default' || cursorVisualState === 'pointer') && game.cursorStylePreset === 'b'"
+          v-else-if="(cursorVisualState === 'default' || cursorVisualState === 'pointer') && settings.cursorStylePreset === 'b'"
           viewBox="0 0 24 24"
           class="cursor-icon"
         >
@@ -107,12 +107,12 @@ onUnmounted(() => {
         :style="{
           left: `${ripple.x}px`,
           top: `${ripple.y}px`,
-          '--ripple-duration': `${game.cursorRippleDurationMs}ms`,
-          '--ripple-min-scale': String(game.cursorRippleMinScale),
-          '--ripple-max-scale': String(game.cursorRippleMaxScale),
-          '--ripple-opacity': String(game.cursorRippleOpacity),
-          '--ripple-line-width': `${game.cursorRippleLineWidth}px`,
-          '--ripple-glow': String(game.cursorRippleGlow),
+          '--ripple-duration': `${settings.cursorRippleDurationMs}ms`,
+          '--ripple-min-scale': String(settings.cursorRippleMinScale),
+          '--ripple-max-scale': String(settings.cursorRippleMaxScale),
+          '--ripple-opacity': String(settings.cursorRippleOpacity),
+          '--ripple-line-width': `${settings.cursorRippleLineWidth}px`,
+          '--ripple-glow': String(settings.cursorRippleGlow),
         }"
       />
     </div>

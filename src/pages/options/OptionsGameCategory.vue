@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
 import { useI18n } from "@/shared/i18n";
-import { useGameStore } from "@/shared/stores/game";
+import { useSettingsStore } from "@/shared/stores/settings";
 import { SettingsSection } from "@/features/settings";
 import { SettingsRangeRow } from "@/features/settings";
 import { SettingsToggleRow } from "@/features/settings";
@@ -9,7 +9,7 @@ import { SettingsSelectRow } from "@/features/settings";
 import { OPTIONS_PANEL_SFX } from "./injectionKeys";
 
 const { t } = useI18n();
-const game = useGameStore();
+const settings = useSettingsStore();
 const sfx = inject(OPTIONS_PANEL_SFX)!;
 
 const judgmentStyleOptions = computed(() => [
@@ -34,13 +34,13 @@ const batteryLivesOptions = computed(() =>
     <SettingsRangeRow
       :label="t('settings.doublePanelGap')"
       help-key="doublePanelGap"
-      :model-value="game.doublePanelGapPx"
+      :model-value="settings.doublePanelGapPx"
       :min="16"
       :max="160"
       :step="4"
-      :display-value="`${game.doublePanelGapPx}px`"
+      :display-value="`${settings.doublePanelGapPx}px`"
       :on-interact="sfx.playSliderClickSfx"
-      @update:model-value="(v) => (game.doublePanelGapPx = v)"
+      @update:model-value="(v) => (settings.doublePanelGapPx = v)"
     />
   </SettingsSection>
 
@@ -48,38 +48,38 @@ const batteryLivesOptions = computed(() =>
     <SettingsSelectRow
       :label="t('settings.judgmentStyle')"
       help-key="judgmentStyle"
-      :model-value="game.judgmentStyle"
+      :model-value="settings.judgmentStyle"
       :options="judgmentStyleOptions"
-      @update:model-value="(v) => (game.judgmentStyle = v as 'ddr' | 'itg')"
+      @update:model-value="(v) => (settings.judgmentStyle = v as 'ddr' | 'itg')"
     />
     <SettingsToggleRow
       :label="t('settings.showOffset')"
       help-key="showOffset"
-      :model-value="game.showOffset"
+      :model-value="settings.showOffset"
       :on-toggle-sound="sfx.playToggleClickSfx"
-      @update:model-value="(v) => (game.showOffset = v)"
+      @update:model-value="(v) => (settings.showOffset = v)"
     />
     <SettingsSelectRow
       :label="t('settings.lifeType')"
       help-key="lifeType"
-      :model-value="game.lifeType"
+      :model-value="settings.lifeType"
       :options="lifeTypeOptions"
-      @update:model-value="(v) => (game.lifeType = v as 'bar' | 'battery' | 'survival')"
+      @update:model-value="(v) => (settings.lifeType = v as 'bar' | 'battery' | 'survival')"
     />
     <SettingsSelectRow
-      v-if="game.lifeType === 'battery'"
+      v-if="settings.lifeType === 'battery'"
       :label="t('settings.batteryLives')"
       help-key="batteryLives"
-      :model-value="game.batteryLives"
+      :model-value="settings.batteryLives"
       :options="batteryLivesOptions"
-      @update:model-value="(v) => (game.batteryLives = Number(v))"
+      @update:model-value="(v) => (settings.batteryLives = Number(v))"
     />
     <SettingsToggleRow
       :label="t('playerOpt.showParticles')"
       help-key="showParticles"
-      :model-value="game.showParticles"
+      :model-value="settings.showParticles"
       :on-toggle-sound="sfx.playToggleClickSfx"
-      @update:model-value="(v) => (game.showParticles = v)"
+      @update:model-value="(v) => (settings.showParticles = v)"
     />
   </SettingsSection>
   </div>

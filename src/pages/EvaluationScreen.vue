@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useRouter } from "vue-router";
-import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
 import { useI18n } from "@/shared/i18n";
 import { displayPercentFromDpRatio } from "@/shared/lib/engine/types";
 import { gradeTextGradientStyle } from "@/shared/constants/gradeColors";
 
 const router = useRouter();
-const game = useGameStore();
+const session = useSessionStore();
 const { t } = useI18n();
 
-const results = computed(() => game.lastResults ?? {
+const results = computed(() => session.lastResults ?? {
   grade: "—", dpPercent: 0, score: 0, maxCombo: 0,
   w1: 0, w2: 0, w3: 0, w4: 0, w5: 0, miss: 0,
   held: 0, letGo: 0, minesHit: 0, fullCombo: false, offsets: [],
 });
-const results2 = computed(() => game.lastResults2);
+const results2 = computed(() => session.lastResults2);
 const showDualResults = computed(() => !!results2.value);
 
 const totalNotes = computed(() =>
@@ -36,14 +36,14 @@ const gradeStyle2 = computed(() =>
 
 /** 结算页：单板双人可分别选难度，与「当前列表索引」对齐（不只用 currentChart）。 */
 const evalChartP1 = computed(() => {
-  const list = game.charts;
-  const i = game.p1ChartIndex;
+  const list = session.charts;
+  const i = session.p1ChartIndex;
   if (list.length > 0 && i >= 0 && i < list.length) return list[i] ?? null;
-  return game.currentChart;
+  return session.currentChart;
 });
 const evalChartP2 = computed(() => {
-  const list = game.charts;
-  const i = game.p2ChartIndex;
+  const list = session.charts;
+  const i = session.p2ChartIndex;
   if (list.length > 0 && i >= 0 && i < list.length) return list[i] ?? null;
   return null;
 });
@@ -120,8 +120,8 @@ const meanOffset = computed(() => {
 
 function goToPlayerOptions() {
   // 结算页退出统一进入“游玩”玩家设置，避免沿用编辑器预览返回链路。
-  game.previewReturnToEditor = false;
-  game.previewFromSecond = null;
+  session.previewReturnToEditor = false;
+  session.previewFromSecond = null;
   router.push("/player-options");
 }
 function goToSelectMusic() { goToPlayerOptions(); }
@@ -132,10 +132,10 @@ function retry() { router.push("/gameplay"); }
   <div class="evaluation-screen">
     <div class="hero-panel">
       <div class="song-info">
-        <h3>{{ game.currentSong?.title ?? "—" }}</h3>
-        <p>{{ game.currentSong?.artist ?? "" }}</p>
+        <h3>{{ session.currentSong?.title ?? "—" }}</h3>
+        <p>{{ session.currentSong?.artist ?? "" }}</p>
         <p v-if="!showDualResults" class="diff">
-          {{ difficultyLabel(game.currentDifficulty) }} {{ game.currentChart?.meter ?? "" }}
+          {{ difficultyLabel(session.currentDifficulty) }} {{ session.currentChart?.meter ?? "" }}
         </p>
       </div>
 
@@ -217,7 +217,7 @@ function retry() { router.push("/gameplay"); }
         </div>
       </template>
 
-      <div v-if="game.lastScoreSaved === true" class="saved-badge">
+      <div v-if="session.lastScoreSaved === true" class="saved-badge">
         {{ t('eval.scoreSaved') }}
       </div>
     </div>

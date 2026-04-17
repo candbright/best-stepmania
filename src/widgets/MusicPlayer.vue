@@ -1,19 +1,23 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from "vue";
 import { usePlayerStore } from "@/shared/stores/player";
-import { useGameStore } from "@/shared/stores/game";
+import { useLibraryStore } from "@/shared/stores/library";
+import { useSettingsStore } from "@/shared/stores/settings";
+import { useSessionStore } from "@/shared/stores/session";
 import { useRoute } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import * as api from "@/shared/api";
 import { logOptionalRejection } from "@/shared/lib/devLog";
 
 const player = usePlayerStore();
-const game = useGameStore();
+const library = useLibraryStore();
+const settings = useSettingsStore();
+const session = useSessionStore();
 const route = useRoute();
 const { t } = useI18n();
 
 const visible = computed(() =>
-  route.path === "/" && (game.songs.length > 0 || player.isDefaultMusic)
+  route.path === "/" && (library.songs.length > 0 || player.isDefaultMusic)
 );
 
 // Sync player status with audio backend when player becomes visible
@@ -62,12 +66,12 @@ function onDragEnd(e: MouseEvent) {
 // ── 音量控制 ──
 const showVolume = ref(false);
 const isMinimized = ref(false);
-const volumeValue = computed(() => game.musicVolume ?? 70);
+const volumeValue = computed(() => settings.musicVolume ?? 70);
 
 function onVolumeChange(e: Event) {
   const v = parseInt((e.target as HTMLInputElement).value, 10);
-  game.musicVolume = v;
-  api.audioSetVolume(v / 100, (game.masterVolume ?? 80) / 100).catch((e) =>
+  settings.musicVolume = v;
+  api.audioSetVolume(v / 100, (settings.masterVolume ?? 80) / 100).catch((e) =>
     logOptionalRejection("musicPlayer.audioSetVolume", e),
   );
 }
@@ -92,8 +96,8 @@ watch(
   () => player.queueIndex,
   (idx) => {
     if (idx < 0) return;
-    if (game.currentSongIndex !== idx) {
-      game.setCurrentSongIndexFromPlayer(idx);
+    if (session.currentSongIndex !== idx) {
+      session.setCurrentSongIndexFromPlayer(idx);
     }
   },
   { immediate: true },

@@ -1,14 +1,14 @@
-import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
 import * as api from "@/shared/api";
 import type { SaveChartNote } from "@/shared/api";
 import { clearEditorChartBackup } from "@/pages/editor/editorChartBackup";
 import type { EditorState } from "../useEditorState";
 
-type GameStore = ReturnType<typeof useGameStore>;
+type SessionStore = ReturnType<typeof useSessionStore>;
 
 export interface EditorSaveDeps {
   s: EditorState;
-  game: GameStore;
+  session: SessionStore;
   t: (key: string) => string;
   setSaveMessage: (msg: string, errorMs?: number, successMs?: number) => void;
   buildSaveNotesPayload: () => SaveChartNote[];
@@ -17,11 +17,11 @@ export interface EditorSaveDeps {
 }
 
 export function createEditorSave(deps: EditorSaveDeps) {
-  const { s, game, t, setSaveMessage, buildSaveNotesPayload, refreshEditorChartBaseline, refreshEditorMetaBaseline } =
+  const { s, session, t, setSaveMessage, buildSaveNotesPayload, refreshEditorChartBaseline, refreshEditorMetaBaseline } =
     deps;
 
   async function saveToFile(): Promise<boolean> {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song || s.allCharts.value.length === 0) return false;
     const notes = buildSaveNotesPayload();
     try {
@@ -42,7 +42,7 @@ export function createEditorSave(deps: EditorSaveDeps) {
         s.activeChartIndex.value,
       );
       s.allCharts.value = await api.loadChart(song.path);
-      game.needsSongRefresh = true;
+      session.needsSongRefresh = true;
       refreshEditorChartBaseline();
       refreshEditorMetaBaseline();
       clearEditorChartBackup(song.path, s.activeChartIndex.value);
@@ -58,7 +58,7 @@ export function createEditorSave(deps: EditorSaveDeps) {
   }
 
   async function saveMetadata(): Promise<boolean> {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song) return false;
     s.metaSaving.value = true;
     try {

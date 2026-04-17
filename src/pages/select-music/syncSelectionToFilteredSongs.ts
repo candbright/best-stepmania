@@ -1,4 +1,5 @@
-import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
+import { useLibraryStore } from "@/shared/stores/library";
 import { usePlayerStore } from "@/shared/stores/player";
 import type { SongListItem } from "@/shared/api";
 
@@ -9,33 +10,34 @@ export async function syncSelectionToFilteredSongs(
   filtered: SongListItem[],
   loadBannerLazy: (idx: number) => void,
 ): Promise<void> {
-  const game = useGameStore();
+  const session = useSessionStore();
+  const library = useLibraryStore();
   const player = usePlayerStore();
 
   if (filtered.length === 0) {
-    if (game.currentSongIndex !== -1) {
-      await game.selectSong(-1);
+    if (session.currentSongIndex !== -1) {
+      await session.selectSong(-1);
     }
     player.cleanup();
     return;
   }
 
   const inFilter = new Set(filtered.map((s) => s.path));
-  const cur = game.currentSong;
+  const cur = session.currentSong;
   if (cur && inFilter.has(cur.path)) {
     return;
   }
 
   const first = filtered[0]!;
-  const idx = game.songs.findIndex((s) => s.path === first.path);
+  const idx = library.songs.findIndex((s) => s.path === first.path);
   if (idx < 0) return;
 
-  await game.selectSong(idx);
+  await session.selectSong(idx);
   const queueSynced =
-    player.queue.length === game.songs.length &&
-    player.queue.every((s, i) => s.path === game.songs[i]?.path);
+    player.queue.length === library.songs.length &&
+    player.queue.every((s, i) => s.path === library.songs[i]?.path);
   if (!queueSynced) {
-    player.setQueue(game.songs, idx);
+    player.setQueue(library.songs, idx);
   } else {
     player.playSongAt(idx);
   }

@@ -6,6 +6,9 @@ import { useRouter, type RouteLocationNormalizedLoaded } from "vue-router";
 import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useSessionStore } from "@/shared/stores/session";
+import { useLibraryStore } from "@/shared/stores/library";
+import { useSettingsStore } from "@/shared/stores/settings";
+import { mergeShortcutBindings, eventMatchesBinding, type ShortcutId } from "@/shared/lib/engine/keyBindings";
 import { useI18n } from "@/shared/i18n";
 import * as api from "@/shared/api";
 import { logOptionalRejection } from "@/shared/lib/devLog";
@@ -35,10 +38,17 @@ export function useEditorActions(
   route: Pick<RouteLocationNormalizedLoaded, "query">,
 ) {
   const router = useRouter();
-  const game = useGameStore();
+  const gameFacade = useGameStore();
   const player = usePlayerStore();
   const session = useSessionStore();
+  const library = useLibraryStore();
+  const settings = useSettingsStore();
   const { t } = useI18n();
+
+  function shortcutMatches(e: KeyboardEvent, id: ShortcutId): boolean {
+    const binding = mergeShortcutBindings(settings.shortcutOverrides)[id];
+    return eventMatchesBinding(e, binding);
+  }
   const {
     pushUndo,
     undo,
@@ -83,7 +93,7 @@ export function useEditorActions(
     s.editingBpmChangeIndex.value = -1;
     s.NUM_TRACKS_ACTUAL.value = 5;
 
-    const song = game.currentSong;
+    const song = session.currentSong;
     const rawBpm = song?.displayBpm ?? "120";
     const parsed = parseFloat(String(rawBpm).split("-")[0] || "120");
     s.bpm.value = Number.isFinite(parsed) && parsed > 0 ? parsed : 120;
@@ -127,7 +137,6 @@ export function useEditorActions(
 
   const { loadAllCharts, loadChartNotes, loadWaveformData } = createEditorChartLoading({
     s,
-    game,
     session,
     route,
     resetEditorWhenNoCharts,
@@ -155,7 +164,8 @@ export function useEditorActions(
     duplicateCurrentChart,
   } = createEditorChartCrud({
     s,
-    game,
+    session,
+    library,
     t,
     setSaveMessage,
     loadChartNotes,
@@ -203,7 +213,7 @@ export function useEditorActions(
 
   const { saveToFile, saveMetadata } = createEditorSave({
     s,
-    game,
+    session,
     t,
     setSaveMessage,
     buildSaveNotesPayload,
@@ -234,7 +244,8 @@ export function useEditorActions(
     s,
     canvas,
     router,
-    game,
+    session,
+    gameFacade,
     player,
   });
 
@@ -296,7 +307,7 @@ export function useEditorActions(
 
   const { handleScroll, handleKeyDown } = createEditorScrollKeyboard({
     s,
-    game,
+    shortcutMatches,
     cycleQuantize,
     redo,
     undo,

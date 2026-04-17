@@ -1,16 +1,13 @@
 import type { RouteLocationNormalizedLoaded } from "vue-router";
-import { useGameStore } from "@/shared/stores/game";
 import { useSessionStore } from "@/shared/stores/session";
 import * as api from "@/shared/api";
 import type { EditorState } from "../useEditorState";
 import { defaultQuantizeFromTimeSignatures } from "../quantizeFromTimeSignature";
 
-type GameStore = ReturnType<typeof useGameStore>;
 type SessionStore = ReturnType<typeof useSessionStore>;
 
 export interface EditorChartLoadingDeps {
   s: EditorState;
-  game: GameStore;
   session: SessionStore;
   route: Pick<RouteLocationNormalizedLoaded, "query">;
   resetEditorWhenNoCharts: () => void;
@@ -20,11 +17,11 @@ export interface EditorChartLoadingDeps {
 }
 
 export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
-  const { s, game, session, route, resetEditorWhenNoCharts, refreshEditorChartBaseline, refreshEditorMetaBaseline, pushUndo } =
+  const { s, session, route, resetEditorWhenNoCharts, refreshEditorChartBaseline, refreshEditorMetaBaseline, pushUndo } =
     deps;
 
   async function loadChartNotes(expectedSongPath?: string) {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song) return;
 
     if (expectedSongPath && song.path !== expectedSongPath) return;
@@ -41,7 +38,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
     }
 
     try {
-      if (game.currentSong?.path !== currentSongPath) return;
+      if (session.currentSong?.path !== currentSongPath) return;
 
       s.noteRows.value = await api.getChartNotes(currentSongPath, s.activeChartIndex.value);
 
@@ -97,7 +94,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
 
       s.quantize.value = defaultQuantizeFromTimeSignatures(s.timeSignatures.value);
 
-      if (game.currentSong?.path !== currentSongPath) return;
+      if (session.currentSong?.path !== currentSongPath) return;
       s.editorRoutineLayer.value = 1;
       s.undoStack.value = [];
       s.redoStack.value = [];
@@ -112,16 +109,16 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
   }
 
   async function loadMetadata(expectedSongPath?: string) {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song) return;
 
     if (expectedSongPath && song.path !== expectedSongPath) return;
     const currentSongPath = song.path;
 
     try {
-      if (game.currentSong?.path !== currentSongPath) return;
+      if (session.currentSong?.path !== currentSongPath) return;
       const meta = await api.getSongMetadata(currentSongPath);
-      if (game.currentSong?.path !== currentSongPath) return;
+      if (session.currentSong?.path !== currentSongPath) return;
       s.metaTitle.value = meta.title;
       s.metaSubtitle.value = meta.subtitle;
       s.metaArtist.value = meta.artist;
@@ -134,7 +131,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
       s.metaSampleLength.value = meta.sampleLength;
       refreshEditorMetaBaseline();
     } catch {
-      if (game.currentSong?.path !== currentSongPath) return;
+      if (session.currentSong?.path !== currentSongPath) return;
       s.metaTitle.value = song.title || "";
       s.metaArtist.value = song.artist || "";
       refreshEditorMetaBaseline();
@@ -142,7 +139,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
   }
 
   async function loadAllCharts(expectedSongPath?: string) {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song) return;
 
     if (expectedSongPath && song.path !== expectedSongPath) {
@@ -161,7 +158,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
         s.allCharts.value = await api.loadChart(currentSongPath);
       }
 
-      if (game.currentSong?.path !== currentSongPath) {
+      if (session.currentSong?.path !== currentSongPath) {
         console.warn("[Editor] Song changed during chart load, ignoring");
         return;
       }
@@ -171,13 +168,13 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
         resetEditorWhenNoCharts();
         s.showNewChartModal.value = route.query.newChart === "1";
       } else {
-        s.activeChartIndex.value = Math.min(game.currentChartIndex, s.allCharts.value.length - 1);
+        s.activeChartIndex.value = Math.min(session.currentChartIndex, s.allCharts.value.length - 1);
         s.syncEditChartPropertiesFromActive();
         await loadChartNotes(currentSongPath);
         s.showNewChartModal.value = route.query.newChart === "1";
       }
 
-      if (game.currentSong?.path !== currentSongPath) {
+      if (session.currentSong?.path !== currentSongPath) {
         console.warn("[Editor] Song changed after chart load, ignoring");
         return;
       }
@@ -186,9 +183,9 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
       resetEditorWhenNoCharts();
     }
 
-    if (game.currentSong?.path !== currentSongPath) return;
+    if (session.currentSong?.path !== currentSongPath) return;
     await loadMetadata(currentSongPath);
-    if (game.currentSong?.path !== currentSongPath) return;
+    if (session.currentSong?.path !== currentSongPath) return;
     s.undoStack.value = [];
     s.redoStack.value = [];
     pushUndo();
@@ -196,7 +193,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
   }
 
   async function loadWaveformData(expectedSongPath?: string) {
-    const song = game.currentSong;
+    const song = session.currentSong;
     if (!song) return;
 
     if (expectedSongPath && song.path !== expectedSongPath) return;
@@ -211,10 +208,10 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
     s.waveformDuration.value = 0;
     try {
       const musicPath = await api.getSongMusicPath(currentSongPath);
-      if (game.currentSong?.path !== currentSongPath) return;
+      if (session.currentSong?.path !== currentSongPath) return;
 
       const dataUrl = await api.readFileBase64(musicPath);
-      if (game.currentSong?.path !== currentSongPath) return;
+      if (session.currentSong?.path !== currentSongPath) return;
 
       const base64 = dataUrl.replace(/^data:[^;]+;base64,/, "");
       const binary = atob(base64);
@@ -222,16 +219,16 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
       for (let i = 0; i < binary.length; i++) {
         bytes[i] = binary.charCodeAt(i);
         if ((i & 0xfffff) === 0xfffff && i > 0) {
-          if (game.currentSong?.path !== currentSongPath) return;
+          if (session.currentSong?.path !== currentSongPath) return;
           await yieldToMain();
         }
       }
-      if (game.currentSong?.path !== currentSongPath) return;
+      if (session.currentSong?.path !== currentSongPath) return;
 
       const audioCtx = new AudioContext();
       try {
         const audioBuffer = await audioCtx.decodeAudioData(bytes.buffer.slice(0));
-        if (game.currentSong?.path !== currentSongPath) return;
+        if (session.currentSong?.path !== currentSongPath) return;
 
         const numChannels = audioBuffer.numberOfChannels;
         const length = audioBuffer.length;
@@ -248,7 +245,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
           }
           mono[j] = numChannels > 1 ? sum / numChannels : sum;
           if (j > 0 && (j & (yieldEveryMono - 1)) === yieldEveryMono - 1) {
-            if (game.currentSong?.path !== currentSongPath) return;
+            if (session.currentSong?.path !== currentSongPath) return;
             await yieldToMain();
           }
         }
@@ -272,7 +269,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
           mm[i * 2] = mn;
           mm[i * 2 + 1] = mx;
           if (i > 0 && (i & 0x1ff) === 0x1ff) {
-            if (game.currentSong?.path !== currentSongPath) return;
+            if (session.currentSong?.path !== currentSongPath) return;
             await yieldToMain();
           }
         }

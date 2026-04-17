@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { useGameStore } from "@/shared/stores/game";
+import { useSessionStore } from "@/shared/stores/session";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useLibraryStore } from "@/shared/stores/library";
+import { useSettingsStore } from "@/shared/stores/settings";
 import { useI18n } from "@/shared/i18n";
 import * as api from "@/shared/api";
 import type { SongPackInfo, SongListItem } from "@/shared/api";
@@ -16,9 +17,10 @@ import ImportSongModal from "./song-packs/ImportSongModal.vue";
 import CreateEmptyPackModal from "./song-packs/CreateEmptyPackModal.vue";
 
 const router = useRouter();
-const game = useGameStore();
+const session = useSessionStore();
 const player = usePlayerStore();
 const library = useLibraryStore();
+const settings = useSettingsStore();
 const { t } = useI18n();
 
 // ─── pack list (from library store cache) ──────────────────────────────────────
@@ -65,25 +67,25 @@ async function refreshSongs(opts?: { preserveCurrentPlayback?: boolean; removedS
   const oldQueuePaths = oldQueue.map((s) => s.path);
   const oldCurrentPath = player.currentSong?.path ?? null;
 
-  await game.refreshSongsList();
+  await library.refreshSongsList();
   // 与主界面同步：曲包页刷新后，标记主界面可直接复用这份已更新数据，不再重复拉取。
-  game.needsSongRefresh = false;
+  session.needsSongRefresh = false;
 
   if (oldQueue.length === 0) return;
 
   const queueStillMatchesLibrary =
-    oldQueuePaths.length > 0 && oldQueuePaths.every((path) => game.songs.some((song) => song.path === path));
+    oldQueuePaths.length > 0 && oldQueuePaths.every((path) => library.songs.some((song) => song.path === path));
 
   if (opts?.preserveCurrentPlayback) {
     if (opts.removedSongPath && shouldSwitchNowPlayingAfterRemoval(opts.removedSongPath)) {
-      const candidateIndex = Math.min(player.queueIndex, Math.max(game.songs.length - 1, 0));
-      player.setQueue(game.songs, candidateIndex);
+      const candidateIndex = Math.min(player.queueIndex, Math.max(library.songs.length - 1, 0));
+      player.setQueue(library.songs, candidateIndex);
       return;
     }
 
-    const currentStillExists = !!oldCurrentPath && game.songs.some((song) => song.path === oldCurrentPath);
+    const currentStillExists = !!oldCurrentPath && library.songs.some((song) => song.path === oldCurrentPath);
     if (currentStillExists) {
-      player.syncQueuePreserveCurrent(game.songs, oldCurrentPath, player.queueIndex);
+      player.syncQueuePreserveCurrent(library.songs, oldCurrentPath, player.queueIndex);
       return;
     }
 
@@ -93,10 +95,10 @@ async function refreshSongs(opts?: { preserveCurrentPlayback?: boolean; removedS
   }
 
   const fallbackIndex = oldCurrentPath
-    ? game.songs.findIndex((song) => song.path === oldCurrentPath)
+    ? library.songs.findIndex((song) => song.path === oldCurrentPath)
     : -1;
-  const startIndex = fallbackIndex >= 0 ? fallbackIndex : Math.min(player.queueIndex, Math.max(game.songs.length - 1, 0));
-  player.setQueue(game.songs, startIndex);
+  const startIndex = fallbackIndex >= 0 ? fallbackIndex : Math.min(player.queueIndex, Math.max(library.songs.length - 1, 0));
+  player.setQueue(library.songs, startIndex);
 }
 
 async function refreshPacks() {
@@ -124,7 +126,7 @@ function showStatus(msg: string, ok = true) {
 // Songs in the root pack have pack_name === ".root" (the actual .root directory)
 const ROOT_PACK_ID = ".root";
 function songsInPack(packName: string): SongListItem[] {
-  return game.songs.filter((s) => s.pack === packName);
+  return library.songs.filter((s) => s.pack === packName);
 }
 
 // ─── pack expand state ────────────────────────────────────────────────────────
@@ -313,7 +315,7 @@ function openEditSong(song: SongListItem) {
 
 async function handleEditSongSuccess() {
   showStatus(t('songPacks.saveMetaSuccess'));
-  await refreshSongs(); // refreshSongs updates game.songs
+  await refreshSongs(); // refreshSongs updates library.songs
   editingSong.value = null;
 }
 
@@ -330,7 +332,7 @@ async function handleDeleteSongSuccess() {
   confirmDeleteSong.value = null;
   if (song) {
     showStatus(t('songPacks.songDeleted'));
-    game.songs = game.songs.filter((s) => s.path !== song.path);
+    library.songs = library.songs.filter((s) => s.path !== song.path);
     await refreshSongs({ preserveCurrentPlayback: true, removedSongPath: song.path });
     await library.loadPacks();
   }
@@ -467,7 +469,7 @@ async function handleCreateEmptyPackConfirm(packName: string) {
     <!-- Songs directory footer -->
     <div class="dir-footer">
       <span class="dir-label">{{ t('songPacks.songDirectory') }}</span>
-      <span class="dir-path">{{ game.songDirectories[0] || t('songPacks.notSet') }}</span>
+      <span class="dir-path">{{ settings.songDirectories[0] || t('songPacks.notSet') }}</span>
     </div>
 
     <EditSongModal

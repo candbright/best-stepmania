@@ -1,4 +1,5 @@
 import type { Router } from "vue-router";
+import { useSessionStore } from "@/shared/stores/session";
 import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import * as api from "@/shared/api";
@@ -6,19 +7,21 @@ import { logOptionalRejection } from "@/shared/lib/devLog";
 import type { EditorCanvas } from "../useEditorCanvas";
 import type { EditorState } from "../useEditorState";
 
-type GameStore = ReturnType<typeof useGameStore>;
+type SessionStore = ReturnType<typeof useSessionStore>;
+type GameFacadeStore = ReturnType<typeof useGameStore>;
 type PlayerStore = ReturnType<typeof usePlayerStore>;
 
 export interface EditorPlaybackNavDeps {
   s: EditorState;
   canvas: EditorCanvas;
   router: Router;
-  game: GameStore;
+  session: SessionStore;
+  gameFacade: GameFacadeStore;
   player: PlayerStore;
 }
 
 export function createEditorPlaybackNav(deps: EditorPlaybackNavDeps) {
-  const { s, canvas, router, game, player } = deps;
+  const { s, canvas, router, session, gameFacade, player } = deps;
 
   function togglePlayback() {
     if (s.allCharts.value.length === 0) return;
@@ -79,26 +82,26 @@ export function createEditorPlaybackNav(deps: EditorPlaybackNavDeps) {
     }
     api.audioSetRate(1.0).catch((e) => logOptionalRejection("editor.goBack.audioSetRate", e));
     player.cleanup();
-    game.resumeFromEditor = true;
+    session.resumeFromEditor = true;
     router.push("/editor-select");
   }
 
   function goBack() {
-    void game.runEditorBackGuard().then((ok) => {
+    void gameFacade.runEditorBackGuard().then((ok) => {
       if (ok) goBackNow();
     });
   }
 
   function previewPlay() {
-    if (!game.currentSong || s.allCharts.value.length === 0) return;
+    if (!session.currentSong || s.allCharts.value.length === 0) return;
     if (s.playing.value) {
       s.playing.value = false;
       api.audioPause().catch((e) => logOptionalRejection("editor.previewPlay.pause", e));
     }
-    game.selectChart(s.activeChartIndex.value);
+    session.selectChart(s.activeChartIndex.value);
     const chartIntegralSec = canvas.beatToTime(s.scrollBeat.value);
-    game.previewFromSecond = chartIntegralSec - s.metaOffset.value;
-    game.previewReturnToEditor = true;
+    session.previewFromSecond = chartIntegralSec - s.metaOffset.value;
+    session.previewReturnToEditor = true;
     router.push("/player-options");
   }
 
