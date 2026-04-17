@@ -453,6 +453,7 @@ fn apply_window_geometry_for_config(window: &WebviewWindow, config: &AppConfig) 
         window.set_fullscreen(false).map_err(|e| e.to_string())?;
         window.set_decorations(true).map_err(|e| e.to_string())?;
         window.set_resizable(true).map_err(|e| e.to_string())?;
+        window.set_maximizable(true).map_err(|e| e.to_string())?;
         if let (Some(w), Some(h)) = (config.window_width, config.window_height) {
             if w > 0 && h > 0 {
                 window
@@ -467,6 +468,7 @@ fn apply_window_geometry_for_config(window: &WebviewWindow, config: &AppConfig) 
         window.set_fullscreen(false).map_err(|e| e.to_string())?;
         window.set_decorations(true).map_err(|e| e.to_string())?;
         window.set_resizable(false).map_err(|e| e.to_string())?;
+        window.set_maximizable(false).map_err(|e| e.to_string())?;
         window.set_fullscreen(true).map_err(|e| e.to_string())?;
         return Ok(());
     }
@@ -478,11 +480,13 @@ fn apply_window_geometry_for_config(window: &WebviewWindow, config: &AppConfig) 
         let Some(mon) = monitor else {
             window.set_decorations(false).map_err(|e| e.to_string())?;
             window.set_resizable(false).map_err(|e| e.to_string())?;
+            window.set_maximizable(false).map_err(|e| e.to_string())?;
             return Ok(());
         };
         let wa = mon.work_area();
         window.set_decorations(false).map_err(|e| e.to_string())?;
         window.set_resizable(false).map_err(|e| e.to_string())?;
+        window.set_maximizable(false).map_err(|e| e.to_string())?;
         window.set_position(wa.position).map_err(|e| e.to_string())?;
         window.set_size(wa.size).map_err(|e| e.to_string())?;
         return Ok(());
@@ -491,6 +495,10 @@ fn apply_window_geometry_for_config(window: &WebviewWindow, config: &AppConfig) 
     window.set_decorations(true).map_err(|e| e.to_string())?;
 
     if let Some((w, h)) = fixed_logical_size_for_preset(preset) {
+        window.set_maximizable(false).map_err(|e| e.to_string())?;
+        if window.is_maximized().map_err(|e| e.to_string())? {
+            window.unmaximize().map_err(|e| e.to_string())?;
+        }
         window.set_resizable(false).map_err(|e| e.to_string())?;
         window
             .set_size(LogicalSize::new(w as f64, h as f64))
