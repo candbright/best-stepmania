@@ -3,8 +3,8 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { useGameStore } from "@/shared/stores/game";
 import { useI18n } from "@/shared/i18n";
-import { displayPercentFromDpRatio } from "@/engine/types";
-import { gradeTextGradientStyle } from "@/constants/gradeColors";
+import { displayPercentFromDpRatio } from "@/shared/lib/engine/types";
+import { gradeTextGradientStyle } from "@/shared/constants/gradeColors";
 
 const router = useRouter();
 const game = useGameStore();

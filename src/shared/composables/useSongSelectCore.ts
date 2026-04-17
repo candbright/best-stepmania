@@ -4,8 +4,8 @@ import { usePlayerStore } from "@/shared/stores/player";
 import { useLibraryStore } from "@/shared/stores/library";
 import { useI18n } from "@/shared/i18n";
 import { playMenuMove } from "@/shared/lib/sfx";
-import * as api from "@/utils/api";
-import { PHYSICAL_ROOT_PACK } from "@/constants/songLibrary";
+import * as api from "@/shared/api";
+import { PHYSICAL_ROOT_PACK } from "@/shared/constants/songLibrary";
 
 export interface UseSongSelectCoreOptions {
   /** Additional filter for filteredSongs (e.g., playMode filtering) */

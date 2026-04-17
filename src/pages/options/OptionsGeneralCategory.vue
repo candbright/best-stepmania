@@ -4,7 +4,7 @@ import { useI18n } from "@/shared/i18n";
 import { useGameStore } from "@/shared/stores/game";
 import { SettingsSection } from "@/features/settings";
 import { SettingsSelectRow } from "@/features/settings";
-import { APP_THEME_IDS } from "@/constants/appThemes";
+import { APP_THEME_IDS } from "@/shared/constants/appThemes";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
 
 const { t } = useI18n();

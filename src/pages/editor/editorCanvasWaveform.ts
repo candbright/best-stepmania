@@ -1,7 +1,7 @@
 // Editor canvas: waveform panel drawing and hit geometry.
 
 import { WAVEFORM_WIDTH, WAVEFORM_FIELD_GAP } from "./constants";
-import { getThemePrimaryHex } from "@/utils/themeCssBridge";
+import { getThemePrimaryHex } from "@/shared/lib/themeCssBridge";
 
 export function waveformPanelLeftX(fieldX: number): number {
   return Math.max(14, fieldX - WAVEFORM_WIDTH - WAVEFORM_FIELD_GAP);

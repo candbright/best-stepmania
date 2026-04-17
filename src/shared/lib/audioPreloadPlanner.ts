@@ -1,5 +1,5 @@
-import * as api from "@/utils/api";
-import type { SongListItem } from "@/utils/api";
+import * as api from "@/shared/api";
+import type { SongListItem } from "@/shared/api";
 
 interface AudioPreloadPlannerOptions {
   getCachedMusicPath: (songPath: string) => string | undefined;

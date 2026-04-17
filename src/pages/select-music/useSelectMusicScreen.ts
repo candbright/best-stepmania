@@ -5,15 +5,15 @@ import { useSessionStore } from "@/shared/stores/session";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useLibraryStore } from "@/shared/stores/library";
 import { useI18n } from "@/shared/i18n";
-import * as api from "@/utils/api";
+import * as api from "@/shared/api";
 import { playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/shared/lib/sfx";
 import { syncSelectionToFilteredSongs } from "./syncSelectionToFilteredSongs";
-import { ensureMinElapsed } from "@/utils/loadingGate";
+import { ensureMinElapsed } from "@/shared/lib/loadingGate";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
-import { displayPercentFromDpRatio } from "@/engine/types";
-import { gradeTextGradientStyle } from "@/constants/gradeColors";
-import { chartFitsPlayMode } from "@/utils/chartPlayMode";
-import { PHYSICAL_ROOT_PACK } from "@/constants/songLibrary";
+import { displayPercentFromDpRatio } from "@/shared/lib/engine/types";
+import { gradeTextGradientStyle } from "@/shared/constants/gradeColors";
+import { chartFitsPlayMode } from "@/shared/lib/chartPlayMode";
+import { PHYSICAL_ROOT_PACK } from "@/shared/constants/songLibrary";
 
 export function useSelectMusicScreen() {
   const router = useRouter();

@@ -2,13 +2,13 @@
 import { onMounted, onUnmounted, ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useGameStore } from "@/shared/stores/game";
-import type { ChartInfoItem } from "@/utils/api";
+import type { ChartInfoItem } from "@/shared/api";
 import { useI18n } from "@/shared/i18n";
-import { listNoteskins } from "@/api";
+import { listNoteskins } from "@/shared/api";
 import { SettingsCard } from "@/widgets";
-import { ROUTINE_PLAYER_COLORS, type RoutinePlayerColorId } from "@/constants/routinePlayerColors";
-import { logOptionalRejection } from "@/utils/devLog";
-import { chartFitsPlayMode } from "@/utils/chartPlayMode";
+import { ROUTINE_PLAYER_COLORS, type RoutinePlayerColorId } from "@/shared/constants/routinePlayerColors";
+import { logOptionalRejection } from "@/shared/lib/devLog";
+import { chartFitsPlayMode } from "@/shared/lib/chartPlayMode";
 import { setMetronomeSfxEnabled, setRhythmSfxEnabled, setUiSfxEnabled } from "@/shared/lib/sfx";
 
 const router = useRouter();

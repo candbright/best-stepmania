@@ -1,19 +1,19 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import type { AppConfig } from "@/utils/api";
-import type { CoopMode, PerPlayerConfig } from "@/engine/types";
-import type { KeyChord, ShortcutId } from "@/engine/keyBindings";
+import type { AppConfig } from "@/shared/api";
+import type { CoopMode, PerPlayerConfig } from "@/shared/lib/engine/types";
+import type { KeyChord, ShortcutId } from "@/shared/lib/engine/keyBindings";
 import {
   mergeShortcutBindings,
   shortcutsToSerializable,
   SHORTCUT_DEFAULTS,
-} from "@/engine/keyBindings";
-import { clampDoublePanelGapPx, DOUBLE_PANEL_GAP_DEFAULT_PX } from "@/engine/render/panelLayout";
-import { normalizeAppThemeId } from "@/constants/appThemes";
-import { normalizeWindowDisplayPreset } from "@/constants/windowDisplay";
-import type { WindowDisplayPresetId } from "@/constants/windowDisplay";
-import type { CursorStylePreset, RhythmSfxStyle, UiSfxStyle } from "@/api/config";
-import * as api from "@/utils/api";
+} from "@/shared/lib/engine/keyBindings";
+import { clampDoublePanelGapPx, DOUBLE_PANEL_GAP_DEFAULT_PX } from "@/shared/lib/engine/render/panelLayout";
+import { normalizeAppThemeId } from "@/shared/constants/appThemes";
+import { normalizeWindowDisplayPreset } from "@/shared/constants/windowDisplay";
+import type { WindowDisplayPresetId } from "@/shared/constants/windowDisplay";
+import type { CursorStylePreset, RhythmSfxStyle, UiSfxStyle } from "@/shared/api/config";
+import * as api from "@/shared/api";
 
 const clamp01 = (value: number, fallback: number): number => {
   if (!Number.isFinite(value)) return fallback;

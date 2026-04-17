@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import type { SongListItem, SongPackInfo } from "@/utils/api";
-import * as api from "@/utils/api";
+import type { SongListItem, SongPackInfo } from "@/shared/api";
+import * as api from "@/shared/api";
 
 export type SortMode = "title" | "artist" | "bpm" | "pack";
 

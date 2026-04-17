@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { HighScoreInfo } from "@/utils/api";
+import type { HighScoreInfo } from "@/shared/api";
 
 withDefaults(
   defineProps<{

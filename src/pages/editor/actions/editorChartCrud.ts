@@ -1,7 +1,7 @@
 import { useGameStore } from "@/shared/stores/game";
-import * as api from "@/utils/api";
-import { logOptionalRejection } from "@/utils/devLog";
-import type { SaveChartNote } from "@/utils/api";
+import * as api from "@/shared/api";
+import { logOptionalRejection } from "@/shared/lib/devLog";
+import type { SaveChartNote } from "@/shared/api";
 import type { EditorState } from "../useEditorState";
 import { STEPS_TYPE_NUM_TRACKS } from "../constants";
 

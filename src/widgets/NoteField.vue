@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from "vue";
-import type { GameEngine, NoteFieldExposed, PanelConfig } from "@/engine";
+import type { GameEngine, NoteFieldExposed, PanelConfig } from "@/shared/lib/engine";
 import type { PlayMode } from "@/shared/stores/session";
-import type { RoutinePlayerColorId } from "@/constants/routinePlayerColors";
-import { routineColorHex } from "@/constants/routinePlayerColors";
-import type { NoteSkinSnapshot } from "@/api";
+import type { RoutinePlayerColorId } from "@/shared/constants/routinePlayerColors";
+import { routineColorHex } from "@/shared/constants/routinePlayerColors";
+import type { NoteSkinSnapshot } from "@/shared/api";
 import { trackColorForSkin } from "@/shared/stores/noteskin";
-import type { PerPlayerConfig } from "@/engine/types";
+import type { PerPlayerConfig } from "@/shared/lib/engine/types";
 import {
   buildPanels,
   clampDoublePanelGapPx,
@@ -14,8 +14,8 @@ import {
   getColumnWidth,
   getReceptorSize,
   usesSplitWidePanelLayout,
-} from "@/engine/render/panelLayout";
-import { resolveTrackEffects } from "@/engine/render/playerEffects";
+} from "@/shared/lib/engine/render/panelLayout";
+import { resolveTrackEffects } from "@/shared/lib/engine/render/playerEffects";
 import {
   getColumnLabel as schemaColumnLabel,
   getPumpDirection as schemaPumpDirection,
@@ -23,7 +23,7 @@ import {
   getTrackDirection as schemaTrackDirection,
   isCenterColumn as schemaIsCenterColumn,
   type ArrowDirection,
-} from "@/engine/render/noteSchema";
+} from "@/shared/lib/engine/render/noteSchema";
 import {
   drawHoldDrawer,
   drawLiftDrawer,
@@ -31,12 +31,12 @@ import {
   drawNoteDrawer,
   drawReceptorDrawer,
   type RenderDrawerDeps,
-} from "@/engine/render/drawers";
-import { drawBeatLines } from "@/engine/render/beatLines";
-import { createParticleSystem, type ParticleSystem } from "@/engine/render/particles";
-import { createQualityState, tickRenderQuality, type QualityState } from "@/engine/render/renderQuality";
-import { drawComboHud, drawJudgmentFlashHud } from "@/engine/render/noteFieldHud";
-import { getThemePrimaryRgba } from "@/utils/themeCssBridge";
+} from "@/shared/lib/engine/render/drawers";
+import { drawBeatLines } from "@/shared/lib/engine/render/beatLines";
+import { createParticleSystem, type ParticleSystem } from "@/shared/lib/engine/render/particles";
+import { createQualityState, tickRenderQuality, type QualityState } from "@/shared/lib/engine/render/renderQuality";
+import { drawComboHud, drawJudgmentFlashHud } from "@/shared/lib/engine/render/noteFieldHud";
+import { getThemePrimaryRgba } from "@/shared/lib/themeCssBridge";
 
 const props = defineProps<{
   engine: GameEngine;

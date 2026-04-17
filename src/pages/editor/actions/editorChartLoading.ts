@@ -1,7 +1,7 @@
 import type { RouteLocationNormalizedLoaded } from "vue-router";
 import { useGameStore } from "@/shared/stores/game";
 import { useSessionStore } from "@/shared/stores/session";
-import * as api from "@/utils/api";
+import * as api from "@/shared/api";
 import type { EditorState } from "../useEditorState";
 import { defaultQuantizeFromTimeSignatures } from "../quantizeFromTimeSignature";
 

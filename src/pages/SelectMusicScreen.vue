@@ -4,9 +4,9 @@ import FilterModal from "./select-music/FilterModal.vue";
 import BaseConfirmModal from "@/shared/ui/BaseConfirmModal.vue";
 import SongPackList from "@/entities/SongPackList.vue";
 import TopScores from "@/widgets/TopScores.vue";
+import { SongSelectDetailPanel } from "@/widgets";
 import {
   SongSelectActionRow,
-  SongSelectDetailPanel,
   SongSelectLayout,
   SongSelectToolbarActions,
 } from "@/shared/layout";

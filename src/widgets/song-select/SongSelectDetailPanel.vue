@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import SongHero from "@/entities/SongHero.vue";
 import SongChartList from "@/entities/SongChartList.vue";
-import type { ChartInfoItem } from "@/utils/api";
+import type { ChartInfoItem } from "@/shared/api";
 
 interface SongLike {
   path: string;

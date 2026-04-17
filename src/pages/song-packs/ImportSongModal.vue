@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, watch, computed } from "vue";
 import { useI18n } from "@/shared/i18n";
-import { openFileDialog } from "@/utils/platform";
-import type { SongPackInfo } from "@/utils/api";
+import { openFileDialog } from "@/shared/lib/platform";
+import type { SongPackInfo } from "@/shared/api";
 import { BaseModal } from "@/shared/ui";
 import { BaseSelect } from "@/shared/ui";
 import { BaseNumberField } from "@/shared/ui";

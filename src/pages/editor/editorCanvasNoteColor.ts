@@ -1,6 +1,6 @@
 // Editor canvas: note / receptor color (pump-routine vs column palette).
 
-import { routineColorHex, type RoutinePlayerColorId } from "@/constants/routinePlayerColors";
+import { routineColorHex, type RoutinePlayerColorId } from "@/shared/constants/routinePlayerColors";
 
 /** Match NoteField.vue pump-routine coloring: layer 1/2 from note, else infer from 5|5 panel halves. */
 export function editorCanvasNoteColor(

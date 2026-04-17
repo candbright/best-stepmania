@@ -5,7 +5,7 @@ import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useSessionStore } from "@/shared/stores/session";
 import { useI18n } from "@/shared/i18n";
-import * as api from "@/utils/api";
+import * as api from "@/shared/api";
 import {
   useEditorState,
   useEditorCanvas,
@@ -17,16 +17,16 @@ import EditorToolbar from "./editor/EditorToolbar.vue";
 import EditorSidebar from "./editor/EditorSidebar.vue";
 import EditorStatusBar from "./editor/EditorStatusBar.vue";
 import EditorPromptModals from "./editor/EditorPromptModals.vue";
-import { ensureMinElapsed } from "@/utils/loadingGate";
+import { ensureMinElapsed } from "@/shared/lib/loadingGate";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
-import { routineColorHex } from "@/constants/routinePlayerColors";
-import { logOptionalRejection } from "@/utils/devLog";
+import { routineColorHex } from "@/shared/constants/routinePlayerColors";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 import { BaseConfirmModal } from "@/shared/ui";
 import { BaseModal } from "@/shared/ui";
 import { BaseSelect } from "@/shared/ui";
 import { BaseNumberField } from "@/shared/ui";
-import { formatBinding, mergeShortcutBindings } from "@/engine/keyBindings";
-import type { ShortcutId } from "@/engine/keyBindings";
+import { formatBinding, mergeShortcutBindings } from "@/shared/lib/engine/keyBindings";
+import type { ShortcutId } from "@/shared/lib/engine/keyBindings";
 import { useEditorDraftGuard } from "./editor/useEditorDraftGuard";
 
 defineOptions({ name: "EditorScreen" });

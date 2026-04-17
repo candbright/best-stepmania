@@ -22,8 +22,8 @@ import type {
   LabelSegment,
   TimingSegment,
   TimingData,
-} from "@/engine/types";
-import { ROWS_PER_BEAT, DEFAULT_TIMING_DATA } from "@/engine/types";
+} from "@/shared/lib/engine/types";
+import { ROWS_PER_BEAT, DEFAULT_TIMING_DATA } from "@/shared/lib/engine/types";
 
 /** Convert beat to row (internal storage) */
 function beatToRow(beat: number): number {

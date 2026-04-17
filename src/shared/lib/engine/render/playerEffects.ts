@@ -1,5 +1,5 @@
-import type { CoopMode, PerPlayerConfig } from "@/engine/types";
-import { usesSplitWidePanelLayout } from "@/engine/render/panelLayout";
+import type { CoopMode, PerPlayerConfig } from "@/shared/lib/engine/types";
+import { usesSplitWidePanelLayout } from "@/shared/lib/engine/render/panelLayout";
 
 export interface TrackEffects {
   sudden: boolean;

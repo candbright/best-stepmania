@@ -2,7 +2,7 @@
 import { computed, inject, watch } from "vue";
 import { useI18n } from "@/shared/i18n";
 import { useGameStore } from "@/shared/stores/game";
-import type { RhythmSfxStyle } from "@/api/config";
+import type { RhythmSfxStyle } from "@/shared/api/config";
 import { BaseTooltip } from "@/shared/ui";
 import { BaseSelect } from "@/shared/ui";
 import { BaseNumberField } from "@/shared/ui";

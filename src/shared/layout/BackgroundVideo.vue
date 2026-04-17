@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from "vue";
-import { logOptionalRejection } from "@/utils/devLog";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 
 const props = defineProps<{
   videoPath?: string;

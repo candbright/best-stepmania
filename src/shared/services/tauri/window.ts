@@ -1,6 +1,6 @@
-import type { WindowDisplayPresetId } from "@/constants/windowDisplay";
+import type { WindowDisplayPresetId } from "@/shared/constants/windowDisplay";
 import { applyWindowDisplayPreset } from "@/shared/services/tauri/applyWindowDisplay";
-import { logOptionalRejection } from "@/utils/devLog";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 
 export interface WindowPresetSize {
   width: number;

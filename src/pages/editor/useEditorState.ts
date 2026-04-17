@@ -2,8 +2,8 @@
 // Composable that creates all reactive state for the chart editor.
 
 import { ref, computed } from "vue";
-import type { ChartNoteRow, ChartInfo } from "@/utils/api";
-import type { ChartNoteInput } from "@/engine/types";
+import type { ChartNoteRow, ChartInfo } from "@/shared/api";
+import type { ChartNoteInput } from "@/shared/lib/engine/types";
 import { PIU_PAD_COLORS, COLUMN_WIDTH } from "./constants";
 
 export interface BpmChange {

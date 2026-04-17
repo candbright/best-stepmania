@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from "@/shared/i18n";
-import type { SessionPlayMode } from "@/utils/chartPlayMode";
+import type { SessionPlayMode } from "@/shared/lib/chartPlayMode";
 
 const MODES: { key: SessionPlayMode; labelKey: string }[] = [
   { key: "pump-single", labelKey: "playMode.pump-single" },

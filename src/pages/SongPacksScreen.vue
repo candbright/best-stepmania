@@ -5,9 +5,9 @@ import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useLibraryStore } from "@/shared/stores/library";
 import { useI18n } from "@/shared/i18n";
-import * as api from "@/utils/api";
-import type { SongPackInfo, SongListItem } from "@/utils/api";
-import { openDirectoryDialog, isTauri } from "@/utils/platform";
+import * as api from "@/shared/api";
+import type { SongPackInfo, SongListItem } from "@/shared/api";
+import { openDirectoryDialog, isTauri } from "@/shared/lib/platform";
 
 import EditSongModal from "./song-packs/EditSongModal.vue";
 import DeletePackModal from "./song-packs/DeletePackModal.vue";

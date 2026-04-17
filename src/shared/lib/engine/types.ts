@@ -1,4 +1,4 @@
-import type { NoteSkinSnapshot } from "@/api";
+import type { NoteSkinSnapshot } from "@/shared/api";
 
 export interface ChartNote {
   row: number;
@@ -186,7 +186,7 @@ let _scoringConfigPromise: Promise<void> | null = null;
 
 async function _doInitScoringConfig(): Promise<void> {
   try {
-    const { getScoringConfig } = await import("@/api/scoring");
+    const { getScoringConfig } = await import("@/shared/api/scoring");
     const cfg = await getScoringConfig();
 
     TIMING_WINDOWS = {

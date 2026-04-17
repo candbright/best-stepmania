@@ -2,8 +2,8 @@
 import { useI18n } from "@/shared/i18n";
 import { BaseTooltip } from "@/shared/ui";
 import { SettingsCard } from "@/widgets";
-import type { ChartInfoItem } from "@/utils/api";
-import type { RoutinePlayerColorId } from "@/constants/routinePlayerColors";
+import type { ChartInfoItem } from "@/shared/api";
+import type { RoutinePlayerColorId } from "@/shared/constants/routinePlayerColors";
 
 defineProps<{
   player: 1 | 2;

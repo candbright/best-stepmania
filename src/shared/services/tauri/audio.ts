@@ -1,5 +1,5 @@
-import { audioSetVolume } from "@/api/audio";
-import { logOptionalRejection } from "@/utils/devLog";
+import { audioSetVolume } from "@/shared/api/audio";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 
 /** Push master/music levels (0–100) to the backend player. */
 export function syncAudioVolume(musicPercent: number, masterPercent: number): void {

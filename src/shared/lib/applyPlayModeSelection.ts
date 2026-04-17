@@ -1,7 +1,7 @@
-import type { SongListItem } from "@/utils/api";
-import type { CoopMode } from "@/engine/types";
-import type { SessionPlayMode } from "@/utils/chartPlayMode";
-import { firstSongIndexMatchingPlayMode, songHasChartForPlayMode } from "@/utils/chartPlayMode";
+import type { SongListItem } from "@/shared/api";
+import type { CoopMode } from "@/shared/lib/engine/types";
+import type { SessionPlayMode } from "@/shared/lib/chartPlayMode";
+import { firstSongIndexMatchingPlayMode, songHasChartForPlayMode } from "@/shared/lib/chartPlayMode";
 
 export interface ApplyPlayModeGameLike {
   playMode: SessionPlayMode;

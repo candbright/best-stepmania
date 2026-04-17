@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "@/shared/i18n";
-import type { ChartInfo } from "@/utils/api";
+import type { ChartInfo } from "@/shared/api";
 import { DIFFICULTIES, DIFF_COLORS } from "./constants";
 import { BaseSelect } from "@/shared/ui";
 import { BaseNumberField } from "@/shared/ui";

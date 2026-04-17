@@ -4,8 +4,8 @@ import { usePlayerStore } from "@/shared/stores/player";
 import { useGameStore } from "@/shared/stores/game";
 import { useRoute } from "vue-router";
 import { useI18n } from "@/shared/i18n";
-import * as api from "@/utils/api";
-import { logOptionalRejection } from "@/utils/devLog";
+import * as api from "@/shared/api";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 
 const player = usePlayerStore();
 const game = useGameStore();

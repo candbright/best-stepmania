@@ -5,7 +5,7 @@
  * Pure canvas operation — no component state.
  */
 
-import type { GameEngine } from "@/engine";
+import type { GameEngine } from "@/shared/lib/engine";
 
 /**
  * Draw beat lines (measure bars, beat lines, sub-beat lines) across one panel.

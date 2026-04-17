@@ -3,10 +3,10 @@ import { join, extname } from "node:path";
 
 const root = join(process.cwd(), "src");
 
+/** Optional one-off codemod pairs for legacy paths (FSD layout). */
 const pairs = [
-  // Legacy alias; route layer lives under `src/pages/`
   ["@/screens/", "@/pages/"],
-  ["@/utils/api", "@/shared/services/ipc"],
+  ["@/utils/api", "@/shared/api"],
   ["@/utils/platform", "@/shared/lib/platform"],
   ["@/utils/devLog", "@/shared/lib/devLog"],
   ["@/utils/chartPlayMode", "@/shared/lib/chartPlayMode"],
@@ -15,8 +15,7 @@ const pairs = [
   ["@/utils/themeCssBridge", "@/shared/lib/themeCssBridge"],
   ["@/constants/", "@/shared/constants/"],
   ["@/engine/", "@/shared/lib/engine/"],
-  ["@/api/", "@/shared/services/ipc/"],
-  ["@/i18n", "@/app/i18n"],
+  ["@/api/", "@/shared/api/"],
   ["@/router/", "@/app/router/"],
 ];
 
@@ -37,7 +36,7 @@ function migrateText(text) {
     c = c.split(a).join(b);
   }
   c = c.replace(/from ["']@\/engine["']/g, 'from "@/shared/lib/engine"');
-  c = c.replace(/from ["']@\/api["']/g, 'from "@/shared/services/ipc"');
+  c = c.replace(/from ["']@\/api["']/g, 'from "@/shared/api"');
   return c;
 }
 

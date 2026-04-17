@@ -9,7 +9,7 @@ import {
   previewRhythmSfx,
   previewUiSfx,
 } from "@/shared/lib/sfx";
-import { logOptionalRejection } from "@/utils/devLog";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 import { useConfirmDialog } from "@/shared/composables/useConfirmDialog";
 import { useSettingsSaveQueue } from "@/shared/composables/useSettingsSaveQueue";
 import { useAppSettingsSync } from "@/shared/composables/useAppSettingsSync";

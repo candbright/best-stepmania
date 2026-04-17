@@ -1,6 +1,6 @@
 import { ref } from "vue";
-import * as api from "@/api";
-import type { NoteSkinSnapshot } from "@/api";
+import * as api from "@/shared/api";
+import type { NoteSkinSnapshot } from "@/shared/api";
 
 // Module-level cache: skins are static at runtime so one shared cache is fine.
 const skinCache = new Map<string, NoteSkinSnapshot>();

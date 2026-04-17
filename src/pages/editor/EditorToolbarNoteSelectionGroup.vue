@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from "@/shared/i18n";
 import { NOTE_TYPES, getNoteTypeIcon } from "./constants";
-import type { ShortcutId } from "@/engine/keyBindings";
+import type { ShortcutId } from "@/shared/lib/engine/keyBindings";
 
 const { t } = useI18n();
 

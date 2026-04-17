@@ -1,18 +1,18 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
-import type { SongListItem, ChartInfoItem, HighScoreInfo } from "@/utils/api";
-import type { CoopMode, PerPlayerConfig } from "@/engine/types";
+import type { SongListItem, ChartInfoItem, HighScoreInfo } from "@/shared/api";
+import type { CoopMode, PerPlayerConfig } from "@/shared/lib/engine/types";
 import {
   mergeShortcutBindings,
   resolveGameplayKeyMap10,
   eventMatchesBinding,
   type ShortcutId,
-} from "@/engine/keyBindings";
-import type { RoutinePlayerColorId } from "@/constants/routinePlayerColors";
+} from "@/shared/lib/engine/keyBindings";
+import type { RoutinePlayerColorId } from "@/shared/constants/routinePlayerColors";
 import { useSettingsStore } from "./settings";
 import { useSessionStore } from "./session";
 import { useLibraryStore } from "./library";
-import type { WindowDisplayPresetId } from "@/constants/windowDisplay";
+import type { WindowDisplayPresetId } from "@/shared/constants/windowDisplay";
 
 export type SortMode = "title" | "artist" | "bpm" | "pack";
 

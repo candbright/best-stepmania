@@ -1,13 +1,13 @@
 import { watch, watchEffect, type WatchStopHandle } from "vue";
 import { currentLocale } from "@/shared/i18n";
-import type { RhythmSfxStyle } from "@/api/config";
+import type { RhythmSfxStyle } from "@/shared/api/config";
 import {
   applyGameplayRhythmSfxSettings,
   setUiSfxEnabled,
   setUiSfxStyle,
   setUiSfxVolume,
 } from "@/shared/lib/sfx";
-import { logOptionalRejection } from "@/utils/devLog";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 import { syncAudioVolume } from "@/shared/services/tauri/audio";
 import { applyWindowPreset } from "@/shared/services/tauri/window";
 import { useGameStore } from "@/shared/stores/game";

@@ -1,5 +1,5 @@
 import type { ChartNote, ChartNoteRow, GameConfig, JudgmentEvent, ScoreState } from "./types";
-import { logOptionalRejection } from "@/utils/devLog";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 import { JudgmentSystem } from "./JudgmentSystem";
 import type { AudioPort } from "./ports";
 import { usesSplitWidePanelLayout } from "./render/panelLayout";

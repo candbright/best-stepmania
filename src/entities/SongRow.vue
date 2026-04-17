@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { SongListItem } from "@/utils/api";
+import type { SongListItem } from "@/shared/api";
 
 withDefaults(
   defineProps<{

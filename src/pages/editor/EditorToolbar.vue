@@ -4,7 +4,7 @@ import { useI18n } from "@/shared/i18n";
 import EditorToolbarNoteSelectionGroup from "./EditorToolbarNoteSelectionGroup.vue";
 import EditorToolbarPlaybackGroup from "./EditorToolbarPlaybackGroup.vue";
 import EditorToolbarControlsGroup from "./EditorToolbarControlsGroup.vue";
-import type { ShortcutId } from "@/engine/keyBindings";
+import type { ShortcutId } from "@/shared/lib/engine/keyBindings";
 import "./editorToolbar.css";
 
 const { t } = useI18n();

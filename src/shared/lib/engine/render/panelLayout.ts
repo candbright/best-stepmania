@@ -1,5 +1,5 @@
-import type { NoteSkinSnapshot } from "@/api";
-import type { CoopMode, PanelConfig, PerPlayerConfig } from "@/engine/types";
+import type { NoteSkinSnapshot } from "@/shared/api";
+import type { CoopMode, PanelConfig, PerPlayerConfig } from "@/shared/lib/engine/types";
 
 /** Two side-by-side panels (each half the lanes) — used for double, routine, and solo on wide (e.g. 10-key) charts. */
 export function usesSplitWidePanelLayout(coopMode: CoopMode, numTracks: number): boolean {

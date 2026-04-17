@@ -1,5 +1,5 @@
 import { watch, type WatchStopHandle } from "vue";
-import type { RhythmSfxStyle } from "@/api/config";
+import type { RhythmSfxStyle } from "@/shared/api/config";
 import {
   applyGameplayRhythmSfxSettings,
   setUiSfxEnabled,

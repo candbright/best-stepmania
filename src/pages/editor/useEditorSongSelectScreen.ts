@@ -7,7 +7,7 @@ import { useLibraryStore } from "@/shared/stores/library";
 import { useI18n } from "@/shared/i18n";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { playMenuMove, playMenuBack } from "@/shared/lib/sfx";
-import type { SongListItem } from "@/utils/api";
+import type { SongListItem } from "@/shared/api";
 import { useEditorEntryNavigation } from "./useEditorEntryNavigation";
 import { useEditorSongManagement } from "./useEditorSongManagement";
 import { useSongSelectCore } from "@/shared/composables/useSongSelectCore";

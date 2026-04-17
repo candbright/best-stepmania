@@ -7,7 +7,7 @@ import { SettingsRangeRow } from "@/features/settings";
 import { SettingsToggleRow } from "@/features/settings";
 import { SettingsSelectRow } from "@/features/settings";
 import { SettingsResetRow } from "@/features/settings";
-import { WINDOW_DISPLAY_PRESET_IDS } from "@/constants/windowDisplay";
+import { WINDOW_DISPLAY_PRESET_IDS } from "@/shared/constants/windowDisplay";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
 
 const { t } = useI18n();

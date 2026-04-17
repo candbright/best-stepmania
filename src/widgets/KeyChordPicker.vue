@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, ref } from "vue";
 import { useI18n } from "@/shared/i18n";
-import { formatBinding, formatChord, type KeyChord } from "@/engine/keyBindings";
+import { formatBinding, formatChord, type KeyChord } from "@/shared/lib/engine/keyBindings";
 
 const props = withDefaults(
   defineProps<{

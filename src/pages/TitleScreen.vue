@@ -7,13 +7,13 @@ import { usePlayerStore } from "@/shared/stores/player";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { onBeforeMount, onMounted, onUnmounted, ref, watch, nextTick, computed } from "vue";
 import { applyGameplayRhythmSfxSettings, playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/shared/lib/sfx";
-import * as api from "@/utils/api";
-import { initScoringConfig } from "@/engine/types";
-import { isTauri } from "@/utils/platform";
+import * as api from "@/shared/api";
+import { initScoringConfig } from "@/shared/lib/engine/types";
+import { isTauri } from "@/shared/lib/platform";
 import { applyWindowPreset, closeTauriMainWindow, tryCloseWebTab } from "@/shared/services/tauri/window";
-import { applyPlayModeSelection } from "@/utils/applyPlayModeSelection";
+import { applyPlayModeSelection } from "@/shared/lib/applyPlayModeSelection";
 import { PlayModeStrip } from "@/entities";
-import type { SessionPlayMode } from "@/utils/chartPlayMode";
+import type { SessionPlayMode } from "@/shared/lib/chartPlayMode";
 
 const router = useRouter();
 const route = useRoute();

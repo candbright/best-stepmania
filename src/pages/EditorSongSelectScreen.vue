@@ -2,9 +2,9 @@
 import { onMounted, onUnmounted } from "vue";
 import type { ComponentPublicInstance } from "vue";
 import SongPackList from "@/entities/SongPackList.vue";
+import { SongSelectDetailPanel } from "@/widgets";
 import {
   SongSelectActionRow,
-  SongSelectDetailPanel,
   SongSelectLayout,
   SongSelectToolbarActions,
 } from "@/shared/layout";

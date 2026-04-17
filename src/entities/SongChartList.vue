@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import type { ChartInfoItem } from "@/utils/api";
+import type { ChartInfoItem } from "@/shared/api";
 
 const props = defineProps<{
   charts: ChartInfoItem[];

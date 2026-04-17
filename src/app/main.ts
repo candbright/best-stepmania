@@ -1,9 +1,9 @@
 import { createApp } from "vue";
 import { createPinia } from "pinia";
-import router from "./router";
-import App from "./App.vue";
-import "./assets/main.css";
-import { installThemeCssBridge } from "./utils/themeCssBridge";
+import router from "@/app/router";
+import App from "@/app/App.vue";
+import "../assets/main.css";
+import { installThemeCssBridge } from "@/shared/lib/themeCssBridge";
 
 function renderFatalScreen(message: string): void {
   const root = document.getElementById("app");

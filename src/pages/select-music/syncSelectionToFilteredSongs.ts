@@ -1,6 +1,6 @@
 import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
-import type { SongListItem } from "@/utils/api";
+import type { SongListItem } from "@/shared/api";
 
 /**
  * 筛选列表变化时：当前选中不在列表中则选中第一项；列表为空则清空选中并停止预览音频。

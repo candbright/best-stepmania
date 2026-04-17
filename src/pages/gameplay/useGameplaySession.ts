@@ -1,15 +1,15 @@
 import { ref, shallowRef, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useGameStore } from "@/shared/stores/game";
-import { GameEngine } from "@/engine/GameEngine";
-import { createTauriAudioPort } from "@/engine";
-import { keyMapLookupTrack, resolveGameplayKeyMap10 } from "@/engine/keyBindings";
-import { JUDGMENT_COLORS, getJudgmentName } from "@/engine/judgmentDisplay";
-import type { JudgmentEvent, GameConfig, ChartNoteRow, NoteFieldExposed } from "@/engine/types";
-import * as api from "@/utils/api";
-import { getIpcInvokeSnapshot } from "@/utils/api";
-import type { TimingDataResponse } from "@/api/editor";
-import type { ChartTimingSlice } from "@/engine/chartTiming";
+import { GameEngine } from "@/shared/lib/engine/GameEngine";
+import { createTauriAudioPort } from "@/shared/lib/engine";
+import { keyMapLookupTrack, resolveGameplayKeyMap10 } from "@/shared/lib/engine/keyBindings";
+import { JUDGMENT_COLORS, getJudgmentName } from "@/shared/lib/engine/judgmentDisplay";
+import type { JudgmentEvent, GameConfig, ChartNoteRow, NoteFieldExposed } from "@/shared/lib/engine/types";
+import * as api from "@/shared/api";
+import { getIpcInvokeSnapshot } from "@/shared/api";
+import type { TimingDataResponse } from "@/shared/api/editor";
+import type { ChartTimingSlice } from "@/shared/lib/engine/chartTiming";
 import { useNoteSkin } from "@/shared/stores/noteskin";
 import {
   applyGameplayRhythmSfxSettings,
@@ -17,9 +17,9 @@ import {
   playCountdownGo,
   playRhythmLaneApproach,
 } from "@/shared/lib/sfx";
-import { devWarn, logOptionalRejection } from "@/utils/devLog";
+import { devWarn, logOptionalRejection } from "@/shared/lib/devLog";
 import { useI18n } from "@/shared/i18n";
-import { playModeAndCoopForStepsType } from "@/utils/chartPlayMode";
+import { playModeAndCoopForStepsType } from "@/shared/lib/chartPlayMode";
 
 export function useGameplaySession() {
 const router = useRouter();

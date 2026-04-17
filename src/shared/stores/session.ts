@@ -1,12 +1,12 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import type { SongListItem, ChartInfoItem, ChartInfo, HighScoreInfo } from "@/utils/api";
-import type { LastResults } from "@/engine/types";
-import type { RoutinePlayerColorId } from "@/constants/routinePlayerColors";
-import * as api from "@/utils/api";
+import type { SongListItem, ChartInfoItem, ChartInfo, HighScoreInfo } from "@/shared/api";
+import type { LastResults } from "@/shared/lib/engine/types";
+import type { RoutinePlayerColorId } from "@/shared/constants/routinePlayerColors";
+import * as api from "@/shared/api";
 import { useLibraryStore } from "./library";
 import { useSettingsStore } from "./settings";
-import { chartFitsPlayMode, playModeAndCoopForStepsType } from "@/utils/chartPlayMode";
+import { chartFitsPlayMode, playModeAndCoopForStepsType } from "@/shared/lib/chartPlayMode";
 
 export type PlayMode = "pump-single" | "pump-double" | "pump-routine";
 

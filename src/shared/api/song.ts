@@ -44,9 +44,9 @@ export interface ChartInfo {
 }
 
 // Import the canonical types from the engine layer; re-export them so consumers
-// of @/api (or @/utils/api) get a single source of truth.
+// of @/api (or @/shared/api) get a single source of truth.
 // NoteInfo is an alias for ChartNoteInput to keep the external API surface stable.
-import type { ChartNoteInput, ChartNoteRow } from "@/engine/types";
+import type { ChartNoteInput, ChartNoteRow } from "@/shared/lib/engine/types";
 export type { ChartNoteInput as NoteInfo, ChartNoteRow };
 
 export async function scanSongs(paths: string[]): Promise<number> {

@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import type { Router } from "vue-router";
-import { ensureMinElapsed } from "@/utils/loadingGate";
+import { ensureMinElapsed } from "@/shared/lib/loadingGate";
 import { primeEditorEntryResources } from "./editorEntryPrefetch";
 
 interface BlockingOverlayLike {

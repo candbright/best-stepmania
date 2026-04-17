@@ -1,7 +1,7 @@
-import type { WindowDisplayPresetId } from "@/constants/windowDisplay";
-import { fixedLogicalSizeForPreset } from "@/constants/windowDisplay";
-import { isTauri } from "@/utils/platform";
-import { logOptionalRejection } from "@/utils/devLog";
+import type { WindowDisplayPresetId } from "@/shared/constants/windowDisplay";
+import { fixedLogicalSizeForPreset } from "@/shared/constants/windowDisplay";
+import { isTauri } from "@/shared/lib/platform";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 
 export interface CustomWindowSize {
   width: number;

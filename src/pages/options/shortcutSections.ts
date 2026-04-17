@@ -1,4 +1,4 @@
-import type { ShortcutId } from "@/engine/keyBindings";
+import type { ShortcutId } from "@/shared/lib/engine/keyBindings";
 
 export const OPTIONS_SHORTCUT_SECTIONS: {
   titleKey: string;

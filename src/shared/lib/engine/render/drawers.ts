@@ -1,5 +1,5 @@
-import type { GameEngine, HoldState, PanelConfig } from "@/engine";
-import type { PerPlayerConfig } from "@/engine/types";
+import type { GameEngine, HoldState, PanelConfig } from "@/shared/lib/engine";
+import type { PerPlayerConfig } from "@/shared/lib/engine/types";
 import type { ArrowDirection } from "./noteSchema";
 import { drawArrowWithSkin, drawPumpPanelWithSkin } from "./skins";
 

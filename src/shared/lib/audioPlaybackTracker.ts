@@ -1,5 +1,5 @@
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import * as api from "@/utils/api";
+import * as api from "@/shared/api";
 
 export interface AudioPlaybackEventPayload {
   event: string;

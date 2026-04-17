@@ -1,4 +1,4 @@
-import type { RhythmSfxStyle } from "@/api/config";
+import type { RhythmSfxStyle } from "@/shared/api/config";
 
 let audioCtx: AudioContext | null = null;
 

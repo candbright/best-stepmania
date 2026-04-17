@@ -1,5 +1,5 @@
 import type { AudioPort } from "../ports";
-import * as api from "@/utils/api";
+import * as api from "@/shared/api";
 
 export function createTauriAudioPort(): AudioPort {
   return {

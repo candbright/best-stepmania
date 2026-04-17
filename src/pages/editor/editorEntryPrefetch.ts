@@ -1,5 +1,5 @@
-import * as api from "@/utils/api";
-import { logOptionalRejection } from "@/utils/devLog";
+import * as api from "@/shared/api";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useSessionStore } from "@/shared/stores/session";

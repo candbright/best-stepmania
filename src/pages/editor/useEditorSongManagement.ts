@@ -1,7 +1,7 @@
 import { ref } from "vue";
-import { openDirectoryDialog, isTauri } from "@/utils/platform";
-import * as api from "@/utils/api";
-import type { SongListItem } from "@/utils/api";
+import { openDirectoryDialog, isTauri } from "@/shared/lib/platform";
+import * as api from "@/shared/api";
+import type { SongListItem } from "@/shared/api";
 import type { useGameStore } from "@/shared/stores/game";
 import type { usePlayerStore } from "@/shared/stores/player";
 import type { useLibraryStore } from "@/shared/stores/library";

@@ -4,7 +4,7 @@ import { useI18n } from "@/shared/i18n";
 import { useGameStore } from "@/shared/stores/game";
 import { SettingsSection } from "@/features/settings";
 import { KeyChordPicker } from "@/widgets";
-import type { KeyChord, ShortcutId } from "@/engine/keyBindings";
+import type { KeyChord, ShortcutId } from "@/shared/lib/engine/keyBindings";
 import {
   SHORTCUT_DEFAULTS,
   mergeShortcutBindings,
@@ -12,7 +12,7 @@ import {
   bindingToChordList,
   resolveGameplayPumpDoubleLanes,
   GAMEPLAY_10_LANE_DEFAULT_CODES,
-} from "@/engine/keyBindings";
+} from "@/shared/lib/engine/keyBindings";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
 import { OPTIONS_SHORTCUT_SECTIONS } from "./shortcutSections";
 

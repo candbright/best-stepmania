@@ -1,4 +1,4 @@
-import type { ChartNoteInput, ChartNoteRow } from "@/engine/types";
+import type { ChartNoteInput, ChartNoteRow } from "@/shared/lib/engine/types";
 import type { EditorState } from "../useEditorState";
 import type { EditorCanvas } from "../useEditorCanvas";
 

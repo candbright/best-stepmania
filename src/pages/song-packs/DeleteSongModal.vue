@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useI18n } from "@/shared/i18n";
-import * as api from "@/utils/api";
-import type { SongListItem } from "@/utils/api";
+import * as api from "@/shared/api";
+import type { SongListItem } from "@/shared/api";
 import BaseDangerModal from "@/shared/ui/BaseDangerModal.vue";
 
 const props = defineProps<{

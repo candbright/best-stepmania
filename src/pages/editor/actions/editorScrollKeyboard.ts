@@ -1,5 +1,5 @@
 import { useGameStore } from "@/shared/stores/game";
-import type { ShortcutId } from "@/engine/keyBindings";
+import type { ShortcutId } from "@/shared/lib/engine/keyBindings";
 import type { EditorState } from "../useEditorState";
 import {
   EDITOR_ZOOM_MAX,

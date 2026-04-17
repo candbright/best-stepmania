@@ -1,7 +1,7 @@
 import { computed, ref, watch, type Ref } from "vue";
 import { useGameStore } from "@/shared/stores/game";
 import { playMenuBack, playMenuConfirm, playMenuMove } from "@/shared/lib/sfx";
-import { getCursorPosition } from "@/utils/platform";
+import { getCursorPosition } from "@/shared/lib/platform";
 
 export type CursorVisualState =
   | "default"

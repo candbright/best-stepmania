@@ -1,4 +1,4 @@
-import type { CoopMode } from "@/engine/types";
+import type { CoopMode } from "@/shared/lib/engine/types";
 
 /** Mirrors `PlayMode` in session store — duplicated here to avoid store↔util import cycles. */
 export type SessionPlayMode = "pump-single" | "pump-double" | "pump-routine";

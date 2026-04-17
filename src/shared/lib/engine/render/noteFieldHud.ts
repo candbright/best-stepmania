@@ -1,5 +1,5 @@
-import type { PanelConfig } from "@/engine/types";
-import type { QualityLevel } from "@/engine/render/drawers";
+import type { PanelConfig } from "@/shared/lib/engine/types";
+import type { QualityLevel } from "@/shared/lib/engine/render/drawers";
 
 export interface JudgmentFlashState {
   text: string;

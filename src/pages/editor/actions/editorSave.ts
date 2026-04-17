@@ -1,6 +1,6 @@
 import { useGameStore } from "@/shared/stores/game";
-import * as api from "@/utils/api";
-import type { SaveChartNote } from "@/utils/api";
+import * as api from "@/shared/api";
+import type { SaveChartNote } from "@/shared/api";
 import { clearEditorChartBackup } from "@/pages/editor/editorChartBackup";
 import type { EditorState } from "../useEditorState";
 

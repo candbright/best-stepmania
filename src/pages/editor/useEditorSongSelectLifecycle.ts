@@ -1,6 +1,6 @@
 import { setUiSfxVolume } from "@/shared/lib/sfx";
 import { syncSelectionToFilteredSongs } from "../select-music/syncSelectionToFilteredSongs";
-import type { SongListItem } from "@/utils/api";
+import type { SongListItem } from "@/shared/api";
 
 interface GameLike {
   uiSfxVolume?: number;

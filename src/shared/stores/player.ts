@@ -7,12 +7,12 @@
  */
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import type { SongListItem } from "@/utils/api";
-import * as api from "@/utils/api";
-import { getDefaultMusicTrack } from "@/entities/player/defaultMusic";
+import type { SongListItem } from "@/shared/api";
+import * as api from "@/shared/api";
+import { getDefaultMusicTrack } from "@/shared/lib/defaultMusic";
 import { createAudioPreloadPlanner } from "@/shared/lib/audioPreloadPlanner";
 import { createAudioPlaybackTracker } from "@/shared/lib/audioPlaybackTracker";
-import { logOptionalRejection } from "@/utils/devLog";
+import { logOptionalRejection } from "@/shared/lib/devLog";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused";
 
