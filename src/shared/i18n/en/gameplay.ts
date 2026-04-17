@@ -21,5 +21,12 @@ export default {
   "gameplay.dev.notes": "Notes",
   "gameplay.dev.ipcTotal": "IPC total",
   "gameplay.dev.ipcTop": "IPC top",
+  "gameplay.dev.songDuration": "Song duration",
+  "gameplay.dev.finishRaw": "Past end (raw)",
+  "gameplay.dev.finishLatch": "Past end (latched)",
+  "gameplay.dev.finishSettle": "Settle line",
+  "gameplay.dev.finishPending": "Pending (notes/holds)",
+  "gameplay.dev.yes": "Y",
+  "gameplay.dev.no": "N",
   "gameplay.countdownGo": "GO!",
 } as const;

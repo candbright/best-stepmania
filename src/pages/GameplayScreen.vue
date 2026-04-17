@@ -116,6 +116,9 @@ onUnmounted(() => {
       <div>{{ t('gameplay.dev.notes') }}: {{ devPerf.notes }}</div>
       <div v-if="devPerf.ipcTotal > 0">{{ t('gameplay.dev.ipcTotal') }}: {{ devPerf.ipcTotal }}</div>
       <div v-if="devPerf.ipcTop">{{ t('gameplay.dev.ipcTop') }}: {{ devPerf.ipcTop }}</div>
+      <div>{{ t('gameplay.dev.songDuration') }}: {{ devPerf.songDuration.toFixed(2) }}s</div>
+      <div>{{ t('gameplay.dev.finishRaw') }}: {{ t(devPerf.finishRawAudioEnded ? 'gameplay.dev.yes' : 'gameplay.dev.no') }} · {{ t('gameplay.dev.finishLatch') }}: {{ t(devPerf.finishLatchedPastSongEnd ? 'gameplay.dev.yes' : 'gameplay.dev.no') }}</div>
+      <div>{{ t('gameplay.dev.finishSettle') }}: {{ devPerf.finishSettleLineSec.toFixed(2) }}s · {{ t('gameplay.dev.finishPending') }}: {{ t(devPerf.finishPendingScoreable ? 'gameplay.dev.yes' : 'gameplay.dev.no') }}/{{ t(devPerf.finishPendingHolds ? 'gameplay.dev.yes' : 'gameplay.dev.no') }}</div>
     </div>
 
     <!-- Judgment text overlay (DOM layer, centre of screen) -->

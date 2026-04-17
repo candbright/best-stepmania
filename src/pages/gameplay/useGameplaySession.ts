@@ -62,6 +62,12 @@ const devPerf = ref({
   notes: 0,
   ipcTotal: 0,
   ipcTop: "",
+  songDuration: 0,
+  finishRawAudioEnded: false,
+  finishLatchedPastSongEnd: false,
+  finishSettleLineSec: 0,
+  finishPendingScoreable: false,
+  finishPendingHolds: false,
 });
 const devPanelTimer = ref<ReturnType<typeof setInterval> | null>(null);
 const showDevPanel = ref(false);
@@ -781,6 +787,12 @@ function updateDevPerfPanel() {
     notes: enginePerf.notesCount,
     ipcTotal,
     ipcTop,
+    songDuration: enginePerf.songDuration,
+    finishRawAudioEnded: enginePerf.finishRawAudioEnded,
+    finishLatchedPastSongEnd: enginePerf.finishLatchedPastSongEnd,
+    finishSettleLineSec: enginePerf.finishSettleLineSec,
+    finishPendingScoreable: enginePerf.finishPendingScoreable,
+    finishPendingHolds: enginePerf.finishPendingHolds,
   };
 }
 
