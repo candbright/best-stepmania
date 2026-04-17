@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, watch } from "vue";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 
 const props = withDefaults(
   defineProps<{

@@ -3,7 +3,7 @@ import { computed, onUnmounted, ref, watch } from "vue";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useGameStore } from "@/shared/stores/game";
 import { useRoute } from "vue-router";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import * as api from "@/utils/api";
 import { logOptionalRejection } from "@/utils/devLog";
 

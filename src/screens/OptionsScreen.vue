@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onUnmounted, onMounted, provide } from "vue";
 import { useRouter } from "vue-router";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import { useGameStore } from "@/shared/stores/game";
 import { useLibraryStore } from "@/shared/stores/library";
 import {

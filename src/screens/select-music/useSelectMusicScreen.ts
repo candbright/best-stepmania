@@ -4,7 +4,7 @@ import { useGameStore } from "@/shared/stores/game";
 import { useSessionStore } from "@/shared/stores/session";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useLibraryStore } from "@/shared/stores/library";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import * as api from "@/utils/api";
 import { playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/shared/lib/sfx";
 import { syncSelectionToFilteredSongs } from "./syncSelectionToFilteredSongs";

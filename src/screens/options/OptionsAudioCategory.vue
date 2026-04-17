@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, inject, watch } from "vue";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import { useGameStore } from "@/shared/stores/game";
 import type { RhythmSfxStyle } from "@/api/config";
 import { BaseTooltip } from "@/shared/ui";

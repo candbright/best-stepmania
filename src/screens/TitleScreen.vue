@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from "vue-router";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import { useGameStore } from "@/shared/stores/game";
 import { useSessionStore } from "@/shared/stores/session";
 import { usePlayerStore } from "@/shared/stores/player";

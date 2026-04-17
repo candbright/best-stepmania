@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import BaseFormModal from "@/shared/ui/BaseFormModal.vue";
 import BaseSelect from "@/shared/ui/BaseSelect.vue";
 import BaseNumberField from "@/shared/ui/BaseNumberField.vue";
 
-/** Same three modes as TitleScreen → enter game (pump only; no dance charts in this flow). */
+/** Same three modes as TitleScreen �?enter game (pump only; no dance charts in this flow). */
 const STEPS_TYPE_OPTIONS = ["pump-single", "pump-double", "pump-routine"] as const;
 
 const props = withDefaults(
@@ -91,7 +91,7 @@ function stepsTypeOptionLabel(st: string): string {
 }
 
 const packFilterOptions = computed(() => [
-  { label: "—", value: "" },
+  { label: t("select.filterPackAll"), value: "" },
   ...props.existingPacks.map((p) => ({ label: p, value: p })),
 ]);
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from "vue";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import { BaseModal } from "@/shared/ui";
 
 const props = defineProps<{

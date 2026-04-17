@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from "vue";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import EditorToolbarNoteSelectionGroup from "./EditorToolbarNoteSelectionGroup.vue";
 import EditorToolbarPlaybackGroup from "./EditorToolbarPlaybackGroup.vue";
 import EditorToolbarControlsGroup from "./EditorToolbarControlsGroup.vue";

@@ -22,6 +22,7 @@ export default {
   "select.filterDifficulty": "DIFF",
   "select.clearFilter": "Clear",
   "select.filterPack": "Song Pack",
+  "select.filterPackAll": "All packs",
   "select.filterStepsType": "Steps type",
   "select.filterStepsTypeAll": "All types",
   "select.audioFiles": "Audio",

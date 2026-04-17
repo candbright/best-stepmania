@@ -18,7 +18,7 @@ import {
   playRhythmLaneApproach,
 } from "@/shared/lib/sfx";
 import { devWarn, logOptionalRejection } from "@/utils/devLog";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import { playModeAndCoopForStepsType } from "@/utils/chartPlayMode";
 
 export function useGameplaySession() {

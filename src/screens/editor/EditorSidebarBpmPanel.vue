@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import type { BpmChange } from "./useEditorState";
 import { BPM_BEAT_MATCH_EPS } from "./constants";
 import { BaseNumberField } from "@/shared/ui";

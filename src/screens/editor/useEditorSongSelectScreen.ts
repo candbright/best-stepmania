@@ -4,7 +4,7 @@ import { useGameStore } from "@/shared/stores/game";
 import { useSessionStore } from "@/shared/stores/session";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useLibraryStore } from "@/shared/stores/library";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { playMenuMove, playMenuBack } from "@/shared/lib/sfx";
 import type { SongListItem } from "@/utils/api";

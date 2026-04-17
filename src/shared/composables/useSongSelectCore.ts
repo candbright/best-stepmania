@@ -2,7 +2,7 @@ import { ref, computed, watch } from "vue";
 import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useLibraryStore } from "@/shared/stores/library";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import { playMenuMove } from "@/shared/lib/sfx";
 import * as api from "@/utils/api";
 import { PHYSICAL_ROOT_PACK } from "@/constants/songLibrary";

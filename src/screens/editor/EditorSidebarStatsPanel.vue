@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { StyleValue } from "vue";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import type { ChartInfo } from "@/utils/api";
 import { DIFF_COLORS } from "./constants";
 

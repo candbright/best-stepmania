@@ -4,7 +4,7 @@ import { useRoute } from "vue-router";
 import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useSessionStore } from "@/shared/stores/session";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import * as api from "@/utils/api";
 import {
   useEditorState,

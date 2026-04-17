@@ -136,7 +136,7 @@ export const useSettingsStore = defineStore("settings", () => {
       masterVolume.value = Math.round(cfg.masterVolume * 100);
       
       // Update i18n locale
-      const i18nMod = await import("@/i18n");
+      const i18nMod = await import("@/shared/i18n");
       i18nMod.currentLocale.value = cfg.language as "en" | "zh-CN";
       localStorage.setItem("locale", cfg.language);
       

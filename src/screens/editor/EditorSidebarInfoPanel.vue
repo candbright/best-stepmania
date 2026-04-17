@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import { BaseNumberField } from "@/shared/ui";
 
 const { t } = useI18n();

@@ -2,7 +2,7 @@
 import { ref, computed, watch, onUnmounted } from "vue";
 import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import * as api from "@/utils/api";
 import { openFileDialog } from "@/utils/platform";
 import BaseFormModal from "@/shared/ui/BaseFormModal.vue";

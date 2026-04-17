@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { inject } from "vue";
 import { useRouter } from "vue-router";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import { SettingsSection } from "@/features/settings";
 import { OPTIONS_PANEL_SFX } from "./injectionKeys";
 

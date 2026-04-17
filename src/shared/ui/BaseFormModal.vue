@@ -8,7 +8,7 @@
  * - Optional bottom hint (via useModalBottomHintLayout)
  */
 import { computed, onUnmounted, ref, watch } from "vue";
-import { useI18n } from "@/i18n";
+import { useI18n } from "@/shared/i18n";
 import { useModalBottomHintLayout } from "@/shared/composables/useModalBottomHintLayout";
 
 const { t } = useI18n();

@@ -22,6 +22,7 @@ export default {
   "select.filterDifficulty": "难度",
   "select.clearFilter": "清除筛选",
   "select.filterPack": "歌曲包",
+  "select.filterPackAll": "全部曲包",
   "select.filterStepsType": "谱面类型",
   "select.filterStepsTypeAll": "全部类型",
   "select.audioFiles": "音频",
