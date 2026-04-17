@@ -1,5 +1,6 @@
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 import * as api from "@/shared/api";
+import { listenAudioPlayback } from "@/shared/services/tauri/audioEvents";
 
 export interface AudioPlaybackEventPayload {
   event: string;
@@ -31,7 +32,15 @@ interface EventTrackingState {
   lastEventTime: number;
 }
 
+interface EnginePollState {
+  timer: ReturnType<typeof setInterval> | null;
+}
+
 const DEFAULT_DEVICE_CHECK_INTERVAL_MS = 5000;
+/** 用引擎时间纠偏外推，避免纯 RAF 漂移导致提前 EOF */
+const ENGINE_POLL_MS = 280;
+/** 轨末 position 与 duration 的容差（秒），与解码块边界对齐 */
+const EOF_EPSILON_SEC = 0.12;
 
 export function createAudioPlaybackTracker(options: AudioPlaybackTrackerOptions) {
   const devicePoll: DevicePollState = {
@@ -46,9 +55,13 @@ export function createAudioPlaybackTracker(options: AudioPlaybackTrackerOptions)
     lastEventTime: 0,
   };
 
+  const enginePoll: EnginePollState = {
+    timer: null,
+  };
+
   async function setupEventListener() {
     if (eventTracking.unlisten) return;
-    eventTracking.unlisten = await listen<AudioPlaybackEventPayload>("audio-playback", (ev) => {
+    eventTracking.unlisten = await listenAudioPlayback<AudioPlaybackEventPayload>((ev) => {
       const { event: type, time, duration } = ev.payload;
       eventTracking.lastEventTime = time;
       eventTracking.localTimeAtEvent = performance.now() / 1000;
@@ -79,16 +92,50 @@ export function createAudioPlaybackTracker(options: AudioPlaybackTrackerOptions)
           const elapsed = performance.now() / 1000 - eventTracking.localTimeAtEvent;
           const currentTime = eventTracking.lastEventTime + elapsed;
           options.onPlaybackSnapshot(currentTime, duration);
-
-          if (currentTime >= duration - 0.3) {
-            options.onTrackEnd();
-            return;
-          }
         }
       }
       eventTracking.rafHandle = requestAnimationFrame(tick);
     };
     eventTracking.rafHandle = requestAnimationFrame(tick);
+  }
+
+  function stopEnginePoll() {
+    if (enginePoll.timer !== null) {
+      clearInterval(enginePoll.timer);
+      enginePoll.timer = null;
+    }
+  }
+
+  function startEnginePoll() {
+    stopEnginePoll();
+    enginePoll.timer = setInterval(() => {
+      void tickEngineFromBackend();
+    }, ENGINE_POLL_MS);
+  }
+
+  async function tickEngineFromBackend() {
+    if (!options.getIsActive()) return;
+    try {
+      const [isPlaying, state] = await Promise.all([
+        api.audioIsPlaying(),
+        api.audioGetPlaybackState(),
+      ]);
+      const engineDuration =
+        state.duration > 0 ? state.duration : options.getDuration();
+      eventTracking.lastEventTime = state.time;
+      eventTracking.localTimeAtEvent = performance.now() / 1000;
+      options.onPlaybackSnapshot(state.time, engineDuration);
+
+      if (
+        !isPlaying &&
+        engineDuration > 0 &&
+        state.time >= engineDuration - EOF_EPSILON_SEC
+      ) {
+        options.onTrackEnd();
+      }
+    } catch {
+      // Transient IPC failures during teardown / stream rebuild.
+    }
   }
 
   async function checkAudioDevice() {
@@ -130,11 +177,14 @@ export function createAudioPlaybackTracker(options: AudioPlaybackTrackerOptions)
   function start() {
     startDevicePolling();
     void setupEventListener();
+    startEnginePoll();
+    void tickEngineFromBackend();
     startLocalTracking();
   }
 
   function stop() {
     stopDevicePolling();
+    stopEnginePoll();
     stopLocalTracking();
   }
 
