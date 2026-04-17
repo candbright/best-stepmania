@@ -12,7 +12,7 @@ import { logOptionalRejection } from "@/utils/devLog";
 import type { EditorState } from "./useEditorState";
 import type { EditorCanvas } from "./useEditorCanvas";
 import { defaultQuantizeFromTimeSignatures } from "./quantizeFromTimeSignature";
-import { serializeEditorChartPersist, serializeEditorMetaPersist } from "@/screens/editor/editorChartBackup";
+import { serializeEditorChartPersist, serializeEditorMetaPersist } from "@/pages/editor/editorChartBackup";
 import { createEditorUndoQuantize } from "./actions/editorUndoQuantize";
 import { createEditorChartLoading } from "./actions/editorChartLoading";
 import { createEditorChartCrud } from "./actions/editorChartCrud";

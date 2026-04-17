@@ -4,6 +4,7 @@ import { join, extname } from "node:path";
 const root = join(process.cwd(), "src");
 
 const pairs = [
+  // Legacy alias; route layer lives under `src/pages/`
   ["@/screens/", "@/pages/"],
   ["@/utils/api", "@/shared/services/ipc"],
   ["@/utils/platform", "@/shared/lib/platform"],

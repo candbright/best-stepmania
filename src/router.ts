@@ -2,7 +2,7 @@ import { createRouter, createWebHashHistory, createWebHistory } from "vue-router
 import { isTauri } from "@/utils/platform";
 import { titleOptionsMusicGuard } from "@/router/titleOptionsMusicGuard";
 /** 首屏同步打包，避免懒加载 chunk 未到时的空窗黑屏 */
-import TitleScreen from "./screens/TitleScreen.vue";
+import TitleScreen from "./pages/TitleScreen.vue";
 
 const router = createRouter({
   history: isTauri() ? createWebHashHistory() : createWebHistory(),
@@ -15,42 +15,42 @@ const router = createRouter({
     {
       path: "/select-music",
       name: "select-music",
-      component: () => import("./screens/SelectMusicScreen.vue"),
+      component: () => import("./pages/SelectMusicScreen.vue"),
     },
     {
       path: "/player-options",
       name: "player-options",
-      component: () => import("./screens/PlayerOptionsScreen.vue"),
+      component: () => import("./pages/PlayerOptionsScreen.vue"),
     },
     {
       path: "/gameplay",
       name: "gameplay",
-      component: () => import("./screens/GameplayScreen.vue"),
+      component: () => import("./pages/GameplayScreen.vue"),
     },
     {
       path: "/evaluation",
       name: "evaluation",
-      component: () => import("./screens/EvaluationScreen.vue"),
+      component: () => import("./pages/EvaluationScreen.vue"),
     },
     {
       path: "/options",
       name: "options",
-      component: () => import("./screens/OptionsScreen.vue"),
+      component: () => import("./pages/OptionsScreen.vue"),
     },
     {
       path: "/song-packs",
       name: "song-packs",
-      component: () => import("./screens/SongPacksScreen.vue"),
+      component: () => import("./pages/SongPacksScreen.vue"),
     },
     {
       path: "/editor-select",
       name: "editor-select",
-      component: () => import("./screens/EditorSongSelectScreen.vue"),
+      component: () => import("./pages/EditorSongSelectScreen.vue"),
     },
     {
       path: "/editor",
       name: "editor",
-      component: () => import("./screens/EditorScreen.vue"),
+      component: () => import("./pages/EditorScreen.vue"),
     },
     {
       path: "/:pathMatch(.*)*",

@@ -1,5 +1,5 @@
 /**
- * Single debounced entry for persisting app config from settings screens.
+ * Single debounced entry for persisting app config from settings pages.
  * Call `flush()` from the screen's `onUnmounted` after stopping reactive sync.
  */
 export function useSettingsSaveQueue(saveFn: () => void | Promise<void>, debounceMs = 800) {

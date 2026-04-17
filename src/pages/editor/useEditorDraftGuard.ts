@@ -3,7 +3,7 @@ import { defaultQuantizeFromTimeSignatures } from "./quantizeFromTimeSignature";
 import type { EditorState } from "./useEditorState";
 import type { EditorCanvas } from "./useEditorCanvas";
 import type { useGameStore } from "@/shared/stores/game";
-import type { EditorChartBackupStored } from "@/screens/editor/editorChartBackup";
+import type { EditorChartBackupStored } from "@/pages/editor/editorChartBackup";
 import {
   applyEditorChartBackupToState,
   clearEditorChartBackup,
@@ -12,7 +12,7 @@ import {
   serializeEditorChartPersist,
   serializeEditorMetaPersist,
   writeEditorChartBackup,
-} from "@/screens/editor/editorChartBackup";
+} from "@/pages/editor/editorChartBackup";
 
 type GameStore = ReturnType<typeof useGameStore>;
 

@@ -25,7 +25,7 @@ const DEFAULT_MIN_DETAIL_PANEL_WIDTH = 400;
 const DEFAULT_INITIAL_WIDTH = 320;
 
 /**
- * Shared panel resize logic for song selection screens.
+ * Shared panel resize logic for song selection pages.
  * Provides drag-to-resize functionality for split panel layouts.
  */
 export function usePanelResize(options: PanelResizeOptions = {}): UsePanelResizeReturn {

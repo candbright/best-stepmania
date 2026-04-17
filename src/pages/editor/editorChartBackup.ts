@@ -3,7 +3,7 @@
  * One slot per (songPath, chartIndex).
  */
 
-import type { EditorState } from "@/screens/editor/useEditorState";
+import type { EditorState } from "@/pages/editor/useEditorState";
 
 const STORAGE_PREFIX = "bsm-editor-draft-v1";
 
