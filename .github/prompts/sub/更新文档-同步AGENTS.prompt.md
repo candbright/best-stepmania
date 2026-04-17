@@ -34,7 +34,7 @@ ls -la src/shared/lib/
 ls -la src/entities/
 ls -la src/widgets/
 ls -la src/features/
-ls -la src/api/
+ls -la src/shared/api/
 
 # Rust 目录
 ls -la crates/
@@ -60,7 +60,7 @@ grep -r "#[tauri::command]" src-tauri/src/commands/ -l
 **新增 / 变更的 API wrapper**
 
 ```bash
-ls -la src/api/
+ls -la src/shared/api/
 ```
 
 ### 3. 扫描游戏引擎变更
@@ -68,7 +68,7 @@ ls -la src/api/
 **新增 / 变更的引擎模块**
 
 ```bash
-ls -la src/engine/
+ls -la src/shared/lib/engine/
 ```
 
 ### 4. 扫描配置与常量
@@ -78,7 +78,7 @@ ls -la src/engine/
 cat package.json | grep version
 cat src-tauri/Cargo.toml | grep version
 cat src-tauri/tauri.conf.json | grep '"version"'
-cat src/constants/appMeta.ts
+cat src/shared/constants/appMeta.ts
 ```
 
 ---

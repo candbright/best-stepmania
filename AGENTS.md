@@ -44,13 +44,13 @@ cargo clippy --fix -W clippy::pedantic  # Auto-fix pedantic lints
 
 - **Strict mode** (`strict: true`) — no `any`, no implicit any/returns
 - **Unused code**: `noUnusedLocals: true`, `noUnusedParameters: true`
-- **Path alias**: `@/` → `src/`. Use `import Foo from "@/path/foo"` NOT relative paths
+- **Path alias**: `@/` → `src/`. Prefer `@/…` over long relative `../../` paths
 - **Composition API only**: `<script setup lang="ts">`. Never Options API
 - **File naming**:
   - `camelCase` for utilities, stores, composables
   - `PascalCase` for Vue components
   - `kebab-case` for screen subdirectories
-- **API layer**: All IPC goes through `src/api/`. Never call `invoke()` outside the API layer
+- **API layer**: All IPC goes through `src/shared/api/`. Never call `invoke()` outside the API layer
 - **Stores**: Pinia Composition API. Import specific sub-stores directly (not `game.ts` facade)
 - **Error handling**: `try/catch` on all async API calls. User-facing errors via toast/status
 
@@ -83,21 +83,24 @@ This project uses **Feature-Sliced Design (FSD)** to organize frontend code. FSD
 ### FSD Layer Structure
 ```
 src/
-├── app/                   # App composition (router/providers/store/i18n/styles)
+├── app/                   # App bootstrap: main.ts, App.vue, router/, global styles
 ├── entities/              # Domain entities (SongRow, SongPackGroup, PlayModeStrip)
 ├── features/              # Business use-cases (non-generic feature slices)
 ├── pages/                 # Route pages + page-scoped modules
 ├── shared/                # Cross-app shared code
+│   ├── api/               # Tauri IPC invoke wrappers (all commands)
 │   ├── composables/       # Reusable composables
-│   ├── constants/         # Shared constants (gradeColors, routinePlayerColors, etc.)
+│   ├── constants/       # Shared constants (gradeColors, appMeta, etc.)
 │   ├── i18n/              # i18n resources and helpers
 │   ├── layout/            # Layout components (BackgroundVideo, CursorLayer)
-│   ├── lib/               # Shared libraries (sfx, engine helpers, platform)
+│   ├── lib/               # Shared libraries (sfx, platform utils, defaultMusic, …)
+│   │   └── engine/        # GameEngine, JudgmentSystem, render/, adapters/ (NOT Vue)
 │   ├── providers/         # Shared injection keys/types (e.g. options panel context)
-│   ├── services/          # Service wrappers (ipc, tauri adapters)
+│   ├── services/          # Tauri window/audio helpers (`services/tauri/`)
 │   ├── stores/            # Pinia stores (settings, library, player, etc.)
 │   └── ui/                # Generic UI primitives + shared UI groups (`ui/settings`)
-└── widgets/               # Reusable business blocks (NoteField, MusicPlayer, PlayerSettingsPanel)
+├── widgets/               # Reusable business blocks (NoteField, MusicPlayer, SongSelectDetailPanel)
+└── assets/                # Global CSS, theme palettes (imported from app/styles)
 ```
 
 ### Layer Responsibilities
@@ -108,14 +111,14 @@ src/
 | **shared/composables** | Reusable reactive logic (useConfirmDialog, useGlobalHotkeys) |
 | **shared/stores** | Global Pinia state (settings, library, player, session) |
 | **shared/services** | External service wrappers (Tauri IPC wrappers) |
-| **shared/lib** | Cross-app libraries (sfx audio) |
+| **shared/lib** | Cross-app libraries (sfx, platform helpers, procedural audio); **`shared/lib/engine`** holds GameEngine / JudgmentSystem |
+| **shared/api** | IPC `invoke` wrappers only |
 | **shared/providers** | Shared injection keys and provider contracts |
 | **entities** | Business domain models (SongRow, PlayModeStrip, SongHero) |
 | **widgets** | Reusable business blocks (NoteField, MusicPlayer, SettingsCard, PlayerSettingsPanel) |
 | **features** | User-facing business use-cases (avoid putting pure UI primitives here) |
 | **pages** | Route-level page composition (TitleScreen, GameplayScreen) |
-| **engine** | Game logic (GameEngine, JudgmentSystem) - NOT components |
-| **app** | App bootstrap/router/provider assembly |
+| **app** | `main.ts`, root `App.vue`, Vue Router table, app-level CSS bridge |
 
 ### Key FSD Principles
 - **Shared = truly shared**: Code used by 2+ unrelated layers goes in `shared/`
@@ -123,10 +126,10 @@ src/
 - **Widgets = composed entities**: Business blocks combining entities (MusicPlayer uses SongRow)
 - **Features = user actions**: Keep pure UI primitives in `shared/ui`, not in `features`
 - **Pages = routes**: Route composition that orchestrates widgets/features
-- **Tauri calls = api only**: All `invoke()`, events, window control → `src/api/` or `src/shared/services/tauri/`
-- **Import direction is one-way**: `app -> pages -> widgets -> features -> entities -> shared` (no reverse imports)
+- **Tauri calls = api + services**: All `invoke()` → `src/shared/api/`; window/audio helpers → `src/shared/services/tauri/`
+- **Import direction is one-way**: `app → pages → widgets → features → entities → shared` (higher layers may depend on lower; not the reverse)
 - **Boundary check command**: run `npm run check:fsd-boundaries` before merge when moving modules across layers
-- **Boundary rule in repo**: currently hard-blocks `non-app -> app` imports (e.g. `pages/features/entities/widgets/shared` cannot import `app/*`)
+- **Boundary rule in repo**: enforces full layer ranks (`shared` < `entities` < `features` < `widgets` < `pages` < `app`); only `src/assets/` and `vite-env.d.ts` are exempt at `src/` root
 
 ### Naming Conventions
 - **Components**: `PascalCase.vue` (BaseModal.vue, NoteField.vue)
@@ -137,7 +140,7 @@ src/
 
 ### Key Principles
 - **Pages = composition**: Route pages should mostly assemble widgets/features, not contain business logic
-- **Tauri calls unified**: All `invoke()`, events, window control → `src/api/` only
+- **Tauri calls unified**: All `invoke()` → `src/shared/api/`; events/window helpers → `src/shared/services/tauri/` where applicable
 - **Global state → Pinia**: Only shared state across pages goes in `shared/stores/`
 - **Local state → composables**: Page-specific state in `pages/[name]/` or `shared/composables/`
 - **No over-splitting**: Keep reasonable granularity. Extract when there's clear reuse or clarity benefit
@@ -148,7 +151,7 @@ src/
 - Duplicate templates, logic, or styles
 - Store overloading (everything in one store)
 - Components directly manipulating global state
-- Tauri calls scattered in components (should be in `api/` or `shared/services/`)
+- Tauri calls scattered in components (should be in `shared/api/` or `shared/services/tauri/`)
 - Putting business logic in `shared/` (only generic/shared code belongs there)
 
 ---
@@ -159,7 +162,7 @@ src/
 ```
 invoke<T>("command_name", {...})  →  src-tauri/src/lib.rs  →  src-tauri/src/commands/<group>.rs
 ```
-Never call Tauri APIs (`invoke`, `State`, etc.) outside `src/api/` or `src-tauri/src/commands/`.
+Never call Tauri APIs (`invoke`, `State`, etc.) outside `src/shared/api/` or `src-tauri/src/commands/`.
 
 ### Game Engine Flow
 ```
@@ -168,7 +171,7 @@ TitleScreen → SelectMusicScreen → PlayerOptionsScreen → GameplayScreen →
                                                     JudgmentSystem (scoring)
 ```
 
-- `GameEngine` (`src/engine/GameEngine.ts`) — chart loading, audio sync, input
+- `GameEngine` (`src/shared/lib/engine/GameEngine.ts`) — chart loading, audio sync, input
 - `JudgmentSystem` — timing windows, DP calculation, grade
 - `NoteField.vue` — pure rendering component (all canvas rendering)
 
@@ -206,7 +209,7 @@ pub async fn my_command(state: State<'_, AppState>, arg: String) -> Result<MyRes
 }
 ```
 ```typescript
-// src/api/<group>.ts
+// src/shared/api/<group>.ts
 export async function myCommand(arg: string): Promise<MyResponse> {
   return invoke<MyResponse>("my_command", { arg });
 }
@@ -224,16 +227,16 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 - **Chart cache**: `ChartCache` in `lib.rs` is LRU (default 8 entries), configurable via `chart_cache_size`
 - **AppError**: `src-tauri/src/error.rs` defines `AppError` enum with `From<T>` impls for io/parse errors
 - **Song favorites**: `library` store (`src/shared/stores/library.ts`) manages favorites state; IPC commands `toggle_favorite`, `is_favorite`, `get_favorites`, `cleanup_orphaned_favorites` in `profile` command group
-- **Cursor position**: `src/utils/platform.ts` wraps Tauri `get_cursor_position` command — exception to "all IPC through `src/api/`" since it's a platform utility
+- **Cursor position**: `src/shared/lib/platform.ts` wraps Tauri `get_cursor_position` command — exception to "all IPC through `shared/api`" since it's a platform utility
 
 ---
 
 ## Adding New Features
 
-1. **New page**: Create `src/pages/NewScreen.vue` + page-scoped modules in `src/pages/new-screen/`. Register route in `src/router.ts`
-2. **New IPC command**: Add handler in `src-tauri/src/commands/<group>.rs`, register in `lib.rs`, add wrapper in `src/api/<group>.ts`, export from `src/api/index.ts`
+1. **New page**: Create `src/pages/NewScreen.vue` + page-scoped modules in `src/pages/new-screen/`. Register route in `src/app/router/index.ts`
+2. **New IPC command**: Add handler in `src-tauri/src/commands/<group>.rs`, register in `lib.rs`, add wrapper in `src/shared/api/<group>.ts`, export from `src/shared/api/index.ts`
 3. **New Rust crate**: Add to workspace root `Cargo.toml` `[workspace.members]` AND to `src-tauri/Cargo.toml` `[dependencies]`
-4. **New game mechanic**: Extend `JudgmentSystem` or `GameEngine` in `src/engine/`, NOT in page components
+4. **New game mechanic**: Extend `JudgmentSystem` or `GameEngine` in `src/shared/lib/engine/`, NOT in page components
 5. **New NoteSkin**: Add `NoteSkinConfig` to `sm-noteskin`, add commands, frontend loads via `useNoteSkin()`
 6. **New widget**: Add to `src/widgets/` if reusable across pages (NoteField, MusicPlayer pattern)
 7. **New entity**: Add to `src/entities/` if domain model with no business logic (SongRow pattern)
@@ -245,7 +248,7 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 
 ## Release Notes
 
-- **Version source of truth**: Keep `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and `src/constants/appMeta.ts` on the same semver string (no `v` prefix)
+- **Version source of truth**: Keep `package.json`, `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and `src/shared/constants/appMeta.ts` on the same semver string (no `v` prefix)
 - **Changelog**: Maintain `docs/changelog/bsm-vX.Y.Z.md` matching git tag `vX.Y.Z`
 
 ---
@@ -254,6 +257,6 @@ export async function myCommand(arg: string): Promise<MyResponse> {
 
 - **Do not commit** unless explicitly asked
 - **Maintain low coupling**: Backend crates should not know about Tauri. Tauri commands are the adapter layer
-- **Frontend component-based**: All rendering logic in `NoteField.vue` or `engine/` — NOT in page components
+- **Frontend component-based**: All rendering logic in `NoteField.vue` or `shared/lib/engine/` — NOT in page components
 - **`as any` / `@ts-ignore`**: Never in production code. Only acceptable for browser API polyfills (e.g., `window.__TAURI_INTERNALS__`)
 - **No `expect()` on user data**: Only on internal invariants with clear panic messages

@@ -26,11 +26,11 @@
 | `package.json` | `version` |
 | `src-tauri/Cargo.toml` | `[package].version` |
 | `src-tauri/tauri.conf.json` | 顶层 `version` |
-| `src/constants/appMeta.ts` | `APP_VERSION` |
+| `src/shared/constants/appMeta.ts` | `APP_VERSION` |
 
 ```bash
 # 验证版本一致性
-grep -r '"version"' package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json src/constants/appMeta.ts
+grep -r '"version"' package.json src-tauri/Cargo.toml src-tauri/tauri.conf.json src/shared/constants/appMeta.ts
 ```
 
 **注意**：不修改 `crates/sm-*/Cargo.toml` 的版本，除非用户明确要求 bump 内部 crate 版本。
@@ -88,7 +88,7 @@ git diff --stat
 | package.json | ✓ |
 | src-tauri/Cargo.toml | ✓ |
 | src-tauri/tauri.conf.json | ✓ |
-| src/constants/appMeta.ts | ✓ |
+| src/shared/constants/appMeta.ts | ✓ |
 
 ### 文档同步状态
 | 文档 | 状态 |

@@ -16,7 +16,7 @@
 
 **新增屏幕/页面**
 ```
-检查 src/router.ts 中的路由配置
+检查 `src/app/router/index.ts` 中的路由配置
 列出所有路由 path → 对应页面组件
 对比现有文档是否包含该页面
 ```
@@ -29,7 +29,7 @@
 
 **新增游戏功能**
 ```
-检查 src/engine/ 目录
+检查 `src/shared/lib/engine/` 目录
 识别新增的 GameEngine 模块、JudgmentSystem 变更
 识别新增的评分规则、判定窗口、等级计算变更
 ```

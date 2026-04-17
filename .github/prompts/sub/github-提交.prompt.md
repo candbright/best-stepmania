@@ -30,7 +30,7 @@
 3. 对每个分组分别执行：
    - `git add [相关文件列表]`
    - 生成**符合上文规范**的 commit message（首行必须为 `type(scope): subject`）
-   - `git commit -m "首行" -m "可选正文与 Co-authored-by"`
+   - 提交：优先 `git commit -F <utf8 消息文件>`；若用 `-m`，在 **PowerShell** 下首行须用**单引号**包裹（含 `(scope)` 时禁止仅用双引号）。**Windows** 若遇 `unknown option 'trailer'`，改用本文「Windows 环境注意事项」中的 `git` 路径。
 
 分组原则：
 
@@ -40,3 +40,54 @@
 - 不要将不相关的更改放在同一个 commit 中。
 
 请先列出你的分组计划与**每条将使用的完整首行 message**（自检 type 在白名单、scope 非空），并直接执行提交。
+
+---
+
+## Windows 环境注意事项（必读，避免提交失败）
+
+在部分 Windows 安装上会出现以下两类问题，**按下面方式执行即可稳定提交**。
+
+### 1. `error: unknown option 'trailer'`
+
+**现象**：执行 `git commit`（即使仅 `-m "hello"`）即报错 `unknown option 'trailer'`，与 commit message 内容无关。
+
+**原因**：`Git for Windows` 自带的 **`E:\Git\cmd\git.exe`** 可能对 `commit` 注入了当前 Git 版本不支持的参数（与 `interpret-trailers` / 包装链路有关）；本仓库使用的 Git 2.29.x 会因此失败。
+
+**推荐做法（任选其一）**：
+
+- **优先**：在终端中改用 **`mingw64` 自带的 git** 完成提交（路径因安装盘符而异，常见为）：
+  - `E:\Git\mingw64\bin\git.exe`
+  - 示例：`& "E:\Git\mingw64\bin\git.exe" status`
+  - 示例：`& "E:\Git\mingw64\bin\git.exe" commit -F .git/COMMIT_EDITMSG.txt`
+- **长期**：将 `mingw64\bin` 置于 `PATH` 中且排在 `Git\cmd` **之前**，或升级 Git for Windows 到较新版本后再验证 `git commit` 是否正常。
+
+**执行提交类提示词时**：若默认 `git` 失败，应自动改用 `mingw64\bin\git.exe` 重试，无需用户手工改环境。
+
+### 2. PowerShell 与首行里的括号 `(scope)`
+
+**现象**：使用双引号传 `-m "refactor(fsd): subject"` 时，PowerShell 会把 **`(fsd)` 当作子表达式**解析，导致传入 `git` 的参数被截断或变形，进而产生诡异错误。
+
+**推荐做法**：
+
+- 首行含 `(scope)` 时，**`-m` 使用单引号**：`-m 'refactor(fsd): relocate app shell'`；
+- 或多行正文、含 `Co-authored-by` 时，**写入 UTF-8 文本文件后用 `-F`**：
+  - `git commit -F path/to/commit-message.txt`
+  - 文件中首行仍为 `type(scope): subject`，空一行后写正文，最后一行单独写 `Co-authored-by: ...`。
+
+### 3. 多行 message 与 Co-authored-by
+
+为同时满足「正文 + Co-authored-by 单独成行」与 **Windows/PowerShell 引号规则**，优先：
+
+```powershell
+git commit -F .git/COMMIT_EDITMSG.txt
+```
+
+其中 `.git/COMMIT_EDITMSG.txt` 为本次提交的完整说明（首行 + 空行 + 正文 + `Co-authored-by`）。
+
+### 4. Hook 与 `--no-verify`
+
+若项目或全局配置了有问题的 `commit-msg` / `pre-commit` hook，可临时使用：
+
+`git commit --no-verify ...`
+
+**仅在确认 hook 误报或与本任务无关时使用**；默认仍应先尝试正常提交。

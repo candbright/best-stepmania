@@ -77,11 +77,11 @@
 - 组件规范：优先 `<script setup lang="ts">`，组件名 PascalCase，样式作用域清晰（避免全局样式泄漏与选择器污染）。
 
 ## 2) API 调用边界
-- 后端/平台能力调用是否统一走 `src/api/` 或 `src/shared/services/`。
+- 后端/平台能力调用是否统一走 `src/shared/api/` 或 `src/shared/services/tauri/`。
 - 是否存在组件内直连底层桥接 API 或越层访问。
 
 ## 3) 状态管理
-- 跨页面共享状态是否集中在 `src/app/store`（及其下属模块）；页面专属状态是否在 `pages/*` 的 composable。
+- 跨页面共享状态是否集中在 `src/shared/stores/`；页面专属状态是否在 `pages/*` 的 composable。
 - store 是否职责单一、是否过载；全项目模式下关注应用级状态、页面级状态边界及隐式耦合。
 
 ## 4) 可维护性
