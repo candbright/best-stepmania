@@ -1,2 +1,2 @@
-/** Keep in sync with root package.json / src-tauri Cargo.toml */
-export const APP_VERSION = "1.3.2";
+/** Semver from root `package.json`, injected at build time via Vite (`vite.config.ts` `define`). */
+export const APP_VERSION = import.meta.env.VITE_APP_VERSION;

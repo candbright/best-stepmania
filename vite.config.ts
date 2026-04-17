@@ -1,11 +1,17 @@
+import { readFileSync } from "node:fs";
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { resolve } from "path";
 
 const host = process.env.TAURI_DEV_HOST;
 
+const pkg = JSON.parse(readFileSync(resolve(__dirname, "package.json"), "utf-8")) as { version: string };
+
 export default defineConfig(async ({ command }) => ({
   plugins: [vue()],
+  define: {
+    "import.meta.env.VITE_APP_VERSION": JSON.stringify(pkg.version),
+  },
   // Any production bundle used by Tauri must resolve chunks relatively.
   base: command === "build" ? "./" : "/",
   build: {

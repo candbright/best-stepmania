@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, inject } from "vue";
+import { APP_VERSION } from "@/shared/constants/appMeta";
 import { useI18n } from "@/shared/i18n";
 import { SettingsSection } from "@/features/settings";
 import { exportDiagnosticsAndOpen } from "@/shared/services/tauri/diagnostics";
@@ -44,7 +45,7 @@ function onExportDiagnostics() {
   <div class="options-category-root">
   <SettingsSection :title="t('settings.about')">
     <div class="about-info">
-      <p class="about-version">Best-StepMania v1.0.0</p>
+      <p class="about-version">Best-StepMania v{{ APP_VERSION }}</p>
       <p class="about-desc">{{ t("settings.aboutDescription") }}</p>
       <p class="about-desc">内测问题反馈群：1098757120</p>
     </div>

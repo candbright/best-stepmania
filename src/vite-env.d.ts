@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  /** Injected in vite.config.ts from root package.json `version`. */
+  readonly VITE_APP_VERSION: string;
+}
+
 /** Tauri injects this in the webview; optional File System Access API in Chromium. */
 interface Window {
   __TAURI_INTERNALS__?: unknown;
