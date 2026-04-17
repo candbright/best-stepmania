@@ -68,7 +68,6 @@ const { songPanelWidth, isDragging, startDrag } = usePanelResize();
   background: linear-gradient(165deg, var(--bg-gradient-start) 0%, var(--bg-color) 48%, var(--bg-gradient-end) 100%);
   overflow: hidden;
   position: relative;
-  padding-top: 52px;
 }
 
 /* ── Background ── */
@@ -93,7 +92,9 @@ const { songPanelWidth, isDragging, startDrag } = usePanelResize();
 
 /* ── Topbar ── */
 .topbar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 1001;
+  position: relative;
+  z-index: 1001;
+  flex-shrink: 0;
   display: flex; align-items: center; gap: 0.5rem;
   padding: 0.6rem 1rem;
   background: color-mix(in srgb, var(--bg-color) 82%, transparent);
@@ -187,7 +188,7 @@ const { songPanelWidth, isDragging, startDrag } = usePanelResize();
   overflow: hidden;
   background: var(--section-bg);
 }
-.song-scroll { flex: 1; overflow-y: auto; padding: 0.5rem 0; }
+.song-scroll { flex: 1; overflow-y: auto; padding: 0 0 0.5rem 0; }
 .song-scroll::-webkit-scrollbar { width: 4px; }
 .song-scroll::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--primary-color) 45%, transparent);
