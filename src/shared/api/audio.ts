@@ -36,6 +36,7 @@ export async function audioGetDuration(): Promise<number> {
 export interface AudioPlaybackState {
   time: number;
   duration: number;
+  isPlaying: boolean;
 }
 
 export async function audioGetPlaybackState(): Promise<AudioPlaybackState> {

@@ -186,6 +186,7 @@ pub fn audio_get_duration(state: State<AppState>) -> Result<f64, String> {
 pub struct AudioPlaybackState {
     pub time: f64,
     pub duration: f64,
+    pub is_playing: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -216,6 +217,7 @@ pub fn audio_get_playback_state(state: State<AppState>) -> Result<AudioPlaybackS
     Ok(AudioPlaybackState {
         time: engine.current_time(),
         duration: engine.duration(),
+        is_playing: engine.is_playing(),
     })
 }
 
