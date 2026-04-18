@@ -1,6 +1,6 @@
 # Best-StepMania User Guide (Simplified)
 
-This guide aligns with **v1.3.5**. Release notes: [changelog/bsm-v1.3.5.md](../changelog/bsm-v1.3.5.md).
+This guide aligns with **v1.3.6**. Release notes: [changelog/bsm-v1.3.6.md](../changelog/bsm-v1.3.6.md).
 
 ## 1. What You Need
 
@@ -38,6 +38,7 @@ Note: do not launch `target/debug/best-stepmania.exe` directly. It expects the `
 - Open a song/chart from the editor entry; on the picker screen, drag the divider between the list and details to resize panes.
 - Add, remove, and move notes on the canvas.
 - Edit timing-related values and save back to chart files.
+- On **desktop**, use **Export .sm** / **Import .sm** in the chart list sidebar to write a standalone `.sm` for the current difficulty or add a new difficulty from a `.sm` file (save pending editor changes when prompted).
 
 ## 4. Common Settings
 
@@ -76,4 +77,4 @@ Note: do not launch `target/debug/best-stepmania.exe` directly. It expects the `
 
 - Chinese guide: `docs/zh/USER_GUIDE.md`
 - English guide: `docs/en/USER_GUIDE.md`
-- Release notes: `docs/changelog/bsm-v1.3.5.md`
+- Release notes: `docs/changelog/bsm-v1.3.6.md`
