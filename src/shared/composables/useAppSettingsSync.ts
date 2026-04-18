@@ -56,6 +56,7 @@ export function useAppSettingsSync(settings: SettingsStore, scheduleSave: () => 
       settings.theme;
       settings.uiScale;
       settings.doublePanelGapPx;
+      settings.songSelectPanelWidthPx;
       settings.judgmentStyle;
       settings.showOffset;
       settings.lifeType;

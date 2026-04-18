@@ -8,3 +8,4 @@ export { default as BaseConfirmModal } from "./BaseConfirmModal.vue";
 export { default as BaseTooltip } from "./BaseTooltip.vue";
 export { default as BaseDangerModal } from "./BaseDangerModal.vue";
 export { default as BaseFormModal } from "./BaseFormModal.vue";
+export { default as CustomScrollArea } from "./CustomScrollArea.vue";

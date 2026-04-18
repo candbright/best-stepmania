@@ -119,4 +119,23 @@ const emit = defineEmits<{
   height: auto;
   min-height: 3rem;
 }
+
+/* 左栏宽度足够时分栏；断点与分隔栏拖动联动（song-panel 容器查询） */
+@container song-panel (min-width: 520px) {
+  .pack-songs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem 0.55rem;
+    align-content: start;
+  }
+  .pack-songs :deep(.empty-state) {
+    grid-column: 1 / -1;
+  }
+}
+
+@container song-panel (min-width: 800px) {
+  .pack-songs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
 </style>

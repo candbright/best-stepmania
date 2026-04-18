@@ -8,6 +8,7 @@ import {
   shortcutsToSerializable,
   SHORTCUT_DEFAULTS,
 } from "@/shared/lib/engine/keyBindings";
+import { SONG_SELECT_PANEL_WIDTH_DEFAULT_PX } from "@/shared/constants/songSelectPanel";
 import { clampDoublePanelGapPx, DOUBLE_PANEL_GAP_DEFAULT_PX } from "@/shared/lib/engine/render/panelLayout";
 import { normalizeAppThemeId } from "@/shared/constants/appThemes";
 import { normalizeWindowDisplayPreset } from "@/shared/constants/windowDisplay";
@@ -25,6 +26,12 @@ const clampRange = (value: number, min: number, max: number, fallback: number): 
   if (!Number.isFinite(value)) return fallback;
   return Math.max(min, Math.min(max, value));
 };
+
+function clampSongSelectPanelWidthPx(value: unknown): number {
+  const fallback = SONG_SELECT_PANEL_WIDTH_DEFAULT_PX;
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.round(Math.max(fallback, Math.min(1600, value)));
+}
 
 const normalizeCursorStylePreset = (value: string | null | undefined): CursorStylePreset =>
   value === "b" ? "b" : "a";
@@ -87,6 +94,8 @@ export const useSettingsStore = defineStore("settings", () => {
   const playbackRate = ref(1.0);
   const uiScale = ref(1.0);
   const doublePanelGapPx = ref(DOUBLE_PANEL_GAP_DEFAULT_PX);
+  /** 选歌页左侧歌曲列表宽度（px），与 `usePanelResize` / config 同步 */
+  const songSelectPanelWidthPx = ref(SONG_SELECT_PANEL_WIDTH_DEFAULT_PX);
   const batteryLives = ref(3);
   const showParticles = ref(true);
 
@@ -173,6 +182,7 @@ export const useSettingsStore = defineStore("settings", () => {
       playbackRate.value = cfg.playbackRate ?? 1.0;
       uiScale.value = cfg.uiScale ?? 1.0;
       doublePanelGapPx.value = clampDoublePanelGapPx(cfg.doublePanelGapPx ?? DOUBLE_PANEL_GAP_DEFAULT_PX);
+      songSelectPanelWidthPx.value = clampSongSelectPanelWidthPx(cfg.songSelectPanelWidthPx);
       batteryLives.value = cfg.batteryLives ?? 3;
       showParticles.value = cfg.showParticles ?? true;
       // Always use custom cursor skin (UI toggle removed).
@@ -331,6 +341,7 @@ export const useSettingsStore = defineStore("settings", () => {
       playbackRate: playbackRate.value,
       uiScale: uiScale.value,
       doublePanelGapPx: clampDoublePanelGapPx(doublePanelGapPx.value),
+      songSelectPanelWidthPx: clampSongSelectPanelWidthPx(songSelectPanelWidthPx.value),
       batteryLives: batteryLives.value,
       showParticles: showParticles.value,
       cursorEnabled: true,
@@ -385,6 +396,7 @@ export const useSettingsStore = defineStore("settings", () => {
     playbackRate.value = 1.0;
     uiScale.value = 1.0;
     doublePanelGapPx.value = DOUBLE_PANEL_GAP_DEFAULT_PX;
+    songSelectPanelWidthPx.value = SONG_SELECT_PANEL_WIDTH_DEFAULT_PX;
     batteryLives.value = 3;
     showParticles.value = true;
     cursorEnabled.value = true;
@@ -419,7 +431,7 @@ export const useSettingsStore = defineStore("settings", () => {
     audioOffsetMs,
     windowDisplayPreset, windowWidth, windowHeight, vsync, targetFps,
     judgmentStyle, showOffset, lifeType, autoPlay,
-    playbackRate, uiScale, doublePanelGapPx, batteryLives, showParticles,
+    playbackRate, uiScale, doublePanelGapPx, songSelectPanelWidthPx, batteryLives, showParticles,
     cursorEnabled, cursorStylePreset, cursorScale, cursorOpacity, cursorGlow,
     cursorTrailsEnabled, cursorRippleEnabled, cursorRippleDurationMs,
     cursorRippleMinScale, cursorRippleMaxScale, cursorRippleOpacity,

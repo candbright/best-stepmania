@@ -65,6 +65,8 @@ export interface AppConfig {
   uiScale: number;
   /** Horizontal gap (px) between P1/P2 note panels in double and co-op layouts. */
   doublePanelGapPx: number;
+  /** Select-music / editor song-select: left song list panel width (px), persisted. */
+  songSelectPanelWidthPx?: number;
   batteryLives: number;
   chartCacheSize: number;
   showParticles: boolean;

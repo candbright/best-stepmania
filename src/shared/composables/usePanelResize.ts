@@ -1,14 +1,25 @@
+import {
+  SONG_SELECT_PANEL_MIN_DETAIL_PX,
+  SONG_SELECT_PANEL_WIDTH_DEFAULT_PX,
+} from "@/shared/constants/songSelectPanel";
 import { onUnmounted, ref } from "vue";
+
+export {
+  SONG_SELECT_PANEL_MIN_DETAIL_PX,
+  SONG_SELECT_PANEL_WIDTH_DEFAULT_PX,
+} from "@/shared/constants/songSelectPanel";
 
 export interface PanelResizeOptions {
   /** Initial panel width in pixels */
   initialWidth?: number;
-  /** Minimum panel width in pixels */
+  /** Minimum panel width in pixels (default: same as {@link initialWidth}, i.e. cannot drag narrower than entry width) */
   minPanelWidth?: number;
   /** Minimum detail panel width in pixels */
   minDetailPanelWidth?: number;
   /** CSS selector for the resize container */
   containerSelector?: string;
+  /** Called once when a resize drag ends (after width is clamped). Use to persist. */
+  onResizeCommit?: (widthPx: number) => void;
 }
 
 export interface UsePanelResizeReturn {
@@ -20,21 +31,19 @@ export interface UsePanelResizeReturn {
   stopDrag: () => void;
 }
 
-const DEFAULT_MIN_PANEL_WIDTH = 200;
-const DEFAULT_MIN_DETAIL_PANEL_WIDTH = 400;
-const DEFAULT_INITIAL_WIDTH = 320;
+const DEFAULT_MIN_DETAIL_PANEL_WIDTH = SONG_SELECT_PANEL_MIN_DETAIL_PX;
+const DEFAULT_INITIAL_WIDTH = SONG_SELECT_PANEL_WIDTH_DEFAULT_PX;
 
 /**
  * Shared panel resize logic for song selection pages.
  * Provides drag-to-resize functionality for split panel layouts.
  */
 export function usePanelResize(options: PanelResizeOptions = {}): UsePanelResizeReturn {
-  const {
-    initialWidth = DEFAULT_INITIAL_WIDTH,
-    minPanelWidth = DEFAULT_MIN_PANEL_WIDTH,
-    minDetailPanelWidth = DEFAULT_MIN_DETAIL_PANEL_WIDTH,
-    containerSelector = ".sms-body",
-  } = options;
+  const initialWidth = options.initialWidth ?? DEFAULT_INITIAL_WIDTH;
+  const minPanelWidth = options.minPanelWidth ?? initialWidth;
+  const minDetailPanelWidth = options.minDetailPanelWidth ?? DEFAULT_MIN_DETAIL_PANEL_WIDTH;
+  const containerSelector = options.containerSelector ?? ".sms-body";
+  const onResizeCommit = options.onResizeCommit;
 
   const songPanelWidth = ref(initialWidth);
   const isDragging = ref(false);
@@ -58,7 +67,8 @@ export function usePanelResize(options: PanelResizeOptions = {}): UsePanelResize
   };
 
   const stopDrag = () => {
-    if (!isDragging.value) {
+    const wasDragging = isDragging.value;
+    if (!wasDragging) {
       document.body.style.userSelect = "";
       return;
     }
@@ -66,6 +76,7 @@ export function usePanelResize(options: PanelResizeOptions = {}): UsePanelResize
     document.removeEventListener("mousemove", onDrag);
     document.removeEventListener("mouseup", stopDrag);
     document.body.style.userSelect = "";
+    onResizeCommit?.(songPanelWidth.value);
   };
 
   onUnmounted(() => {

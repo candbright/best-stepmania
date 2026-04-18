@@ -48,6 +48,10 @@ export async function applyWindowDisplayPreset(
     }
 
     if (preset === "exclusiveFullscreen") {
+      // 已处于全屏时跳过「先关再开」，避免进入设置等场景重复 apply 时闪屏
+      if (await win.isFullscreen()) {
+        return;
+      }
       await win.setFullscreen(false);
       await win.setDecorations(true);
       await win.setResizable(false);

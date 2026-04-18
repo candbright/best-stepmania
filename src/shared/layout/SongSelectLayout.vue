@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import type { ComponentPublicInstance } from "vue";
+import { onMounted, onUnmounted, watch } from "vue";
+import CustomScrollArea from "@/shared/ui/CustomScrollArea.vue";
 import { usePanelResize } from "@/shared/composables/usePanelResize";
+import {
+  SONG_SELECT_PANEL_MIN_DETAIL_PX,
+  SONG_SELECT_PANEL_WIDTH_DEFAULT_PX,
+} from "@/shared/constants/songSelectPanel";
+import { useSettingsStore } from "@/shared/stores/settings";
 
 interface Props {
   title: string;
@@ -15,7 +22,51 @@ defineProps<Props>();
 
 const emit = defineEmits<Emits>();
 
-const { songPanelWidth, isDragging, startDrag } = usePanelResize();
+const settings = useSettingsStore();
+
+const { songPanelWidth, isDragging, startDrag } = usePanelResize({
+  initialWidth: settings.songSelectPanelWidthPx ?? SONG_SELECT_PANEL_WIDTH_DEFAULT_PX,
+  onResizeCommit(w) {
+    const rounded = Math.round(w);
+    if (rounded === settings.songSelectPanelWidthPx) return;
+    settings.songSelectPanelWidthPx = rounded;
+    void settings.saveAppConfig();
+  },
+});
+
+function clampSongPanelToContainer() {
+  const container = document.querySelector(".sms-body") as HTMLElement | null;
+  if (!container) return;
+  const maxW = container.getBoundingClientRect().width - SONG_SELECT_PANEL_MIN_DETAIL_PX;
+  const minW = Math.round(settings.songSelectPanelWidthPx ?? SONG_SELECT_PANEL_WIDTH_DEFAULT_PX);
+  const cur = songPanelWidth.value ?? minW;
+  songPanelWidth.value = Math.max(minW, Math.min(cur, maxW));
+}
+
+watch(
+  [() => settings.configLoaded, () => settings.songSelectPanelWidthPx],
+  () => {
+    if (!settings.configLoaded) return;
+    songPanelWidth.value = Math.round(
+      settings.songSelectPanelWidthPx ?? SONG_SELECT_PANEL_WIDTH_DEFAULT_PX,
+    );
+    requestAnimationFrame(() => clampSongPanelToContainer());
+  },
+  { immediate: true },
+);
+
+function onWindowResize() {
+  clampSongPanelToContainer();
+}
+
+onMounted(() => {
+  window.addEventListener("resize", onWindowResize);
+  requestAnimationFrame(() => clampSongPanelToContainer());
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", onWindowResize);
+});
 </script>
 
 <template>
@@ -40,9 +91,9 @@ const { songPanelWidth, isDragging, startDrag } = usePanelResize();
 
     <div class="sms-body">
       <div class="song-panel" :style="{ width: `${songPanelWidth}px` }">
-        <div class="song-scroll" :ref="songScrollRef">
+        <CustomScrollArea class="song-scroll" :scrollbar-width="4" :set-scroll-el="songScrollRef">
           <slot name="song-panel" />
-        </div>
+        </CustomScrollArea>
       </div>
 
       <div class="resize-handle" :class="{ dragging: isDragging }" @mousedown="startDrag" />
@@ -51,6 +102,9 @@ const { songPanelWidth, isDragging, startDrag } = usePanelResize();
         <slot name="detail-panel" />
       </div>
     </div>
+
+    <!-- 默认插槽：筛选弹窗、确认框等（Teleport 到 body，此处仅占位以挂载组件） -->
+    <slot />
   </div>
 </template>
 
@@ -187,12 +241,16 @@ const { songPanelWidth, isDragging, startDrag } = usePanelResize();
   border-right: 1px solid var(--border-color);
   overflow: hidden;
   background: var(--section-bg);
+  /* 供选歌列表 #歌曲列表 随分隔栏宽度切换 1/2/3 列网格 */
+  container-type: inline-size;
+  container-name: song-panel;
 }
-.song-scroll { flex: 1; overflow-y: auto; padding: 0 0 0.5rem 0; }
-.song-scroll::-webkit-scrollbar { width: 4px; }
-.song-scroll::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--primary-color) 45%, transparent);
-  border-radius: 2px;
+.song-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.song-scroll :deep(.custom-scroll-viewport) {
+  padding: 0 0 0.5rem 0;
 }
 
 /* ── Resize handle ── */

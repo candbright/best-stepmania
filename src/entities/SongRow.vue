@@ -163,4 +163,12 @@ function onKeyDown(e: KeyboardEvent) {
   font-size: 0.62rem;
   font-weight: 700;
 }
+
+/* 多列：不改变与单列一致的内边距、间距、字号与行高；仅取消底边线并略作圆角，由 SongPackGroup 的 gap 分格 */
+@container song-panel (min-width: 520px) {
+  .song-row {
+    border-bottom: none;
+    border-radius: 6px;
+  }
+}
 </style>

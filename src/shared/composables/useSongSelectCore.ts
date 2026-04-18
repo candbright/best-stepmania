@@ -292,6 +292,7 @@ export function useSongSelectCore(options: UseSongSelectCoreOptions = {}) {
     diffMax.value = null;
     filterSearch.value = "";
     filterPack.value = "";
+    library.showFavoritesOnly = false;
   }
 
   function onFilterApply() {
