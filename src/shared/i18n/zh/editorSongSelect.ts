@@ -8,4 +8,5 @@ export default {
   "editorSelect.noChartsBadge": "无谱面",
   "editorSelect.noChartsInSong": "该歌曲尚无谱面，进入编辑器后可新建。",
   "editorSelect.refresh": "刷新",
+  "editorSelect.createSong": "创建歌曲",
 } as const;

@@ -8,4 +8,5 @@ export default {
   "editorSelect.noChartsBadge": "No charts",
   "editorSelect.noChartsInSong": "This song has no charts yet. Open the editor to create one.",
   "editorSelect.refresh": "Refresh",
+  "editorSelect.createSong": "Create Song",
 } as const;

@@ -28,6 +28,22 @@ export default {
   "editor.newChart": "New Chart",
   "editor.duplicateChart": "Duplicate Chart",
   "editor.duplicateChartHint": "Save the current chart and add a full copy (notes and timing). Opens the new copy.",
+  "editor.exportSm": "Export .sm",
+  "editor.exportSmConfirmTitle": "Export as .sm",
+  "editor.exportSmConfirmMessage":
+    "The chart will be saved first, then you can choose where to save the .sm file. Continue?",
+  "editor.exportSmHint": "Export this difficulty as a single-chart .sm (you will confirm saving first). Some SSC-only timing rows may be omitted in .sm.",
+  "editor.importSm": "Import .sm",
+  "editor.importSmConfirmTitle": "Import .sm",
+  "editor.importSmConfirmMessage":
+    "After you confirm, the current chart will be saved, then you can pick a .sm file to append as a new difficulty. You will stay on this chart. Continue?",
+  "editor.importSmHint":
+    "Append a new difficulty from a single-chart .sm (confirm, then auto-save, then pick file). You stay on the chart you were editing.",
+  "editor.exportSmDialogTitle": "Export chart as .sm",
+  "editor.importSmDialogTitle": "Import .sm chart",
+  "editor.exportSmSuccess": "Exported .sm file.",
+  "editor.importSmSuccess": "New difficulty added from .sm (still viewing the same chart).",
+  "editor.smExchangeDesktopOnly": "SM import/export requires the desktop app.",
   "editor.chartDuplicated": "Chart duplicated — switched to the copy.",
   "editor.deleteChart": "Delete Chart",
   "editor.deleteChartModalTitle": "Delete chart",
