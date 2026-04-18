@@ -37,6 +37,12 @@ import { createParticleSystem, type ParticleSystem } from "@/shared/lib/engine/r
 import { createQualityState, tickRenderQuality, type QualityState } from "@/shared/lib/engine/render/renderQuality";
 import { drawComboHud, drawJudgmentFlashHud } from "@/shared/lib/engine/render/noteFieldHud";
 import { getThemePrimaryRgba } from "@/shared/lib/themeCssBridge";
+import { logDebug, isDebugLogLevelEnabled } from "@/shared/lib/devLog";
+
+/** RAF time of last visibility diagnostic log per player panel (dev only). */
+const lastNoteVisibilityLogMsByPlayer: [number, number] = [0, 0];
+const NOTE_VISIBILITY_LOG_INTERVAL_MS = 450;
+const NOTE_Y_CLIP_PAD = 50;
 
 const props = defineProps<{
   engine: GameEngine;
@@ -254,66 +260,159 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
     const visibleRange = 3.0;
     const [visibleStart, visibleEnd] = engine.getVisibleNoteRange(visibleRange, visibleRange);
     const playheadChart = engine.getChartPlayheadSeconds();
+
+    const pi = panel.player === 2 ? 1 : 0;
+    const shouldLogVisibility =
+      isDebugLogLevelEnabled &&
+      engine.state === "playing" &&
+      time - lastNoteVisibilityLogMsByPlayer[pi]! >= NOTE_VISIBILITY_LOG_INTERVAL_MS;
+
+    let visWrongPanel = 0;
+    let visJudged = 0;
+    let visTimeGate = 0;
+    let visYClip = 0;
+    let visAlpha0 = 0;
+    let visDrawn = 0;
+    let visSampleYClip:
+      | {
+          row: number;
+          second: number;
+          dChartSec: number;
+          y: number;
+          edge: "aboveField" | "belowField";
+          beatAtNote: number;
+          beatDelta: number;
+          scrollPx: number;
+        }
+      | undefined;
+
     for (let i = visibleStart; i < visibleEnd; i++) {
-    const note = engine.notes[i]!;
-    if (note.track < panel.startTrack || note.track >= panel.startTrack + numTracks) continue;
-    if (engine.judgment?.isNoteJudged(note.track, note.row)) continue;
-    if (Math.abs(note.second - playheadChart) > visibleRange) continue;
+      const note = engine.notes[i]!;
+      if (note.track < panel.startTrack || note.track >= panel.startTrack + numTracks) {
+        visWrongPanel++;
+        continue;
+      }
+      if (engine.judgment?.isNoteJudged(note.track, note.row)) {
+        visJudged++;
+        continue;
+      }
+      if (Math.abs(note.second - playheadChart) > visibleRange) {
+        visTimeGate++;
+        continue;
+      }
 
-    const localTrack = note.track - panel.startTrack;
-    const y = engine.getNoteY(note.second, receptorY, h, panel.speedMod, panel.reverse);
-    if (y < -50 || y > h + 50) continue;
+      const localTrack = note.track - panel.startTrack;
+      const y = engine.getNoteY(note.second, receptorY, h, panel.speedMod, panel.reverse);
+      if (y < -NOTE_Y_CLIP_PAD || y > h + NOTE_Y_CLIP_PAD) {
+        visYClip++;
+        if (
+          shouldLogVisibility &&
+          visSampleYClip === undefined &&
+          note.second >= playheadChart - 1e-6
+        ) {
+          const beatAtNote = engine.timeToBeat(note.second);
+          const beatDelta = beatAtNote - engine.currentBeat;
+          const scrollPx = engine.getVisualBeatDistance(engine.currentBeat, beatAtNote, panel.speedMod);
+          visSampleYClip = {
+            row: note.row,
+            second: note.second,
+            dChartSec: note.second - playheadChart,
+            y,
+            edge: y < -NOTE_Y_CLIP_PAD ? "aboveField" : "belowField",
+            beatAtNote,
+            beatDelta,
+            scrollPx,
+          };
+        }
+        continue;
+      }
 
-    const nx = px + localTrack * colW;
-    const fx = getEffectsForTrack(note.track);
+      const nx = px + localTrack * colW;
+      const fx = getEffectsForTrack(note.track);
 
-    let noteAlpha = 1.0;
-    if (fx.sudden || fx.hidden) {
-      const fadeZone = h * 0.10;
-      const midY = h / 2;
-      if (panel.reverse) {
-        if (fx.sudden) {
-          if (y > midY + fadeZone) noteAlpha = 0;
-          else if (y > midY - fadeZone) noteAlpha = ((midY + fadeZone) - y) / (2 * fadeZone);
-        }
-        if (fx.hidden) {
-          if (y < midY - fadeZone) noteAlpha = 0;
-          else if (y < midY + fadeZone) noteAlpha = (y - (midY - fadeZone)) / (2 * fadeZone);
-        }
-      } else {
-        if (fx.sudden) {
-          if (y < midY - fadeZone) noteAlpha = 0;
-          else if (y < midY + fadeZone) noteAlpha = (y - (midY - fadeZone)) / (2 * fadeZone);
-        }
-        if (fx.hidden) {
-          if (y > midY + fadeZone) noteAlpha = 0;
-          else if (y > midY - fadeZone) noteAlpha = ((midY + fadeZone) - y) / (2 * fadeZone);
+      let noteAlpha = 1.0;
+      if (fx.sudden || fx.hidden) {
+        const fadeZone = h * 0.1;
+        const midY = h / 2;
+        if (panel.reverse) {
+          if (fx.sudden) {
+            if (y > midY + fadeZone) noteAlpha = 0;
+            else if (y > midY - fadeZone) noteAlpha = ((midY + fadeZone) - y) / (2 * fadeZone);
+          }
+          if (fx.hidden) {
+            if (y < midY - fadeZone) noteAlpha = 0;
+            else if (y < midY + fadeZone) noteAlpha = (y - (midY - fadeZone)) / (2 * fadeZone);
+          }
+        } else {
+          if (fx.sudden) {
+            if (y < midY - fadeZone) noteAlpha = 0;
+            else if (y < midY + fadeZone) noteAlpha = (y - (midY - fadeZone)) / (2 * fadeZone);
+          }
+          if (fx.hidden) {
+            if (y > midY + fadeZone) noteAlpha = 0;
+            else if (y > midY - fadeZone) noteAlpha = ((midY + fadeZone) - y) / (2 * fadeZone);
+          }
         }
       }
+      if (noteAlpha <= 0) {
+        visAlpha0++;
+        continue;
+      }
+
+      visDrawn++;
+
+      const rotation = fx.rotate
+        ? ((panel.reverse ? y - receptorY : receptorY - y) / h) * Math.PI * 4
+        : 0;
+
+      c.save();
+      c.globalAlpha = noteAlpha;
+      if (rotation !== 0) {
+        c.translate(nx + colW / 2, y);
+        c.rotate(rotation);
+        c.translate(-(nx + colW / 2), -y);
+      }
+
+      if (note.noteType === "Mine") {
+        drawMineDrawer(c, nx, y, colW, time);
+      } else if (note.noteType === "Lift") {
+        drawLiftDrawer(c, nx, y, note.track, colW, panel, deps, note.routineLayer ?? null);
+      } else {
+        drawNoteDrawer(c, nx, y, note.track, colW, recSize, note.noteType, panel, deps, note.routineLayer ?? null);
+      }
+
+      c.restore();
     }
-    if (noteAlpha <= 0) continue;
 
-    const rotation = fx.rotate
-      ? ((panel.reverse ? y - receptorY : receptorY - y) / h) * Math.PI * 4
-      : 0;
-
-    c.save();
-    c.globalAlpha = noteAlpha;
-    if (rotation !== 0) {
-      c.translate(nx + colW / 2, y);
-      c.rotate(rotation);
-      c.translate(-(nx + colW / 2), -y);
-    }
-
-    if (note.noteType === "Mine") {
-      drawMineDrawer(c, nx, y, colW, time);
-    } else if (note.noteType === "Lift") {
-      drawLiftDrawer(c, nx, y, note.track, colW, panel, deps, note.routineLayer ?? null);
-    } else {
-      drawNoteDrawer(c, nx, y, note.track, colW, recSize, note.noteType, panel, deps, note.routineLayer ?? null);
-    }
-
-    c.restore();
+    if (shouldLogVisibility) {
+      lastNoteVisibilityLogMsByPlayer[pi] = time;
+      const beatAtPh = engine.timeToBeat(playheadChart);
+      logDebug("NoteField", "noteVisibility", {
+        player: panel.player,
+        engineState: engine.state,
+        playheadChartSec: playheadChart,
+        currentBeat: engine.currentBeat,
+        beatAtPlayhead: beatAtPh,
+        bpmAtPlayhead: engine.getBpmAtBeat(beatAtPh),
+        baseBpm: engine.baseBpm,
+        speedMod: panel.speedMod,
+        reverse: panel.reverse,
+        visibleRangeSec: visibleRange,
+        indexRange: [visibleStart, visibleEnd],
+        notesTotal: engine.notes.length,
+        fieldHeight: h,
+        receptorY,
+        yClipPad: NOTE_Y_CLIP_PAD,
+        counts: {
+          wrongPanel: visWrongPanel,
+          judged: visJudged,
+          timeGate: visTimeGate,
+          yClip: visYClip,
+          alpha0: visAlpha0,
+          drawn: visDrawn,
+        },
+        firstFutureNoteYClipped: visSampleYClip,
+      });
     }
   }
 
