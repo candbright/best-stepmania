@@ -6,6 +6,8 @@ import { usesSplitWidePanelLayout } from "./render/panelLayout";
 import {
   chartBeatToSecondExtrapolated,
   chartSecondToBeatExtrapolated,
+  effectiveBpmRatioForXmod,
+  xmodScrollPixelsBetweenChartSeconds,
   type ChartTimingSlice,
 } from "./chartTiming";
 
@@ -61,6 +63,13 @@ const MAX_AUDIO_END_FLUSH_STEPS = 1024;
 const AUDIO_BACKEND_MAX_JUMP_BACK_SEC = 0.2;
 /** Backend reports stopped near decoded duration — latch EOF while engine is still `playing` (pause stops sync). */
 const PLAYBACK_EOF_EPS_SEC = 0.08;
+/**
+ * Do not trust "stopped at EOF" from the backend until this long after `startPlaying` / `startPlayingFrom`.
+ * After seek+play or session restart, the first `getPlaybackState()` reads can still reflect the previous run at EOF.
+ */
+const PLAYBACK_EOF_LATCH_MIN_MS = 1200;
+/** Reject snapping the audio anchor to backend time when error is large during this startup window (stale IPC). */
+const AUDIO_ANCHOR_STALE_REJECT_MS = 1200;
 
 export class GameEngine {
   public notes: ChartNote[] = [];
@@ -121,6 +130,9 @@ export class GameEngine {
   /** Previous-frame chart beat for per-lane rhythm SFX (fractional; null = establish baseline). */
   private lastRhythmLaneSfxBeat: number | null = null;
 
+  /** Editor preview: delayed `play()` when chart time is still before file t=0 (positive #OFFSET). */
+  private previewPlayDelayHandle: ReturnType<typeof setTimeout> | null = null;
+
   /**
    * Align rhythm-SFX cursor with the current chart clock. Without this, {@link lastBeatLineSfxBeat}
    * from a prior run can stay large and {@link checkBeatLineSfx} will never fire on a new chart/session.
@@ -135,6 +147,31 @@ export class GameEngine {
     this.maxAcceptedBackendAudioSec = -1;
     this.latchedChartPastSongEnd = false;
     this.playbackEndedLatch = false;
+  }
+
+  private clearPreviewPlayDelay(): void {
+    if (this.previewPlayDelayHandle !== null) {
+      clearTimeout(this.previewPlayDelayHandle);
+      this.previewPlayDelayHandle = null;
+    }
+  }
+
+  /** After silent lead-in when `chartStart + chartOffset < 0`; file stays at 0 until chart reaches `-chartOffset`. */
+  private async finishEditorPreviewDelayedPlay(): Promise<void> {
+    this.previewPlayDelayHandle = null;
+    if (this.state !== "playing" || !this.audioLoaded || !this.audioPort) return;
+    try {
+      await this.audioPort.seek(0);
+      this.useAudioSync = true;
+      this.audioAnchorSecond = -this.audioOffset;
+      this.audioAnchorPerfMs = performance.now();
+      await this.audioPort.play();
+      this.audioAnchorPerfMs = performance.now();
+      this.startAudioSync();
+    } catch (e: unknown) {
+      console.warn("Editor preview delayed play failed, using fallback clock:", e);
+      this.useAudioSync = false;
+    }
   }
 
   private getPlayerConfig(player: 1 | 2) {
@@ -348,9 +385,14 @@ export class GameEngine {
    * Used when previewing from the editor's current scroll position.
    */
   async startPlayingFrom(targetSecond: number, leadInSeconds = 2.0) {
+    this.clearPreviewPlayDelay();
     this.resetAudioTimelineGuards();
     this.syncAudioOffsetFromConfig();
-    const seekTo = Math.max(0, targetSecond - leadInSeconds);
+    const chartStart = targetSecond - leadInSeconds;
+    const chartMetaOffset = this.chartTiming?.offset ?? 0;
+    const rawFileSeek = chartStart + chartMetaOffset;
+    const fileSeek = Math.max(0, rawFileSeek);
+
     this.gameStartWallMs = performance.now();
     this.playingStartTime = performance.now();
     this.state = "playing";
@@ -362,21 +404,30 @@ export class GameEngine {
       this.judgment.skipBefore(targetSecond);
     }
 
-    // Editor preview should start immediately after entering gameplay.
-    // Keep only the caller-provided musical lead-in (seekTo), and skip gameplay blank lead-in.
+    // Editor preview: chart seconds match `note.second` / Rust `beat_to_second`; file t ≈ chart + #OFFSET.
     this.chartLeadInActive = false;
-    this.currentSecond = seekTo;
-    this.simulatedSecond = seekTo;
-    this.fallbackStartTime = performance.now() - (seekTo / this.playbackRate) * 1000;
+    this.currentSecond = chartStart;
+    this.simulatedSecond = chartStart;
+    this.fallbackStartTime =
+      performance.now() - ((chartStart - this.audioOffset) / this.playbackRate) * 1000;
 
-    if (this.audioLoaded) {
-      await this.audioPort?.seek(seekTo);
-      this.useAudioSync = true;
-      this.audioAnchorSecond = seekTo;
-      this.audioAnchorPerfMs = performance.now();
-      await this.audioPort?.play();
-      this.audioAnchorPerfMs = performance.now();
-      this.startAudioSync();
+    if (this.audioLoaded && this.audioPort) {
+      if (rawFileSeek < 0) {
+        await this.audioPort.seek(0);
+        this.useAudioSync = false;
+        const delayMs = (-rawFileSeek / this.playbackRate) * 1000;
+        this.previewPlayDelayHandle = setTimeout(() => {
+          void this.finishEditorPreviewDelayedPlay();
+        }, delayMs);
+      } else {
+        await this.audioPort.seek(fileSeek);
+        this.useAudioSync = true;
+        this.audioAnchorSecond = fileSeek - this.audioOffset;
+        this.audioAnchorPerfMs = performance.now();
+        await this.audioPort.play();
+        this.audioAnchorPerfMs = performance.now();
+        this.startAudioSync();
+      }
     } else {
       this.useAudioSync = false;
     }
@@ -431,7 +482,13 @@ export class GameEngine {
           : await this.audioPort?.getTime();
       if (backendTimeRaw == null) return;
 
-      if (playback && playback.duration > 0 && !playback.isPlaying) {
+      const msSinceGameStart = performance.now() - this.gameStartWallMs;
+      if (
+        msSinceGameStart >= PLAYBACK_EOF_LATCH_MIN_MS &&
+        playback &&
+        playback.duration > 0 &&
+        !playback.isPlaying
+      ) {
         if (playback.time >= playback.duration - PLAYBACK_EOF_EPS_SEC) {
           this.playbackEndedLatch = true;
         }
@@ -459,9 +516,9 @@ export class GameEngine {
       const predictedRaw = this.audioAnchorSecond + (now - this.audioAnchorPerfMs) / 1000 * this.playbackRate;
       const error = backendTime - predictedRaw;
 
-      // Within the first 800ms of play: reject large jumps that indicate a stale read
+      // Early play: reject large jumps that indicate a stale backend read (e.g. post-restart / seek).
       const msSinceStart = now - this.gameStartWallMs;
-      if (msSinceStart < 800 && Math.abs(error) > 0.3) return;
+      if (msSinceStart < AUDIO_ANCHOR_STALE_REJECT_MS && Math.abs(error) > 0.3) return;
 
       if (Math.abs(error) > 0.2) {
         this.audioAnchorSecond = backendTime;
@@ -754,6 +811,7 @@ export class GameEngine {
   }
 
   cleanup() {
+    this.clearPreviewPlayDelay();
     this.stopAudioSync();
     this.chartLeadInActive = false;
     this.chartLeadInFinishing = false;
@@ -990,12 +1048,28 @@ export class GameEngine {
     // For X-mod (multiplier), BPM affects visual speed
     const multiplier = parseFloat(mod) || 1.0;
     const baseSpeed = 200; // pixels per "beat-second" at base BPM
-    
-    if (this.bpmChanges.length <= 1) {
-      // No BPM changes, simple calculation
-      return (toBeat - fromBeat) * multiplier * baseSpeed;
+
+    // Full timing slice: integrate along chart seconds so scroll matches `timeToBeat` (stops/delays).
+    if (this.chartTiming) {
+      const t0 = this.beatToTime(fromBeat);
+      const t1 = this.beatToTime(toBeat);
+      return xmodScrollPixelsBetweenChartSeconds(
+        t0,
+        t1,
+        this.chartTiming,
+        this.baseBpm || 120,
+        multiplier,
+        baseSpeed,
+      );
     }
-    
+
+    const refBpm = this.baseBpm || 120;
+
+    if (this.bpmChanges.length <= 1) {
+      const ratio = effectiveBpmRatioForXmod(this.getBpmAtBeat(fromBeat), refBpm);
+      return (toBeat - fromBeat) * multiplier * baseSpeed * ratio;
+    }
+
     // With BPM changes, integrate over the beat range
     // bpmChanges is kept sorted by loadChart / loadBpmChanges
     let distance = 0;
@@ -1009,19 +1083,17 @@ export class GameEngine {
         continue;
       }
       if (change.beat >= toBeat) break;
-      
-      // Distance for this segment
+
       const segmentBeats = change.beat - currentBeat;
-      const bpmRatio = currentBpm / (this.baseBpm || 120);
+      const bpmRatio = effectiveBpmRatioForXmod(currentBpm, refBpm);
       distance += segmentBeats * multiplier * baseSpeed * bpmRatio;
-      
+
       currentBeat = change.beat;
       currentBpm = change.bpm;
     }
-    
-    // Remaining distance to toBeat
+
     const remainingBeats = toBeat - currentBeat;
-    const bpmRatio = currentBpm / (this.baseBpm || 120);
+    const bpmRatio = effectiveBpmRatioForXmod(currentBpm, refBpm);
     distance += remainingBeats * multiplier * baseSpeed * bpmRatio;
     
     return distance;

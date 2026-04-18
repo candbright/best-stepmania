@@ -153,3 +153,120 @@ export function chartBeatToSecondExtrapolated(targetBeat: number, t: ChartTiming
   const bpm0 = t.bpms[0].bpm;
   return t0 + (targetBeat * 60) / bpm0;
 }
+
+/** Lower bound for `currentBpm / baseBpm` in X-mod **visual** scroll so ultra-low BPM segments do not collapse to a single pixel band. */
+export const XMOD_VISUAL_BPM_RATIO_MIN = 0.2;
+
+/**
+ * X-mod pixel spacing uses `currentBpm / baseBpm`; when the chart’s first BPM is high and a segment is edited to very low BPM, the raw ratio can be near zero. Clamp from below for readability (judgment unchanged).
+ */
+export function effectiveBpmRatioForXmod(currentBpm: number, baseBpm: number): number {
+  const safeBase = Math.max(baseBpm, 1e-6);
+  return Math.max(XMOD_VISUAL_BPM_RATIO_MIN, currentBpm / safeBase);
+}
+
+/**
+ * X-mod scroll pixels along chart time: ∫ (multiplier × baseSpeed × effectiveBpmRatioForXmod(bpm, baseBpm)) d(beat),
+ * matching {@link chartSecondToBeat} (BPM advances beat; stops/delays add time without d(beat)).
+ * Used so {@link GameEngine.getVisualBeatDistance} matches `timeToBeat` / `note.second` when timing has stops.
+ */
+export function cumulativeXmodScrollPixelsAtChartSecond(
+  targetSecond: number,
+  t: ChartTimingSlice,
+  baseBpm: number,
+  multiplier: number,
+  baseSpeed: number,
+): number {
+  if (t.bpms.length === 0) {
+    const bpm = 120;
+    const beat = (targetSecond * bpm) / 60;
+    return multiplier * baseSpeed * effectiveBpmRatioForXmod(bpm, baseBpm) * beat;
+  }
+
+  const bpm0 = t.bpms[0].bpm;
+  const timeOrigin = -t.offset;
+
+  if (targetSecond < timeOrigin) {
+    const beat = ((targetSecond - timeOrigin) * bpm0) / 60;
+    return multiplier * baseSpeed * effectiveBpmRatioForXmod(bpm0, baseBpm) * beat;
+  }
+
+  let pixels = 0;
+  let time = timeOrigin;
+  let beat = 0;
+  let bpmIdx = 0;
+  let currentBpm = t.bpms[0].bpm;
+  let stopIdx = 0;
+  let delayIdx = 0;
+
+  for (;;) {
+    if (time >= targetSecond) break;
+
+    const nextBpmBeat =
+      bpmIdx + 1 < t.bpms.length ? t.bpms[bpmIdx + 1].beat : undefined;
+    const nextStopBeat = stopIdx < t.stops.length ? t.stops[stopIdx].beat : undefined;
+    const nextDelayBeat = delayIdx < t.delays.length ? t.delays[delayIdx].beat : undefined;
+
+    const candidates = [nextBpmBeat, nextStopBeat, nextDelayBeat].filter(
+      (x): x is number => x !== undefined,
+    );
+    const nextEventBeat = candidates.length === 0 ? Infinity : Math.min(...candidates);
+
+    const ratio = effectiveBpmRatioForXmod(currentBpm, baseBpm);
+
+    if (nextEventBeat === Infinity) {
+      const remaining = targetSecond - time;
+      const partialBeat = (remaining * currentBpm) / 60;
+      pixels += multiplier * baseSpeed * ratio * partialBeat;
+      break;
+    }
+
+    const beatDelta = nextEventBeat - beat;
+    const timeDelta = (beatDelta * 60) / currentBpm;
+
+    if (time + timeDelta >= targetSecond) {
+      const remaining = targetSecond - time;
+      const partialBeat = (remaining * currentBpm) / 60;
+      pixels += multiplier * baseSpeed * ratio * partialBeat;
+      break;
+    }
+
+    pixels += multiplier * baseSpeed * ratio * beatDelta;
+    time += timeDelta;
+    beat = nextEventBeat;
+
+    if (nextBpmBeat === nextEventBeat) {
+      bpmIdx += 1;
+      currentBpm = t.bpms[bpmIdx]!.bpm;
+    }
+    if (nextStopBeat === nextEventBeat) {
+      const stopDur = t.stops[stopIdx]!.duration;
+      if (time + stopDur >= targetSecond) break;
+      time += stopDur;
+      stopIdx += 1;
+    }
+    if (nextDelayBeat === nextEventBeat) {
+      const delayDur = t.delays[delayIdx]!.duration;
+      if (time + delayDur >= targetSecond) break;
+      time += delayDur;
+      delayIdx += 1;
+    }
+  }
+
+  return pixels;
+}
+
+/** Signed X-mod pixel distance between two chart seconds (same space as `note.second`). */
+export function xmodScrollPixelsBetweenChartSeconds(
+  chartSecLo: number,
+  chartSecHi: number,
+  t: ChartTimingSlice,
+  baseBpm: number,
+  multiplier: number,
+  baseSpeed: number,
+): number {
+  if (chartSecLo === chartSecHi) return 0;
+  const hi = cumulativeXmodScrollPixelsAtChartSecond(chartSecHi, t, baseBpm, multiplier, baseSpeed);
+  const lo = cumulativeXmodScrollPixelsAtChartSecond(chartSecLo, t, baseBpm, multiplier, baseSpeed);
+  return hi - lo;
+}

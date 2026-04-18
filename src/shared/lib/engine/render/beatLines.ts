@@ -51,7 +51,9 @@ export function drawBeatLines(
     if (panelSpeedMod.startsWith("C")) {
       const speedC = parseInt(panelSpeedMod.slice(1), 10) || 500;
       const pixelsPerBeatC = (speedC * 60) / refBpm;
-      const pixelOffset = (b - currentBeat) * pixelsPerBeatC;
+      const chartSec = engine.beatToTime(b);
+      const beatAtLine = engine.timeToBeat(chartSec);
+      const pixelOffset = (beatAtLine - currentBeat) * pixelsPerBeatC;
       y = panelReverse ? receptorY - pixelOffset : receptorY + pixelOffset;
     } else {
       // Match getNoteY(beatToTime(b)): scroll uses timeToBeat(chart second), not raw grid index `b`.
