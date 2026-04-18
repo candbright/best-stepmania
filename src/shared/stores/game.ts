@@ -119,6 +119,10 @@ export const useGameStore = defineStore("game", () => {
   const windowHeight = computed({ get: () => settings.windowHeight, set: (v: number | null) => { settings.windowHeight = v; } });
   const vsync = computed({ get: () => settings.vsync, set: (v: boolean) => { settings.vsync = v; } });
   const targetFps = computed({ get: () => settings.targetFps, set: (v: number) => { settings.targetFps = v; } });
+  const showFpsOverlay = computed({
+    get: () => settings.showFpsOverlay,
+    set: (v: boolean) => { settings.showFpsOverlay = v; },
+  });
   const judgmentStyle = computed({ get: () => settings.judgmentStyle, set: (v: string) => { settings.judgmentStyle = v; } });
   const showOffset = computed({ get: () => settings.showOffset, set: (v: boolean) => { settings.showOffset = v; } });
   const lifeType = computed({ get: () => settings.lifeType, set: (v: string) => { settings.lifeType = v; } });
@@ -270,7 +274,7 @@ export const useGameStore = defineStore("game", () => {
     rhythmSfxEnabled, rhythmSfxVolume, rhythmSfxStyle,
     uiSfxEnabled, uiSfxVolume, uiSfxStyle,
     audioOffsetMs,
-    windowDisplayPreset, windowWidth, windowHeight, vsync, targetFps, judgmentStyle, showOffset,
+    windowDisplayPreset, windowWidth, windowHeight, vsync, targetFps, showFpsOverlay, judgmentStyle, showOffset,
     lifeType, autoPlay, playbackRate, showParticles,
     cursorEnabled, cursorStylePreset, cursorScale, cursorOpacity, cursorGlow,
     cursorTrailsEnabled, cursorRippleEnabled, cursorRippleDurationMs,

@@ -126,6 +126,13 @@ function toggleClickEffectEnabledFromSectionHead() {
       :options="targetFpsOptions"
       @update:model-value="(v) => (settings.targetFps = Number(v))"
     />
+    <SettingsToggleRow
+      :label="t('settings.showFpsOverlay')"
+      help-key="showFpsOverlay"
+      :model-value="settings.showFpsOverlay"
+      :on-toggle-sound="sfx.playToggleClickSfx"
+      @update:model-value="(v) => (settings.showFpsOverlay = v)"
+    />
     <SettingsRangeRow
       :label="t('settings.uiScale')"
       help-key="uiScale"

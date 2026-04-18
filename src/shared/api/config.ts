@@ -56,6 +56,7 @@ export interface AppConfig {
   windowDisplayPreset?: string;
   vsync: boolean;
   targetFps: number;
+  showFpsOverlay?: boolean;
   judgmentStyle: string;
   showOffset: boolean;
   lifeType: string;

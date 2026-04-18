@@ -66,6 +66,7 @@ export default {
   "settings.vsync": "垂直同步",
   "settings.targetFps": "目标帧率",
   "settings.targetFpsUnlimited": "无上限",
+  "settings.showFpsOverlay": "显示 FPS",
   "settings.uiScale": "界面缩放",
   "settings.doublePanelGap": "双板水平间距",
   "settings.cursorEnabled": "自定义鼠标",

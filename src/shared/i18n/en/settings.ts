@@ -65,6 +65,7 @@ export default {
   "settings.vsync": "VSync",
   "settings.targetFps": "Target FPS",
   "settings.targetFpsUnlimited": "Unlimited",
+  "settings.showFpsOverlay": "Show FPS",
   "settings.uiScale": "UI Scale",
   "settings.doublePanelGap": "Dual panel spacing",
   "settings.cursorEnabled": "Custom Cursor",

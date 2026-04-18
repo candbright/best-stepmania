@@ -196,6 +196,8 @@ pub struct AppConfig {
     pub vsync: bool,
     #[serde(default = "default_fps")]
     pub target_fps: u32,
+    #[serde(default = "default_false")]
+    pub show_fps_overlay: bool,
     #[serde(default = "default_judgment_style")]
     pub judgment_style: String,
     #[serde(default = "default_true")]
@@ -387,6 +389,7 @@ impl Default for AppConfig {
             window_display_preset: default_window_display_preset(),
             vsync: true,
             target_fps: default_fps(),
+            show_fps_overlay: false,
             judgment_style: default_judgment_style(),
             show_offset: true,
             life_type: default_life_type(),

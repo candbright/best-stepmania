@@ -42,6 +42,8 @@ export default {
     "垂直同步\n将画面渲染与显示器刷新率同步，防止画面撕裂。但可能增加少量输入延迟（约1帧）。如果追求极致响应速度，可以关闭。",
   "help.targetFps":
     "目标帧率\n限制谱面画布（NoteField）每秒重绘次数，属于前端节流。更高帧率动画更顺、采样更密，但实际节奏仍受 WebView 与显示器刷新影响（requestAnimationFrame 通常对齐刷新）。无上限表示不做该节流，每次动画回调都绘制。设置里的垂直同步目前只写入配置，尚未接到原生窗口 API。",
+  "help.showFpsOverlay":
+    "显示 FPS\n在屏幕右下角显示基于 requestAnimationFrame 估算的实时帧率，用于观察界面刷新是否顺畅。与「目标帧率」节流无关；不会拦截鼠标点击。",
   "help.uiScale":
     "界面缩放\n调整用户界面的整体大小，包括文字、按钮和控件。适用于高分辨率显示器或个人喜好。默认为 100%。",
   "help.doublePanelGap":

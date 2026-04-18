@@ -43,6 +43,8 @@ export default {
     "VSync\nVertical Synchronization prevents screen tearing by syncing frame rendering with the display refresh rate. May add slight input latency.",
   "help.targetFps":
     "Target FPS\nCaps how often the note field canvas redraws. Higher values help until the display and WebView limit you (requestAnimationFrame usually follows refresh). Unlimited removes the cap and redraws every animation callback. The VSync checkbox is saved to config but does not yet drive the native window.",
+  "help.showFpsOverlay":
+    "Show FPS\nDisplays a live FPS estimate in the bottom-right corner based on requestAnimationFrame. Useful for checking UI smoothness. Independent of the note field Target FPS cap. Does not block mouse clicks.",
   "help.uiScale":
     "UI scale\nAdjusts the overall size of the user interface including text, buttons, and controls. Useful for high-DPI displays or personal preference. Default is 100%.",
   "help.doublePanelGap":

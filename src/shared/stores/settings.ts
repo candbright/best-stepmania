@@ -83,6 +83,7 @@ export const useSettingsStore = defineStore("settings", () => {
   const windowHeight = ref<number | null>(null);
   const vsync = ref(true);
   const targetFps = ref(144);
+  const showFpsOverlay = ref(false);
 
   // Gameplay
   const judgmentStyle = ref("ddr");
@@ -175,6 +176,7 @@ export const useSettingsStore = defineStore("settings", () => {
       windowHeight.value = Number.isFinite(cfg.windowHeight) ? Math.round(cfg.windowHeight as number) : null;
       vsync.value = cfg.vsync;
       targetFps.value = cfg.targetFps;
+      showFpsOverlay.value = cfg.showFpsOverlay ?? false;
       judgmentStyle.value = cfg.judgmentStyle;
       showOffset.value = cfg.showOffset;
       lifeType.value = cfg.lifeType;
@@ -308,6 +310,7 @@ export const useSettingsStore = defineStore("settings", () => {
       windowDisplayPreset: windowDisplayPreset.value,
       vsync: vsync.value,
       targetFps: targetFps.value,
+      showFpsOverlay: showFpsOverlay.value,
       judgmentStyle: judgmentStyle.value,
       showOffset: showOffset.value,
       lifeType: lifeType.value,
@@ -389,6 +392,7 @@ export const useSettingsStore = defineStore("settings", () => {
     windowHeight.value = null;
     vsync.value = true;
     targetFps.value = 144;
+    showFpsOverlay.value = false;
     judgmentStyle.value = "ddr";
     showOffset.value = true;
     lifeType.value = "bar";
@@ -429,7 +433,7 @@ export const useSettingsStore = defineStore("settings", () => {
     rhythmSfxEnabled, rhythmSfxVolume, rhythmSfxStyle,
     uiSfxEnabled, uiSfxVolume, uiSfxStyle,
     audioOffsetMs,
-    windowDisplayPreset, windowWidth, windowHeight, vsync, targetFps,
+    windowDisplayPreset, windowWidth, windowHeight, vsync, targetFps, showFpsOverlay,
     judgmentStyle, showOffset, lifeType, autoPlay,
     playbackRate, uiScale, doublePanelGapPx, songSelectPanelWidthPx, batteryLives, showParticles,
     cursorEnabled, cursorStylePreset, cursorScale, cursorOpacity, cursorGlow,

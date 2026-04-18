@@ -52,6 +52,7 @@ export function useAppSettingsSync(settings: SettingsStore, scheduleSave: () => 
       settings.windowHeight;
       settings.vsync;
       settings.targetFps;
+      settings.showFpsOverlay;
       settings.language;
       settings.theme;
       settings.uiScale;

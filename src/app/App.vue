@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { MusicPlayer } from "@/widgets";
-import { AppLoadingOverlay } from "@/shared/ui";
+import { AppLoadingOverlay, FpsOverlay } from "@/shared/ui";
 import { CursorLayer } from "@/shared/layout";
 import { useSettingsStore } from "@/shared/stores/settings";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
@@ -50,6 +50,7 @@ onUnmounted(() => {
       @retry="blockingOverlay.invokeRetry"
     />
     <MusicPlayer />
+    <FpsOverlay />
   </div>
   <CursorLayer />
 </template>
