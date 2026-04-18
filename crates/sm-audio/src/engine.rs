@@ -1,21 +1,19 @@
-use crate::decoder;
+use crate::decoder::{self, AudioProbeInfo, DecodedAudio};
 use crate::mixer::PlaybackState;
+use crate::stream_ring::StreamingRing;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::thread::JoinHandle;
 
 struct StreamHandle(#[allow(dead_code)] cpal::Stream);
 unsafe impl Send for StreamHandle {}
 unsafe impl Sync for StreamHandle {}
 
-/// 单首歌曲的解码缓存
-#[derive(Clone)]
-struct CachedAudio {
-    samples: Arc<Vec<f32>>,
-    sample_rate: u32,
-    channels: u32,
-}
+const RING_CAP_SECONDS: u32 = 5;
+const MAX_META_CACHE: usize = 50;
 
 /// 音频设备信息（用于前端枚举和切换）
 #[derive(Debug, Clone, serde::Serialize)]
@@ -25,30 +23,31 @@ pub struct AudioDeviceInfo {
     pub is_default: bool,
 }
 
-const MAX_CACHE_SIZE: usize = 50;
-
 pub struct AudioEngine {
     pub master_volume: f32,
     pub music_volume: f32,
     pub effect_volume: f32,
-    /// 永久 playback state — stream 建立后不再销毁
     playback: Option<Arc<PlaybackState>>,
-    /// 永久 stream — 只建一次，切歌时通过 swap_track 热替换
     stream: Option<StreamHandle>,
     device_sample_rate: u32,
     device_channels: usize,
-    /// 当前输出设备的 ID（用于检测设备切换）
     current_device_id: Option<String>,
-    /// 多歌曲解码缓存（进程内保留至 `clear_cache` 或进程退出；不 LRU 驱逐）
-    cache: HashMap<PathBuf, CachedAudio>,
-    /// 插入顺序记录（用于未来策略/调试；更新已存在键时移到队尾）
-    cache_order: Vec<PathBuf>,
-    /// 当前正在播放/已加载的路径
+    /// 探测元数据缓存（无整首 PCM）
+    meta_cache: HashMap<PathBuf, AudioProbeInfo>,
+    meta_cache_order: Vec<PathBuf>,
     current_path: Option<PathBuf>,
+    streaming_stop: Option<Arc<AtomicBool>>,
+    streaming_handle: Option<JoinHandle<()>>,
 }
 
 unsafe impl Send for AudioEngine {}
 unsafe impl Sync for AudioEngine {}
+
+impl Drop for AudioEngine {
+    fn drop(&mut self) {
+        self.stop_streaming_thread();
+    }
+}
 
 impl Default for AudioEngine {
     fn default() -> Self {
@@ -61,9 +60,11 @@ impl Default for AudioEngine {
             device_sample_rate: 44100,
             device_channels: 2,
             current_device_id: None,
-            cache: HashMap::new(),
-            cache_order: Vec::new(),
+            meta_cache: HashMap::new(),
+            meta_cache_order: Vec::new(),
             current_path: None,
+            streaming_stop: None,
+            streaming_handle: None,
         }
     }
 }
@@ -71,6 +72,36 @@ impl Default for AudioEngine {
 impl AudioEngine {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    fn stop_streaming_thread(&mut self) {
+        if let Some(stop) = self.streaming_stop.take() {
+            stop.store(true, Ordering::SeqCst);
+        }
+        if let Some(h) = self.streaming_handle.take() {
+            let _ = h.join();
+        }
+    }
+
+    fn meta_cache_insert(&mut self, path: PathBuf, meta: AudioProbeInfo) {
+        if self.meta_cache.contains_key(&path) {
+            self.meta_cache_order.retain(|p| p != &path);
+            self.meta_cache_order.push(path.clone());
+            self.meta_cache.insert(path, meta);
+            return;
+        }
+        while self.meta_cache.len() >= MAX_META_CACHE {
+            if let Some(oldest) = self.meta_cache_order.first().cloned() {
+                if Some(&oldest) != self.current_path.as_ref() {
+                    self.meta_cache_order.remove(0);
+                    self.meta_cache.remove(&oldest);
+                    continue;
+                }
+                break;
+            }
+        }
+        self.meta_cache_order.push(path.clone());
+        self.meta_cache.insert(path, meta);
     }
 
     /// 确保永久 stream 存在。首次调用时建立，之后检测到默认设备变化时自动重建。
@@ -92,7 +123,7 @@ impl AudioEngine {
 
         let config = device
             .default_output_config()
-            .map_err(|e| format!("Failed to get output config: {e}"))?;
+            .map_err(|e| format!("Failed to get default output config: {e}"))?;
 
         self.device_sample_rate = config.sample_rate().0;
         self.device_channels = config.channels() as usize;
@@ -146,7 +177,6 @@ impl AudioEngine {
         Ok(())
     }
 
-    /// 列出所有可用音频输出设备
     pub fn devices(&self) -> Vec<AudioDeviceInfo> {
         let host = cpal::default_host();
         let default_name = host.default_output_device().and_then(|d| d.name().ok());
@@ -177,7 +207,7 @@ impl AudioEngine {
         let was_playing = self
             .playback
             .as_ref()
-            .map(|p| p.playing.load(std::sync::atomic::Ordering::Relaxed))
+            .map(|p| p.playing.load(Ordering::Relaxed))
             .unwrap_or(false);
 
         self.stream = None;
@@ -186,112 +216,66 @@ impl AudioEngine {
         self.ensure_stream()?;
 
         if let Some(ref path) = saved_path {
-            if let Some(ref pb) = self.playback {
-                if let Some(cached) = self.cache.get(path) {
-                    let vol = if was_playing {
-                        self.music_volume as f64 * self.master_volume as f64
-                    } else {
-                        0.0
-                    };
-                    pb.swap_track(
-                        Arc::clone(&cached.samples),
-                        cached.channels,
-                        cached.sample_rate,
-                        saved_position,
-                        vol,
-                    );
-                    if !was_playing {
-                        pb.pause();
-                    }
-                }
-            }
+            self.start_streaming_at(path, saved_position, was_playing)?;
         }
 
         Ok(())
     }
 
-    fn cache_insert(&mut self, path: PathBuf, audio: CachedAudio) {
-        if self.cache.contains_key(&path) {
-            self.cache_order.retain(|p| p != &path);
-            self.cache_order.push(path.clone());
-            self.cache.insert(path, audio);
-            return;
-        }
-        while self.cache.len() >= MAX_CACHE_SIZE {
-            if let Some(oldest) = self.cache_order.first().cloned() {
-                if Some(&oldest) != self.current_path.as_ref() {
-                    self.cache_order.remove(0);
-                    self.cache.remove(&oldest);
-                    continue;
-                }
-                break;
-            }
-        }
-        self.cache_order.push(path.clone());
-        self.cache.insert(path, audio);
-    }
-
-    /// 将解码数据存入缓存（不影响当前播放的 stream）
-    pub fn cache_only(&mut self, path: &Path, decoded: crate::decoder::DecodedAudio) {
-        let audio = CachedAudio {
-            samples: Arc::new(decoded.samples),
-            sample_rate: decoded.sample_rate,
-            channels: decoded.channels,
-        };
-        self.cache_insert(path.to_path_buf(), audio);
-    }
-
-    /// 加载已解码的音频（来自 async 命令的 spawn_blocking 结果）
-    pub fn load_decoded(
+    /// 从路径启动流式解码并挂载到 playback（或仅静音就绪：`autoplay == false`）。
+    pub fn start_streaming_at(
         &mut self,
         path: &Path,
-        decoded: crate::decoder::DecodedAudio,
+        start_second: f64,
+        autoplay: bool,
     ) -> Result<(), String> {
-        let samples = Arc::new(decoded.samples);
-        let audio = CachedAudio {
-            samples: Arc::clone(&samples),
-            sample_rate: decoded.sample_rate,
-            channels: decoded.channels,
+        let probe = if let Some(m) = self.meta_cache.get(path) {
+            m.clone()
+        } else {
+            let m = decoder::probe_file(path)?;
+            self.meta_cache_insert(path.to_path_buf(), m.clone());
+            m
         };
-        self.cache_insert(path.to_path_buf(), audio);
-        self.ensure_stream()?;
-        self.apply_track(path, 0.0, false);
-        Ok(())
-    }
 
-    /// 从路径加载（缓存命中则跳过解码）
-    pub fn load_music(&mut self, path: &Path) -> Result<(), String> {
-        if !self.cache.contains_key(path) {
-            let decoded = decoder::decode_file(path)?;
-            let audio = CachedAudio {
-                samples: Arc::new(decoded.samples),
-                sample_rate: decoded.sample_rate,
-                channels: decoded.channels,
-            };
-            self.cache_insert(path.to_path_buf(), audio);
-        }
-        self.ensure_stream()?;
-        self.apply_track(path, 0.0, false);
-        Ok(())
-    }
+        self.stop_streaming_thread();
 
-    /// 将缓存中的音轨热替换到 playback state，不重建 stream
-    fn apply_track(&mut self, path: &Path, start_second: f64, autoplay: bool) {
-        let audio = match self.cache.get(path) {
-            Some(a) => a.clone(),
-            None => return,
-        };
+        let channels = probe.channels.max(1) as usize;
+        let sample_rate = probe.sample_rate;
+        let total_frames = probe.total_frames;
+
+        let ring = Arc::new(StreamingRing::new(
+            channels,
+            sample_rate,
+            RING_CAP_SECONDS,
+        ));
+        let start_frame = (start_second * f64::from(sample_rate)).max(0.0) as u64;
+        ring.begin_session(total_frames, start_frame);
+
+        let stop = Arc::new(AtomicBool::new(false));
+        let path_owned = path.to_path_buf();
+        let ring_thread = Arc::clone(&ring);
+        let stop_thread = Arc::clone(&stop);
+
+        let handle = std::thread::spawn(move || {
+            let _ = decoder::run_streaming_decode(&path_owned, ring_thread, start_second, stop_thread);
+        });
+
+        self.streaming_stop = Some(stop);
+        self.streaming_handle = Some(handle);
         self.current_path = Some(path.to_path_buf());
+
+        self.ensure_stream()?;
         if let Some(ref pb) = self.playback {
             let vol = if autoplay {
                 self.music_volume as f64 * self.master_volume as f64
             } else {
-                0.0 // 静音，等待显式 play()
+                0.0
             };
-            pb.swap_track(
-                audio.samples,
-                audio.channels,
-                audio.sample_rate,
+            pb.swap_track_streaming(
+                ring,
+                probe.channels,
+                sample_rate,
+                total_frames,
                 start_second,
                 vol,
             );
@@ -300,29 +284,55 @@ impl AudioEngine {
                 pb.set_volume(self.music_volume as f64 * self.master_volume as f64);
             }
         }
+        Ok(())
     }
 
-    /// 快速预览：如果已缓存则立即 swap_track 播放，否则返回 false
+    /// 将已完整解码的数据载入（测试或特殊路径）；走内存轨。
+    pub fn load_decoded(&mut self, path: &Path, decoded: DecodedAudio) -> Result<(), String> {
+        self.stop_streaming_thread();
+        let samples = Arc::new(decoded.samples);
+        let sample_rate = decoded.sample_rate;
+        let channels = decoded.channels;
+        let probe = AudioProbeInfo {
+            duration_seconds: samples.len() as f64 / channels as f64 / sample_rate as f64,
+            sample_rate,
+            channels,
+            total_frames: (samples.len() / channels as usize) as u64,
+        };
+        self.meta_cache_insert(path.to_path_buf(), probe);
+        self.ensure_stream()?;
+        self.current_path = Some(path.to_path_buf());
+        if let Some(ref pb) = self.playback {
+            pb.swap_track(
+                samples,
+                channels,
+                sample_rate,
+                0.0,
+                0.0,
+            );
+            pb.pause();
+            pb.set_volume(self.music_volume as f64 * self.master_volume as f64);
+        }
+        Ok(())
+    }
+
+    /// 从路径加载：流式打开，不整文件解码。
+    pub fn load_music(&mut self, path: &Path) -> Result<(), String> {
+        self.start_streaming_at(path, 0.0, false)
+    }
+
+    /// 若可 probe 则立即启动流式预览（优先使用元数据缓存）。
     pub fn preview_quick(&mut self, path: &Path, start: f64) -> bool {
         if self.ensure_stream().is_err() {
             return false;
         }
-        let audio = match self.cache.get(path) {
-            Some(a) => a.clone(),
-            None => return false,
-        };
-        self.current_path = Some(path.to_path_buf());
-        if let Some(ref pb) = self.playback {
-            pb.swap_track(
-                audio.samples,
-                audio.channels,
-                audio.sample_rate,
-                start,
-                self.music_volume as f64 * self.master_volume as f64,
-            );
-            return true;
+        if !self.meta_cache.contains_key(path) {
+            match decoder::probe_file(path) {
+                Ok(m) => self.meta_cache_insert(path.to_path_buf(), m),
+                Err(_) => return false,
+            }
         }
-        false
+        self.start_streaming_at(path, start, true).is_ok()
     }
 
     pub fn play(&self) {
@@ -337,20 +347,38 @@ impl AudioEngine {
         }
     }
 
-    /// stop：暂停播放，保留 stream 和缓存
     pub fn stop(&mut self) {
         if let Some(ref p) = self.playback {
             p.pause();
         }
         self.current_path = None;
+        self.stop_streaming_thread();
     }
 
     pub fn clear_cache(&mut self) {
-        self.cache.clear();
-        self.cache_order.clear();
+        self.meta_cache.clear();
+        self.meta_cache_order.clear();
     }
 
-    pub fn seek(&self, seconds: f64) {
+    pub fn seek(&mut self, seconds: f64) {
+        let path = match self.current_path.clone() {
+            Some(p) => p,
+            None => return,
+        };
+        if self
+            .playback
+            .as_ref()
+            .map(|p| p.is_streaming_track())
+            .unwrap_or(false)
+        {
+            let was_playing = self
+                .playback
+                .as_ref()
+                .map(|p| p.playing.load(Ordering::Relaxed))
+                .unwrap_or(false);
+            let _ = self.start_streaming_at(&path, seconds, was_playing);
+            return;
+        }
         if let Some(ref p) = self.playback {
             p.seek_to_second(seconds);
         }
@@ -373,7 +401,7 @@ impl AudioEngine {
     pub fn is_playing(&self) -> bool {
         self.playback
             .as_ref()
-            .map(|p| p.playing.load(std::sync::atomic::Ordering::Relaxed))
+            .map(|p| p.playing.load(Ordering::Relaxed))
             .unwrap_or(false)
     }
 
@@ -406,6 +434,16 @@ impl AudioEngine {
     }
 
     pub fn is_cached(&self, path: &Path) -> bool {
-        self.cache.contains_key(path)
+        self.meta_cache.contains_key(path)
+    }
+
+    /// 仅缓存元数据（probe），不解码 PCM。
+    pub fn cache_probe_only(&mut self, path: &Path) -> Result<(), String> {
+        if self.meta_cache.contains_key(path) {
+            return Ok(());
+        }
+        let meta = decoder::probe_file(path)?;
+        self.meta_cache_insert(path.to_path_buf(), meta);
+        Ok(())
     }
 }
