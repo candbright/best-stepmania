@@ -534,6 +534,9 @@ pub fn create_new_chart(
         credit: String::new(),
         note_data: NoteData::new(st.num_columns()),
         chart_timing: None,
+        sm_notes_primary_tag: None,
+        sm_misplaced_notes_header: false,
+        sm_banner_right: None,
     };
 
     song.charts.push(new_chart);
@@ -650,6 +653,9 @@ pub fn update_chart_properties(
     chart.steps_type = st;
     chart.difficulty = diff;
     chart.meter = meter;
+    chart.sm_notes_primary_tag = None;
+    chart.sm_misplaced_notes_header = false;
+    chart.sm_banner_right = None;
 
     write_chart_to_file(&chart_path, &song)?;
 
@@ -1027,4 +1033,88 @@ pub fn save_bpm_changes(
     }
 
     Ok(())
+}
+
+/// Export one difficulty from the resolved chart file as a standalone `.sm` (single `#NOTES` block).
+#[tauri::command]
+pub fn export_chart_as_sm(
+    state: State<'_, AppState>,
+    song_path: String,
+    chart_index: usize,
+    output_path: String,
+) -> Result<(), String> {
+    let chart_path = resolve_chart_path(&state, &song_path)?;
+    let song =
+        sm_chart::parse_file(&chart_path.to_string_lossy()).map_err(|e| e.to_string())?;
+    let export_song = sm_chart::build_single_chart_sm_song(&song, chart_index)?;
+
+    let path = Path::new(&output_path);
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase())
+        .unwrap_or_default();
+    if ext != "sm" {
+        return Err("Output path must use the .sm extension".to_string());
+    }
+
+    let content = sm_chart::sm_writer::write_sm(&export_song);
+    std::fs::write(path, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Append a new chart from a single-difficulty `.sm` file. Per-chart timing is stored in
+/// `chart_timing`; song-level timing is left unchanged.
+#[tauri::command]
+pub fn import_sm_as_new_chart(
+    state: State<'_, AppState>,
+    song_path: String,
+    sm_path: String,
+) -> Result<usize, String> {
+    let sm_file = Path::new(&sm_path);
+    if !sm_file.is_file() {
+        return Err(format!("Not a file: {}", sm_path));
+    }
+    let ext = sm_file
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_lowercase());
+    if ext.as_deref() != Some("sm") {
+        return Err("File must be a .sm chart".to_string());
+    }
+
+    let content = sm_chart::encoding::read_file_auto_encoding(sm_file).map_err(|e| e.to_string())?;
+    let parsed = sm_chart::parse_str(&content, "sm").map_err(|e| e.to_string())?;
+
+    if parsed.charts.is_empty() {
+        return Err("SM file contains no charts".to_string());
+    }
+    if parsed.charts.len() > 1 {
+        return Err(format!(
+            "SM file contains {} charts; only single-chart .sm files are supported",
+            parsed.charts.len()
+        ));
+    }
+
+    let mut new_chart = parsed.charts[0].clone();
+    let mut chart_timing = parsed.timing.clone();
+    chart_timing.offset = parsed.offset;
+    new_chart.chart_timing = Some(chart_timing);
+
+    let chart_path = resolve_chart_path(&state, &song_path)?;
+    let mut song =
+        sm_chart::parse_file(&chart_path.to_string_lossy()).map_err(|e| e.to_string())?;
+
+    song.charts.push(new_chart);
+    let new_index = song.charts.len() - 1;
+
+    write_chart_to_file(&chart_path, &song)?;
+
+    refresh_song_list_entry(&state, chart_path.as_path());
+
+    if let Ok(mut cache) = state.chart_cache.lock() {
+        cache.insert(chart_path, song);
+    }
+
+    Ok(new_index)
 }

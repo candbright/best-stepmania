@@ -375,6 +375,8 @@ pub fn run() {
             chart::save_chart,
             chart::get_bpm_changes,
             chart::save_bpm_changes,
+            chart::export_chart_as_sm,
+            chart::import_sm_as_new_chart,
             import::import_song_pack,
             import::import_single_song,
             import::prepare_song_import,
