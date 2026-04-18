@@ -1,6 +1,6 @@
 import type { RouteLocationNormalizedLoaded } from "vue-router";
 import { useSessionStore } from "@/shared/stores/session";
-import { devDebug } from "@/shared/lib/devLog";
+import { logWarn, logDebug } from "@/shared/lib/devLog";
 import * as api from "@/shared/api";
 import type { EditorState } from "../useEditorState";
 import { defaultQuantizeFromTimeSignatures } from "../quantizeFromTimeSignature";
@@ -80,7 +80,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
             ? timingData.labels.sort((a, b) => a.beat - b.beat)
             : [{ beat: 0, label: "Song Start" }];
       } catch (e: unknown) {
-        console.warn("[Editor] Failed to load timing data:", e);
+        logWarn("Editor", "Failed to load timing data:", e);
         const rawBpm = song.displayBpm || "120";
         const parsed = parseFloat(rawBpm.split("-")[0]);
         s.bpm.value = isNaN(parsed) ? 120 : parsed;
@@ -144,7 +144,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
     if (!song) return;
 
     if (expectedSongPath && song.path !== expectedSongPath) {
-      devDebug("Editor", "Song changed during load, ignoring stale load");
+      logDebug("Editor", "Song changed during load, ignoring stale load");
       return;
     }
 
@@ -160,7 +160,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
       }
 
       if (session.currentSong?.path !== currentSongPath) {
-        devDebug("Editor", "Song changed during chart load, ignoring");
+        logDebug("Editor", "Song changed during chart load, ignoring");
         return;
       }
 
@@ -176,7 +176,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
       }
 
       if (session.currentSong?.path !== currentSongPath) {
-        devDebug("Editor", "Song changed after chart load, ignoring");
+        logDebug("Editor", "Song changed after chart load, ignoring");
         return;
       }
     } catch {
@@ -280,7 +280,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
         await audioCtx.close();
       }
     } catch (err: unknown) {
-      console.warn("[Editor] Failed to load waveform:", err);
+      logWarn("Editor", "Failed to load waveform:", err);
       s.waveformMinMax.value = new Float32Array(0);
       s.waveformDuration.value = 0;
     }

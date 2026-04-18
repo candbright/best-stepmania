@@ -1,6 +1,6 @@
 import { nextTick, onActivated, onDeactivated, onMounted, onUnmounted, type Ref } from "vue";
 import * as api from "@/shared/api";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 import type { EditorState } from "./useEditorState";
 import type { EditorCanvas } from "./useEditorCanvas";
 import EditorToolbar from "./EditorToolbar.vue";
@@ -94,8 +94,8 @@ export function useEditorScreenLifecycle(opts: UseEditorScreenLifecycleOptions) 
     s.playing.value = false;
     detachWindowListeners();
     canvas.destroyCanvas();
-    api.audioStop().catch((e) => logOptionalRejection("editor.deactivate.audioStop", e));
-    api.audioSetRate(1.0).catch((e) => logOptionalRejection("editor.deactivate.audioSetRate", e));
+    api.audioStop().catch((e) => logDebug("Optional", "editor.deactivate.audioStop", e));
+    api.audioSetRate(1.0).catch((e) => logDebug("Optional", "editor.deactivate.audioSetRate", e));
   });
 
   onUnmounted(() => {
@@ -106,7 +106,7 @@ export function useEditorScreenLifecycle(opts: UseEditorScreenLifecycleOptions) 
     editorHorizontalWheelCleanups = [];
     detachWindowListeners();
     canvas.destroyCanvas();
-    api.audioStop().catch((e) => logOptionalRejection("editor.unmount.audioStop", e));
-    api.audioSetRate(1.0).catch((e) => logOptionalRejection("editor.unmount.audioSetRate", e));
+    api.audioStop().catch((e) => logDebug("Optional", "editor.unmount.audioStop", e));
+    api.audioSetRate(1.0).catch((e) => logDebug("Optional", "editor.unmount.audioSetRate", e));
   });
 }

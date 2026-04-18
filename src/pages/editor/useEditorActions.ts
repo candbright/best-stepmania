@@ -11,7 +11,7 @@ import { useSettingsStore } from "@/shared/stores/settings";
 import { mergeShortcutBindings, eventMatchesBinding, type ShortcutId } from "@/shared/lib/engine/keyBindings";
 import { useI18n } from "@/shared/i18n";
 import * as api from "@/shared/api";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 import type { EditorState } from "./useEditorState";
 import type { EditorCanvas } from "./useEditorCanvas";
 import { defaultQuantizeFromTimeSignatures } from "./quantizeFromTimeSignature";
@@ -74,7 +74,7 @@ export function useEditorActions(
   /** Clear note/timing editing state when the song has zero charts (file may still exist). */
   function resetEditorWhenNoCharts() {
     s.playing.value = false;
-    api.audioPause().catch((e) => logOptionalRejection("editor.resetNoCharts.pause", e));
+    api.audioPause().catch((e) => logDebug("Optional", "editor.resetNoCharts.pause", e));
     s.noteRows.value = [];
     s.undoStack.value = [];
     s.redoStack.value = [];

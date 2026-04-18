@@ -3,7 +3,7 @@ import { useSessionStore } from "@/shared/stores/session";
 import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import * as api from "@/shared/api";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug, logInfo } from "@/shared/lib/devLog";
 import type { EditorCanvas } from "../useEditorCanvas";
 import type { EditorState } from "../useEditorState";
 
@@ -27,7 +27,7 @@ export function createEditorPlaybackNav(deps: EditorPlaybackNavDeps) {
     if (s.allCharts.value.length === 0) return;
     if (s.playing.value) {
       s.playing.value = false;
-      api.audioPause().catch((e) => logOptionalRejection("editor.togglePlayback.pause", e));
+      api.audioPause().catch((e) => logDebug("Optional", "editor.togglePlayback.pause", e));
     } else {
       s.playing.value = true;
       s.playStartBeat.value = s.scrollBeat.value;
@@ -45,7 +45,7 @@ export function createEditorPlaybackNav(deps: EditorPlaybackNavDeps) {
               .audioPlay()
               .then(() => resolve())
               .catch((e) => {
-                logOptionalRejection("editor.togglePlayback.play", e);
+                logDebug("Optional", "editor.togglePlayback.play", e);
                 resolve();
               });
             return;
@@ -55,7 +55,7 @@ export function createEditorPlaybackNav(deps: EditorPlaybackNavDeps) {
               .audioPlay()
               .then(() => resolve())
               .catch((e) => {
-                logOptionalRejection("editor.togglePlayback.play", e);
+                logDebug("Optional", "editor.togglePlayback.play", e);
                 resolve();
               });
           }, ms);
@@ -71,16 +71,16 @@ export function createEditorPlaybackNav(deps: EditorPlaybackNavDeps) {
           const delayMs = -seekPos * 1000;
           return api.audioSeek(0).then(() => playAfterMs(delayMs));
         })
-        .catch((e) => logOptionalRejection("editor.togglePlayback.chain", e));
+        .catch((e) => logDebug("Optional", "editor.togglePlayback.chain", e));
     }
   }
 
   function goBackNow() {
     if (s.playing.value) {
       s.playing.value = false;
-      api.audioPause().catch((e) => logOptionalRejection("editor.goBack.pause", e));
+      api.audioPause().catch((e) => logDebug("Optional", "editor.goBack.pause", e));
     }
-    api.audioSetRate(1.0).catch((e) => logOptionalRejection("editor.goBack.audioSetRate", e));
+    api.audioSetRate(1.0).catch((e) => logDebug("Optional", "editor.goBack.audioSetRate", e));
     player.cleanup();
     session.resumeFromEditor = true;
     router.push("/editor-select");
@@ -96,11 +96,20 @@ export function createEditorPlaybackNav(deps: EditorPlaybackNavDeps) {
     if (!session.currentSong || s.allCharts.value.length === 0) return;
     if (s.playing.value) {
       s.playing.value = false;
-      api.audioPause().catch((e) => logOptionalRejection("editor.previewPlay.pause", e));
+      api.audioPause().catch((e) => logDebug("Optional", "editor.previewPlay.pause", e));
     }
     session.selectChart(s.activeChartIndex.value);
-    const chartIntegralSec = canvas.beatToTime(s.scrollBeat.value);
-    const previewSec = chartIntegralSec - s.metaOffset.value;
+    const scrollBeat = s.scrollBeat.value;
+    const chartIntegralSec = canvas.beatToTime(scrollBeat);
+    const metaOffset = s.metaOffset.value;
+    const previewSec = chartIntegralSec - metaOffset;
+    logInfo("Editor", "previewPlay", {
+      activeChartIndex: s.activeChartIndex.value,
+      scrollBeat,
+      chartIntegralSec,
+      metaOffset,
+      previewSec,
+    });
     session.previewFromSecond = previewSec;
     session.editorPreviewAnchorSecond = previewSec;
     session.previewReturnToEditor = true;

@@ -2,6 +2,7 @@ import { ref } from "vue";
 import type { Router } from "vue-router";
 import { ensureMinElapsed } from "@/shared/lib/loadingGate";
 import { primeEditorEntryResources } from "./editorEntryPrefetch";
+import { logError } from "@/shared/lib/devLog";
 
 interface BlockingOverlayLike {
   show: (options: { message: string; onCancel: () => void; onRetry: null }) => void;
@@ -63,7 +64,7 @@ export function useEditorEntryNavigation(options: UseEditorEntryNavigationOption
         options.blockingOverlay.hide();
         return;
       }
-      console.error(e);
+      logError("Editor", "navigateToEditor failed:", e);
       options.session.clearEditorEntryPrime();
       options.blockingOverlay.setFailed(options.t("loadingOverlay.failed"), () => {
         void navigateToEditorWithPrefetch(pendingEditorRouteQuery.value);

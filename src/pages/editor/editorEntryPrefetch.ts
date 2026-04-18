@@ -1,5 +1,5 @@
 import * as api from "@/shared/api";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useSessionStore } from "@/shared/stores/session";
 
@@ -21,8 +21,8 @@ export async function primeEditorEntryResources(
   if (signal?.aborted) {
     throw new DOMException("aborted", "AbortError");
   }
-  await api.audioStop().catch((e) => logOptionalRejection("editorEntryPrefetch.audioStop", e));
-  await api.audioSetRate(1.0).catch((e) => logOptionalRejection("editorEntryPrefetch.audioSetRate", e));
+  await api.audioStop().catch((e) => logDebug("Optional", "editorEntryPrefetch.audioStop", e));
+  await api.audioSetRate(1.0).catch((e) => logDebug("Optional", "editorEntryPrefetch.audioSetRate", e));
 
   setMessage(t("loadingPhase.audio"));
   await player.waitForLoadComplete(10000, signal);

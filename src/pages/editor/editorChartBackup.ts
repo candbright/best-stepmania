@@ -4,6 +4,7 @@
  */
 
 import type { EditorState } from "@/pages/editor/useEditorState";
+import { logWarn } from "@/shared/lib/devLog";
 
 const STORAGE_PREFIX = "bsm-editor-draft-v1";
 
@@ -138,7 +139,7 @@ export function writeEditorChartBackup(s: EditorState, songPath: string, chartIn
   try {
     localStorage.setItem(storageKey(songPath, chartIndex), JSON.stringify(payload));
   } catch (e: unknown) {
-    console.warn("[EditorBackup] write failed:", e);
+    logWarn("EditorBackup", "write failed:", e);
   }
 }
 

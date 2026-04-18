@@ -1,7 +1,7 @@
 import { useSessionStore } from "@/shared/stores/session";
 import { useLibraryStore } from "@/shared/stores/library";
 import * as api from "@/shared/api";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 import type { SaveChartNote } from "@/shared/api";
 import type { EditorState } from "../useEditorState";
 import { STEPS_TYPE_NUM_TRACKS } from "../constants";
@@ -69,7 +69,7 @@ export function createEditorChartCrud(deps: EditorChartCrudDeps) {
     if (!song || s.allCharts.value.length === 0) return;
     try {
       s.playing.value = false;
-      await api.audioPause().catch((e) => logOptionalRejection("editor.deleteChart.pause", e));
+      await api.audioPause().catch((e) => logDebug("Optional", "editor.deleteChart.pause", e));
       await api.deleteChart(song.path, s.activeChartIndex.value);
       s.allCharts.value = await api.loadChart(song.path);
       if (s.allCharts.value.length === 0) {

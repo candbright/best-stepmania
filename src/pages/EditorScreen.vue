@@ -19,7 +19,7 @@ import EditorStatusBar from "./editor/EditorStatusBar.vue";
 import EditorPromptModals from "./editor/EditorPromptModals.vue";
 import { ensureMinElapsed } from "@/shared/lib/loadingGate";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug, logError } from "@/shared/lib/devLog";
 import { mergeShortcutBindings, eventMatchesBinding } from "@/shared/lib/engine/keyBindings";
 import type { ShortcutId } from "@/shared/lib/engine/keyBindings";
 import { useEditorDraftGuard } from "./editor/useEditorDraftGuard";
@@ -148,7 +148,7 @@ watch(editorRate, (rate) => {
       s.audioSeekBase.value = currentAudioPos ?? s.audioSeekBase.value;
       return api.audioSetRate(rate);
     })
-    .catch((e) => logOptionalRejection("editor.watch.editorRate.audio", e));
+    .catch((e) => logDebug("Optional", "editor.watch.editorRate.audio", e));
 });
 
 // Inline BPM editor positioning
@@ -244,8 +244,8 @@ async function enterEditor() {
     if (!audioPrimed) {
       blockingOverlay.updateMessage(t("loadingPhase.preparing"));
       await player.stopForGame();
-      await api.audioStop().catch((e) => logOptionalRejection("editor.enter.audioStop", e));
-      await api.audioSetRate(1.0).catch((e) => logOptionalRejection("editor.enter.audioSetRate", e));
+      await api.audioStop().catch((e) => logDebug("Optional", "editor.enter.audioStop", e));
+      await api.audioSetRate(1.0).catch((e) => logDebug("Optional", "editor.enter.audioSetRate", e));
 
       blockingOverlay.updateMessage(t("loadingPhase.audio"));
       await player.waitForLoadComplete(10000);
@@ -268,13 +268,13 @@ async function enterEditor() {
     }
 
     canvas.initCanvas();
-    loadWaveformData(session.currentSong?.path).catch((e) => logOptionalRejection("editor.enter.loadWaveform", e));
+    loadWaveformData(session.currentSong?.path).catch((e) => logDebug("Optional", "editor.enter.loadWaveform", e));
   } catch (e: unknown) {
     session.clearEditorEntryPrime();
     blockingOverlay.setFailed(t("loadingOverlay.failed"), () => {
       void retryEditorEnter();
     });
-    console.error(e);
+    logError("Editor", e);
   } finally {
     if (!audioPrimed) {
       await ensureMinElapsed(started, 1500);
@@ -314,8 +314,8 @@ async function resumeEditorLight() {
   s.playing.value = false;
   try {
     await player.stopForGame();
-    await api.audioStop().catch((e) => logOptionalRejection("editor.resumeLight.audioStop", e));
-    await api.audioSetRate(1.0).catch((e) => logOptionalRejection("editor.resumeLight.audioSetRate1", e));
+    await api.audioStop().catch((e) => logDebug("Optional", "editor.resumeLight.audioStop", e));
+    await api.audioSetRate(1.0).catch((e) => logDebug("Optional", "editor.resumeLight.audioSetRate1", e));
 
     await player.waitForLoadComplete(10000);
     if (player.status === "loading") {
@@ -326,14 +326,14 @@ async function resumeEditorLight() {
     if (session.currentSong) {
       const musicPath = await api.getSongMusicPath(session.currentSong.path);
       await api.audioLoad(musicPath);
-      await api.audioSetRate(s.editorRate.value).catch((e) => logOptionalRejection("editor.resumeLight.audioSetRateEditor", e));
+      await api.audioSetRate(s.editorRate.value).catch((e) => logDebug("Optional", "editor.resumeLight.audioSetRateEditor", e));
     }
 
     await nextTick();
     canvas.resizeCanvas();
     canvas.initCanvas();
   } catch (e: unknown) {
-    console.error(e);
+    logError("Editor", e);
     await enterEditor();
   }
 }
