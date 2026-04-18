@@ -4,7 +4,8 @@ import { usePlayerStore } from "@/shared/stores/player";
 import type { SongListItem } from "@/shared/api";
 
 /**
- * 筛选列表变化时：当前选中不在列表中则选中第一项；列表为空则清空选中并停止预览音频。
+ * 筛选列表变化时：无当前选中则从筛选结果中随机一首；有选中但不在列表中则选中第一项；
+ * 列表为空则清空选中并停止预览音频。
  */
 export async function syncSelectionToFilteredSongs(
   filtered: SongListItem[],
@@ -28,8 +29,9 @@ export async function syncSelectionToFilteredSongs(
     return;
   }
 
-  const first = filtered[0]!;
-  const idx = library.songs.findIndex((s) => s.path === first.path);
+  const picked =
+    cur ? filtered[0]! : filtered[Math.floor(Math.random() * filtered.length)]!;
+  const idx = library.songs.findIndex((s) => s.path === picked.path);
   if (idx < 0) return;
 
   await session.selectSong(idx);

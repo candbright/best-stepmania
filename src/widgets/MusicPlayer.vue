@@ -96,6 +96,8 @@ watch(
   () => player.queueIndex,
   (idx) => {
     if (idx < 0) return;
+    // 标题页会用随机起点 `setQueue` 预热队列；若此处同步 session，选模式时会被当成「已选歌」而跳过随机首曲。
+    if (route.path === "/") return;
     if (session.currentSongIndex !== idx) {
       session.setCurrentSongIndexFromPlayer(idx);
     }

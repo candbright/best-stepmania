@@ -59,7 +59,11 @@ export function useEditorSongSelectLifecycle(options: UseEditorSongSelectLifecyc
 
     // 初次加载由主界面统一完成；这里只消费缓存。
     if (options.player.queue.length === 0 && options.library.songs.length > 0) {
-      options.player.setQueue(options.library.songs, 0);
+      const startIdx =
+        options.session.currentSongIndex >= 0
+          ? options.session.currentSongIndex
+          : Math.floor(Math.random() * options.library.songs.length);
+      options.player.setQueue(options.library.songs, startIdx);
       if (options.player.status === "idle") {
         options.player.playDefaultMusic();
       }

@@ -1,6 +1,10 @@
 import type { SongListItem } from "@/shared/api";
 import type { SessionPlayMode } from "@/shared/lib/chartPlayMode";
-import { firstSongIndexMatchingPlayMode, songHasChartForPlayMode } from "@/shared/lib/chartPlayMode";
+import {
+  firstSongIndexMatchingPlayMode,
+  randomSongIndexMatchingPlayMode,
+  songHasChartForPlayMode,
+} from "@/shared/lib/chartPlayMode";
 import type { useSessionStore } from "@/shared/stores/session";
 import type { useSettingsStore } from "@/shared/stores/settings";
 import type { useLibraryStore } from "@/shared/stores/library";
@@ -33,10 +37,13 @@ export async function applyPlayModeSelection(
   const idx = session.currentSongIndex;
   const cur = idx >= 0 && idx < songs.length ? songs[idx]! : null;
   if (!songHasChartForPlayMode(cur, mode)) {
-    const firstIdx = firstSongIndexMatchingPlayMode(songs, mode);
-    if (firstIdx >= 0) {
-      await session.selectSong(firstIdx);
-      player.setQueue(songs, firstIdx);
+    const nextIdx =
+      idx < 0
+        ? randomSongIndexMatchingPlayMode(songs, mode)
+        : firstSongIndexMatchingPlayMode(songs, mode);
+    if (nextIdx >= 0) {
+      await session.selectSong(nextIdx);
+      player.setQueue(songs, nextIdx);
     }
   }
 }

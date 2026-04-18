@@ -461,7 +461,11 @@ export function useSelectMusicScreen() {
     }
 
     if (player.queue.length === 0 && library.songs.length > 0) {
-      player.setQueue(library.songs, 0);
+      const startIdx =
+        session.currentSongIndex >= 0
+          ? session.currentSongIndex
+          : Math.floor(Math.random() * library.songs.length);
+      player.setQueue(library.songs, startIdx);
       if (player.status === "idle") {
         player.playDefaultMusic();
       }

@@ -57,3 +57,16 @@ export function songHasChartForPlayMode(
   if (!charts?.length) return false;
   return charts.some((c) => chartFitsPlayMode(c, mode));
 }
+
+/** Random list index whose song has at least one chart for `mode`, or `-1` if none. */
+export function randomSongIndexMatchingPlayMode(
+  songs: readonly { charts?: readonly { stepsType: string }[] }[],
+  mode: SessionPlayMode,
+): number {
+  const indices: number[] = [];
+  for (let i = 0; i < songs.length; i++) {
+    if (songHasChartForPlayMode(songs[i], mode)) indices.push(i);
+  }
+  if (indices.length === 0) return -1;
+  return indices[Math.floor(Math.random() * indices.length)]!;
+}
