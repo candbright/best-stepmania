@@ -12,7 +12,7 @@ export {
 export interface PanelResizeOptions {
   /** Initial panel width in pixels */
   initialWidth?: number;
-  /** Minimum panel width in pixels (default: same as {@link initialWidth}, i.e. cannot drag narrower than entry width) */
+  /** Minimum panel width in pixels (default: {@link SONG_SELECT_PANEL_WIDTH_DEFAULT_PX}, independent of persisted width) */
   minPanelWidth?: number;
   /** Minimum detail panel width in pixels */
   minDetailPanelWidth?: number;
@@ -40,7 +40,7 @@ const DEFAULT_INITIAL_WIDTH = SONG_SELECT_PANEL_WIDTH_DEFAULT_PX;
  */
 export function usePanelResize(options: PanelResizeOptions = {}): UsePanelResizeReturn {
   const initialWidth = options.initialWidth ?? DEFAULT_INITIAL_WIDTH;
-  const minPanelWidth = options.minPanelWidth ?? initialWidth;
+  const minPanelWidth = options.minPanelWidth ?? DEFAULT_INITIAL_WIDTH;
   const minDetailPanelWidth = options.minDetailPanelWidth ?? DEFAULT_MIN_DETAIL_PANEL_WIDTH;
   const containerSelector = options.containerSelector ?? ".sms-body";
   const onResizeCommit = options.onResizeCommit;

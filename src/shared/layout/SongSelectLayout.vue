@@ -38,7 +38,7 @@ function clampSongPanelToContainer() {
   const container = document.querySelector(".sms-body") as HTMLElement | null;
   if (!container) return;
   const maxW = container.getBoundingClientRect().width - SONG_SELECT_PANEL_MIN_DETAIL_PX;
-  const minW = Math.round(settings.songSelectPanelWidthPx ?? SONG_SELECT_PANEL_WIDTH_DEFAULT_PX);
+  const minW = SONG_SELECT_PANEL_WIDTH_DEFAULT_PX;
   const cur = songPanelWidth.value ?? minW;
   songPanelWidth.value = Math.max(minW, Math.min(cur, maxW));
 }

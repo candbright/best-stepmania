@@ -451,8 +451,15 @@ export function useSelectMusicScreen() {
 
     if (session.resumePlaybackOnReturn) {
       session.resumePlaybackOnReturn = false;
-      if (session.currentSongIndex >= 0) {
-        player.playSongAt(session.currentSongIndex);
+      if (session.currentSongIndex >= 0 && library.songs.length > 0) {
+        const idx = session.currentSongIndex;
+        const queueSynced =
+          player.queue.length === library.songs.length &&
+          player.queue.every((s, i) => s.path === library.songs[i]?.path);
+        if (!queueSynced) {
+          player.setQueue(library.songs, idx);
+        }
+        player.playSongAt(idx);
       }
       ensureCurrentSongVisible();
       preloadAllBanners();
