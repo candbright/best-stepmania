@@ -6,6 +6,7 @@ import type { SongListItem } from "@/shared/api";
 /**
  * 筛选列表变化时：无当前选中则从筛选结果中随机一首；有选中但不在列表中则选中第一项；
  * 列表为空则清空选中并停止预览音频。
+ * 若播放器正在播真实曲目（非默认音乐）且队列与曲库一致、当前曲在筛选内，则只对齐 session，不触发 playSongAt，避免换歌。
  */
 export async function syncSelectionToFilteredSongs(
   filtered: SongListItem[],
@@ -24,6 +25,28 @@ export async function syncSelectionToFilteredSongs(
   }
 
   const inFilter = new Set(filtered.map((s) => s.path));
+  const queueMatchesLibrary =
+    player.queue.length === library.songs.length &&
+    player.queue.every((s, i) => s.path === library.songs[i]?.path);
+  const qIdx = player.queueIndex;
+  if (
+    !player.isDefaultMusic &&
+    qIdx >= 0 &&
+    queueMatchesLibrary
+  ) {
+    const playing = player.queue[qIdx];
+    if (playing && inFilter.has(playing.path)) {
+      const idx = library.songs.findIndex((s) => s.path === playing.path);
+      if (idx >= 0) {
+        if (session.currentSongIndex !== idx) {
+          session.setCurrentSongIndexFromPlayer(idx);
+        }
+        loadBannerLazy(idx);
+        return;
+      }
+    }
+  }
+
   const cur = session.currentSong;
   if (cur && inFilter.has(cur.path)) {
     return;
