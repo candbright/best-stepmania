@@ -12,7 +12,7 @@ import * as api from "@/shared/api";
 import { getDefaultMusicTrack } from "@/shared/lib/defaultMusic";
 import { createAudioPreloadPlanner } from "@/shared/lib/audioPreloadPlanner";
 import { createAudioPlaybackTracker } from "@/shared/lib/audioPlaybackTracker";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 
 export type PlayerStatus = "idle" | "loading" | "playing" | "paused";
 
@@ -74,7 +74,7 @@ export const usePlayerStore = defineStore("player", () => {
     getCachedMusicPath: (songPath) => musicPathCache.get(songPath),
     resolveMusicPath,
     onResolveError: (scope, error) => {
-      logOptionalRejection(scope, error);
+      logDebug("Optional", scope, error);
     },
   });
 
@@ -177,7 +177,7 @@ export const usePlayerStore = defineStore("player", () => {
       try {
         defaultMusicSource.stop();
       } catch (e: unknown) {
-        logOptionalRejection("player.defaultMusic.stop", e);
+        logDebug("Optional", "player.defaultMusic.stop", e);
       }
       defaultMusicSource.disconnect();
       defaultMusicSource = null;
@@ -197,7 +197,7 @@ export const usePlayerStore = defineStore("player", () => {
     try {
       defaultMusicSource.stop();
     } catch (e: unknown) {
-      logOptionalRejection("player.defaultMusic.pauseStop", e);
+      logDebug("Optional", "player.defaultMusic.pauseStop", e);
     }
     defaultMusicSource.disconnect();
     defaultMusicSource = null;
@@ -250,7 +250,7 @@ export const usePlayerStore = defineStore("player", () => {
     stopProgressPoll();
 
     // 切歌后立即停止旧预览，避免新歌加载/缓冲期间旧歌继续播放
-    await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlay.audioStop", e));
+    await api.audioStop(myId).catch((e) => logDebug("Optional", "player.loadAndPlay.audioStop", e));
 
     try {
       const musicPath = await resolveMusicPath(song.path);
@@ -264,14 +264,14 @@ export const usePlayerStore = defineStore("player", () => {
         if (myId !== loadAbortId) {
           // 旧请求可能已经触发了播放，若当前已切到别的歌则立刻停止
           if (queueIndex.value !== idx) {
-            await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlay.raceStop1", e));
+            await api.audioStop(myId).catch((e) => logDebug("Optional", "player.loadAndPlay.raceStop1", e));
           }
           return;
         }
         duration.value = info.duration;
         if (myId !== loadAbortId) {
           if (queueIndex.value !== idx) {
-            await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlay.raceStop2", e));
+            await api.audioStop(myId).catch((e) => logDebug("Optional", "player.loadAndPlay.raceStop2", e));
           }
           return;
         }
@@ -284,7 +284,7 @@ export const usePlayerStore = defineStore("player", () => {
       // 后台预加载相邻歌曲（不影响当前播放）
       preloadNeighbors(idx);
     } catch (e: unknown) {
-      logOptionalRejection("player.loadAndPlay", e);
+      logDebug("Optional", "player.loadAndPlay", e);
       if (myId === loadAbortId) status.value = "idle";
     }
   }
@@ -312,7 +312,7 @@ export const usePlayerStore = defineStore("player", () => {
       isDefaultMusic.value = false;
     }
 
-    await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlayFull.audioStop", e));
+    await api.audioStop(myId).catch((e) => logDebug("Optional", "player.loadAndPlayFull.audioStop", e));
 
     try {
       const musicPath = await resolveMusicPath(song.path);
@@ -323,7 +323,7 @@ export const usePlayerStore = defineStore("player", () => {
       const info = await api.audioLoad(musicPath);
       if (myId !== loadAbortId) {
         if (queueIndex.value !== idx) {
-          await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlayFull.raceStop1", e));
+          await api.audioStop(myId).catch((e) => logDebug("Optional", "player.loadAndPlayFull.raceStop1", e));
         }
         return;
       }
@@ -337,14 +337,14 @@ export const usePlayerStore = defineStore("player", () => {
         await api.audioSeek(0, myId);
         if (myId !== loadAbortId) {
           if (queueIndex.value !== idx) {
-            await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlayFull.raceStop2", e));
+            await api.audioStop(myId).catch((e) => logDebug("Optional", "player.loadAndPlayFull.raceStop2", e));
           }
           return;
         }
         await api.audioPlay(myId);
         if (myId !== loadAbortId) {
           if (queueIndex.value !== idx) {
-            await api.audioStop(myId).catch((e) => logOptionalRejection("player.loadAndPlayFull.raceStop3", e));
+            await api.audioStop(myId).catch((e) => logDebug("Optional", "player.loadAndPlayFull.raceStop3", e));
           }
           return;
         }
@@ -356,7 +356,7 @@ export const usePlayerStore = defineStore("player", () => {
 
       preloadNeighbors(idx);
     } catch (e: unknown) {
-      logOptionalRejection("player.loadAndPlayFull", e);
+      logDebug("Optional", "player.loadAndPlayFull", e);
       if (myId === loadAbortId) status.value = "idle";
     }
   }
@@ -369,7 +369,7 @@ export const usePlayerStore = defineStore("player", () => {
       preloadingSet.add(target.path);
       resolveMusicPath(target.path)
         .then(mp => api.audioPreload(mp))
-        .catch((e) => logOptionalRejection("player.preloadNeighbor", e))
+        .catch((e) => logDebug("Optional", "player.preloadNeighbor", e))
         .finally(() => preloadingSet.delete(target.path));
     }
   }
@@ -381,7 +381,7 @@ export const usePlayerStore = defineStore("player", () => {
    */
   async function advanceAfterQueueTrackEnd() {
     await api.audioPauseForce().catch((e) =>
-      logOptionalRejection("player.advanceAfterQueueTrackEnd.pause", e),
+      logDebug("Optional", "player.advanceAfterQueueTrackEnd.pause", e),
     );
     stopProgressPoll();
     const n = queue.value.length;
@@ -465,7 +465,7 @@ export const usePlayerStore = defineStore("player", () => {
   async function playNext() {
     // 暂停当前歌曲
     await api.audioPause(activeAudioRequestToken ?? undefined).catch((e) =>
-      logOptionalRejection("player.playNext.pause", e),
+      logDebug("Optional", "player.playNext.pause", e),
     );
     stopProgressPoll();
     const n = queue.value.length;
@@ -545,7 +545,7 @@ export const usePlayerStore = defineStore("player", () => {
         try {
           await api.audioSeek(targetSec, activeAudioRequestToken ?? undefined);
         } catch (e: unknown) {
-          logOptionalRejection("player.seekTo.audioSeek", e);
+          logDebug("Optional", "player.seekTo.audioSeek", e);
         }
       }, 80);
     }
@@ -559,7 +559,7 @@ export const usePlayerStore = defineStore("player", () => {
     if (isDefaultMusic.value) {
       await pauseDefaultMusic();
     } else {
-      await api.audioStop(token).catch((e) => logOptionalRejection("player.stopForGame.audioStop", e));
+      await api.audioStop(token).catch((e) => logDebug("Optional", "player.stopForGame.audioStop", e));
     }
     status.value = "paused";
   }
@@ -577,7 +577,7 @@ export const usePlayerStore = defineStore("player", () => {
     if (!isDefaultMusic.value && status.value === "playing") {
       stopProgressPoll();
       await api.audioPause(activeAudioRequestToken ?? undefined)
-        .catch((e) => logOptionalRejection("player.pauseTitleMusicForOptions.audioPause", e));
+        .catch((e) => logDebug("Optional", "player.pauseTitleMusicForOptions.audioPause", e));
       status.value = "paused";
       return;
     }
@@ -613,7 +613,7 @@ export const usePlayerStore = defineStore("player", () => {
       stopDefaultMusic();
       isDefaultMusic.value = false;
     } else {
-      api.audioStop(token).catch((e) => logOptionalRejection("player.cleanup.audioStop", e));
+      api.audioStop(token).catch((e) => logDebug("Optional", "player.cleanup.audioStop", e));
     }
     status.value = "idle";
   }
@@ -630,7 +630,7 @@ export const usePlayerStore = defineStore("player", () => {
         stopProgressPoll();
       }
     } catch (e: unknown) {
-      logOptionalRejection("player.syncWithBackend", e);
+      logDebug("Optional", "player.syncWithBackend", e);
     }
   }
 

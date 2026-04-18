@@ -7,7 +7,7 @@ import {
   setUiSfxStyle,
   setUiSfxVolume,
 } from "@/shared/lib/sfx";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 import { syncAudioVolume } from "@/shared/services/tauri/audio";
 import { applyWindowPreset } from "@/shared/services/tauri/window";
 import { useSettingsStore } from "@/shared/stores/settings";
@@ -127,7 +127,7 @@ export function useAppSettingsSync(settings: SettingsStore, scheduleSave: () => 
         void applyWindowPreset(
           preset,
           preset === "normal" && width != null && height != null ? { width, height } : null,
-        ).catch((e) => logOptionalRejection("useAppSettingsSync.applyWindowPreset", e));
+        ).catch((e) => logDebug("Optional", "useAppSettingsSync.applyWindowPreset", e));
       },
       { immediate: true },
     ),

@@ -7,7 +7,7 @@ import { useSessionStore } from "@/shared/stores/session";
 import { useRoute } from "vue-router";
 import { useI18n } from "@/shared/i18n";
 import * as api from "@/shared/api";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 
 const player = usePlayerStore();
 const library = useLibraryStore();
@@ -72,7 +72,7 @@ function onVolumeChange(e: Event) {
   const v = parseInt((e.target as HTMLInputElement).value, 10);
   settings.musicVolume = v;
   api.audioSetVolume(v / 100, (settings.masterVolume ?? 80) / 100).catch((e) =>
-    logOptionalRejection("musicPlayer.audioSetVolume", e),
+    logDebug("Optional", "musicPlayer.audioSetVolume", e),
   );
 }
 

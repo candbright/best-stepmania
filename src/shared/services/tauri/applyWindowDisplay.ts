@@ -1,7 +1,7 @@
 import type { WindowDisplayPresetId } from "@/shared/constants/windowDisplay";
 import { fixedLogicalSizeForPreset } from "@/shared/constants/windowDisplay";
 import { isTauri } from "@/shared/lib/platform";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 
 export interface CustomWindowSize {
   width: number;
@@ -91,6 +91,6 @@ export async function applyWindowDisplayPreset(
       await win.center();
     }
   } catch (e: unknown) {
-    logOptionalRejection("applyWindowDisplayPreset", e);
+    logDebug("Optional", "applyWindowDisplayPreset", e);
   }
 }

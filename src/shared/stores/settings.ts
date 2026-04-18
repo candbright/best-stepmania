@@ -16,6 +16,7 @@ import type { WindowDisplayPresetId } from "@/shared/constants/windowDisplay";
 import { syncWindowBorderlessDom } from "@/shared/services/tauri/applyWindowDisplay";
 import type { CursorStylePreset, RhythmSfxStyle, UiSfxStyle } from "@/shared/api/config";
 import * as api from "@/shared/api";
+import { logError } from "@/shared/lib/devLog";
 
 const clamp01 = (value: number, fallback: number): number => {
   if (!Number.isFinite(value)) return fallback;
@@ -367,7 +368,7 @@ export const useSettingsStore = defineStore("settings", () => {
     try {
       await api.saveConfig(cfg);
     } catch (e: unknown) {
-      console.error("Failed to save config:", e);
+      logError("Settings", "Failed to save config:", e);
     }
   }
 

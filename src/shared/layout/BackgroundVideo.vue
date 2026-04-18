@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from "vue";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 
 const props = defineProps<{
   videoPath?: string;
@@ -15,7 +15,7 @@ const hasImage = ref(false);
 
 watch(() => props.playing, (val) => {
   if (hasVideo.value && videoRef.value) {
-    if (val) videoRef.value.play().catch((e) => logOptionalRejection("backgroundVideo.play", e));
+    if (val) videoRef.value.play().catch((e) => logDebug("Optional", "backgroundVideo.play", e));
     else videoRef.value.pause();
   }
 });

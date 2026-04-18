@@ -1,6 +1,6 @@
 import type { WindowDisplayPresetId } from "@/shared/constants/windowDisplay";
 import { applyWindowDisplayPreset } from "@/shared/services/tauri/applyWindowDisplay";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 
 export interface WindowPresetSize {
   width: number;
@@ -35,5 +35,5 @@ export function tryCloseWebTab(webExitUnavailableMessage: string): void {
 }
 
 export function logCloseMainWindowFailure(scope: string, err: unknown): void {
-  logOptionalRejection(scope, err);
+  logDebug("Optional", scope, err);
 }

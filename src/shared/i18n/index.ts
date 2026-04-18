@@ -1,4 +1,5 @@
 import { computed, ref } from "vue";
+import { logError } from "@/shared/lib/devLog";
 import en from "./en";
 import zh from "./zh";
 
@@ -11,7 +12,7 @@ function safeGetStorageItem(key: string): string | null {
   try {
     return localStorage.getItem(key);
   } catch (error) {
-    console.error("Failed to read locale from localStorage:", error);
+    logError("I18n", "Failed to read locale from localStorage:", error);
     return null;
   }
 }
@@ -20,7 +21,7 @@ function safeSetStorageItem(key: string, value: string): void {
   try {
     localStorage.setItem(key, value);
   } catch (error) {
-    console.error("Failed to persist locale to localStorage:", error);
+    logError("I18n", "Failed to persist locale to localStorage:", error);
   }
 }
 
