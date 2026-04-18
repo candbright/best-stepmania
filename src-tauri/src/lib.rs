@@ -1,7 +1,7 @@
 mod commands;
 pub mod error;
 
-use commands::{audio, chart, config, diagnostics, import, noteskin, profile, scoring, song, window};
+use commands::{audio, chart, config, diagnostics, import, logging, noteskin, profile, scoring, song, window};
 use sm_audio::AudioEngine;
 use sm_chart::SongFile;
 use sm_noteskin::NoteSkinManager;
@@ -392,6 +392,7 @@ pub fn run() {
             noteskin::load_noteskins_from_dir,
             diagnostics::export_diagnostics,
             diagnostics::open_path,
+            logging::append_frontend_log_lines,
             window::get_cursor_position,
         ])
         .run(tauri::generate_context!())
