@@ -33,6 +33,9 @@
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "installerHooks": "./windows/nsis-hooks.nsh"
       }
     },
     "icon": [

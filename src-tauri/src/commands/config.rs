@@ -212,6 +212,8 @@ pub struct AppConfig {
     pub ui_scale: f64,
     #[serde(default = "default_double_panel_gap_px")]
     pub double_panel_gap_px: u32,
+    #[serde(default = "default_song_select_panel_width_px")]
+    pub song_select_panel_width_px: u32,
     #[serde(default = "default_battery_lives")]
     pub battery_lives: u32,
     #[serde(default = "default_chart_cache_size")]
@@ -317,6 +319,9 @@ fn default_ui_scale() -> f64 {
 fn default_double_panel_gap_px() -> u32 {
     56
 }
+fn default_song_select_panel_width_px() -> u32 {
+    320
+}
 fn default_battery_lives() -> u32 {
     3
 }
@@ -390,6 +395,7 @@ impl Default for AppConfig {
             playback_rate: default_playback_rate(),
             ui_scale: default_ui_scale(),
             double_panel_gap_px: default_double_panel_gap_px(),
+            song_select_panel_width_px: default_song_select_panel_width_px(),
             battery_lives: default_battery_lives(),
             chart_cache_size: default_chart_cache_size(),
             cursor_enabled: true,

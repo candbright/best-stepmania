@@ -51,39 +51,17 @@ fn is_current_request_token(
     Ok(token == *latest)
 }
 
-/// Ensure an audio file is decoded and loaded into the engine's active stream.
-/// Fast path: if the file is already in cache, just rebuilds the stream.
-/// Slow path: decodes the file off-thread, stores in cache, then loads.
-async fn ensure_audio_ready(
+/// 流式打开音频：probe 元数据 + 后台解码线程写入环形缓冲，不整文件解码。
+fn ensure_audio_ready(
     audio_engine: &std::sync::Mutex<AudioEngine>,
-    resolved: &PathBuf,
+    resolved: &Path,
 ) -> Result<(), String> {
-    let is_cached = {
-        let engine = audio_engine.lock().map_err(|e| e.to_string())?;
-        engine.is_cached(resolved)
-    };
-    if !is_cached {
-        let path_clone = resolved.clone();
-        let decoded = tauri::async_runtime::spawn_blocking(move || {
-            sm_audio::decoder::decode_file(&path_clone)
-        })
-        .await
-        .map_err(|e| format!("Decode task failed: {e}"))?
-        .map_err(|e| e)?;
-        let mut engine = audio_engine.lock().map_err(|e| e.to_string())?;
-        engine.load_decoded(resolved, decoded)?;
-    } else {
-        let mut engine = audio_engine.lock().map_err(|e| e.to_string())?;
-        engine.load_music(resolved)?;
-    }
-    Ok(())
+    let mut engine = audio_engine.lock().map_err(|e| e.to_string())?;
+    engine.load_music(resolved)
 }
 
 #[tauri::command]
-pub async fn audio_load(
-    state: State<'_, AppState>,
-    music_path: String,
-) -> Result<AudioInfo, String> {
+pub fn audio_load(state: State<'_, AppState>, music_path: String) -> Result<AudioInfo, String> {
     let base_dir = {
         state
             .songs_base_dir
@@ -95,7 +73,7 @@ pub async fn audio_load(
     let resolved = resolve_path(&music_path, &base_dir)
         .ok_or_else(|| format!("Audio file not found: {}", music_path))?;
 
-    ensure_audio_ready(&state.audio_engine, &resolved).await?;
+    ensure_audio_ready(&state.audio_engine, &resolved)?;
 
     let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
     Ok(AudioInfo {
@@ -159,7 +137,7 @@ pub fn audio_seek(
     if !claim_or_reject_request_token(&state.latest_audio_request_token, request_token)? {
         return Ok(());
     }
-    let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
     engine.seek(seconds);
     let time = engine.current_time();
     let duration = engine.duration();
@@ -260,7 +238,7 @@ pub fn audio_stop(state: State<AppState>, request_token: Option<u64>) -> Result<
     Ok(())
 }
 
-/// Clears all decoded PCM in memory. Normal flows keep cache for instant revisits; expose for settings/debug.
+/// Clears probe metadata cache (no full-track PCM is stored).
 #[tauri::command]
 pub fn audio_clear_cache(state: State<AppState>) -> Result<(), String> {
     let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
@@ -268,8 +246,7 @@ pub fn audio_clear_cache(state: State<AppState>) -> Result<(), String> {
     Ok(())
 }
 
-/// Preview a song: decode async if not cached, then seek and play.
-/// Uses fast path (no stream rebuild) when the same song is already cached.
+/// Preview a song: stream decode; fast path when probe metadata is cached.
 #[tauri::command]
 pub async fn audio_preview(
     app: tauri::AppHandle,
@@ -294,17 +271,20 @@ pub async fn audio_preview(
     let resolved = resolve_path(&music_path, &base_dir)
         .ok_or_else(|| format!("Audio file not found: {}", music_path))?;
 
-    // Fast path: same song already cached and stream exists — just seek+play, no rebuild
+    let actual_start = if start >= 0.0 {
+        start
+    } else {
+        let d = sm_audio::decoder::probe_file(&resolved)
+            .map(|p| p.duration_seconds)
+            .unwrap_or(0.0);
+        (d / 2.0 - length / 2.0).max(0.0)
+    };
+
     {
         let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
-        let duration = engine.duration();
-        let sample_rate = engine.sample_rate();
-        let actual_start = if start >= 0.0 {
-            start
-        } else {
-            (duration / 2.0 - length / 2.0).max(0.0)
-        };
         if engine.preview_quick(&resolved, actual_start) {
+            let duration = engine.duration();
+            let sample_rate = engine.sample_rate();
             drop(engine);
             emit_playback_event(&app, actual_start, duration, true, "play");
             return Ok(AudioInfo {
@@ -314,21 +294,13 @@ pub async fn audio_preview(
         }
     }
 
-    // Slow path: decode if not cached, then load stream
-    ensure_audio_ready(&state.audio_engine, &resolved).await?;
     if !is_current_request_token(&state.latest_audio_request_token, request_token)? {
         return Err("Stale request token".to_string());
     }
 
-    let engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
+    engine.start_streaming_at(&resolved, actual_start, true)?;
     let duration = engine.duration();
-    let actual_start = if start >= 0.0 {
-        start
-    } else {
-        (duration / 2.0 - length / 2.0).max(0.0)
-    };
-    engine.seek(actual_start);
-    engine.play();
     let time = engine.current_time();
     let sample_rate = engine.sample_rate();
     drop(engine);
@@ -339,8 +311,7 @@ pub async fn audio_preview(
     })
 }
 
-/// 后台预解码歌曲并存入缓存，不播放。
-/// 前端可在用户浏览列表时提前调用，使切歌时能立即 preview_quick。
+/// 后台 probe 元数据并存入缓存，不播放、不解码整首 PCM。
 #[tauri::command]
 pub async fn audio_preload(
     state: State<'_, AppState>,
@@ -365,18 +336,8 @@ pub async fn audio_preload(
         }
     }
 
-    // 后台解码
-    let path_clone = resolved.clone();
-    let decoded = tauri::async_runtime::spawn_blocking(move || {
-        sm_audio::decoder::decode_file(&path_clone)
-    })
-    .await
-    .map_err(|e| format!("Preload task failed: {e}"))?
-    .map_err(|e| e)?;
-
-    // 存入缓存（不播放）
     let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
-    engine.cache_only(&resolved, decoded);
+    engine.cache_probe_only(&resolved)?;
     Ok(())
 }
 
@@ -410,23 +371,11 @@ pub async fn audio_preload_batch(
         return Ok(0);
     }
 
-    let decode_handles: Vec<_> = uncached_paths
-        .iter()
-        .map(|p| {
-            let path = p.clone();
-            tauri::async_runtime::spawn_blocking(move || {
-                sm_audio::decoder::decode_file(&path).map(|d| (path, d))
-            })
-        })
-        .collect();
-
     let mut loaded = 0;
-    for handle in decode_handles {
-        if let Ok(Ok((path, decoded))) = handle.await {
-            let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
-            engine.cache_only(&path, decoded);
-            loaded += 1;
-        }
+    for path in uncached_paths {
+        let mut engine = state.audio_engine.lock().map_err(|e| e.to_string())?;
+        engine.cache_probe_only(&path)?;
+        loaded += 1;
     }
 
     Ok(loaded)
