@@ -41,6 +41,11 @@ export const useSessionStore = defineStore("session", () => {
   const previewFromSecond = ref<number | null>(null);
   /** If true, quitting gameplay should return to editor (used by editor preview play). */
   const previewReturnToEditor = ref(false);
+  /**
+   * Last editor preview start (audio seconds, same basis as `previewFromSecond`), kept after the
+   * one-shot `previewFromSecond` is consumed so evaluation “retry” can restart preview playback.
+   */
+  const editorPreviewAnchorSecond = ref<number | null>(null);
   /** If true, next EditorScreen activation skips full chart reload (keep-alive return from preview). */
   const editorWarmResume = ref(false);
   /** Prefetched chart list + path; consumed by editor `loadAllCharts` after navigating from song select. */
@@ -189,7 +194,7 @@ export const useSessionStore = defineStore("session", () => {
     songs, currentSongIndex, currentChartIndex, charts,
     playMode, hasPlayer1, hasPlayer2, p1ChartIndex, p2ChartIndex,
     routineP1ColorId, routineP2ColorId,
-    profileId, profileName, topScores, lastResults, lastResults2, lastScoreSaved, previewFromSecond, previewReturnToEditor, editorWarmResume,
+    profileId, profileName, topScores, lastResults, lastResults2, lastScoreSaved, previewFromSecond, previewReturnToEditor, editorPreviewAnchorSecond, editorWarmResume,
     editorPrimedCharts, editorEntryAudioPrimed, clearEditorEntryPrime,
     needsSongRefresh, resumePlaybackOnReturn, resumeTitleMusicAfterOptions, openPlayModeSelectAfterTitleEnter, resumeFromEditor,
     selectFilterDiffMin, selectFilterDiffMax, selectFilterSearch, selectFilterPack,

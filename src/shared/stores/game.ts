@@ -176,6 +176,10 @@ export const useGameStore = defineStore("game", () => {
     get: () => session.previewReturnToEditor,
     set: (v: boolean) => { session.previewReturnToEditor = v; },
   });
+  const editorPreviewAnchorSecond = computed({
+    get: () => session.editorPreviewAnchorSecond,
+    set: (v: number | null) => { session.editorPreviewAnchorSecond = v; },
+  });
   const editorWarmResume = computed({
     get: () => session.editorWarmResume,
     set: (v: boolean) => { session.editorWarmResume = v; },
@@ -266,7 +270,7 @@ export const useGameStore = defineStore("game", () => {
 
   return {
     songs, currentSongIndex, currentChartIndex, charts,
-    sortMode, searchQuery, profileId, profileName, topScores, lastResults, lastResults2, lastScoreSaved, previewFromSecond, previewReturnToEditor, editorWarmResume, needsSongRefresh, resumePlaybackOnReturn, resumeFromEditor,
+    sortMode, searchQuery, profileId, profileName, topScores, lastResults, lastResults2, lastScoreSaved, previewFromSecond, previewReturnToEditor, editorPreviewAnchorSecond, editorWarmResume, needsSongRefresh, resumePlaybackOnReturn, resumeFromEditor,
     selectFilterDiffMin, selectFilterDiffMax, selectFilterSearch, selectFilterPack,
     configLoaded,
     masterVolume, musicVolume, effectVolume,
