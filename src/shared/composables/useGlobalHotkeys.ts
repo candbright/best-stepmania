@@ -54,6 +54,7 @@ export function createGlobalEscHandler(
         session.editorWarmResume = true;
         session.previewFromSecond = null;
         session.previewReturnToEditor = false;
+        session.editorPreviewAnchorSecond = null;
         void router.push("/editor");
         return;
       }

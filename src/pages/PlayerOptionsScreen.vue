@@ -163,6 +163,7 @@ function goBack() {
     session.editorWarmResume = true;
     session.previewFromSecond = null;
     session.previewReturnToEditor = false;
+    session.editorPreviewAnchorSecond = null;
     router.push("/editor");
     return;
   }

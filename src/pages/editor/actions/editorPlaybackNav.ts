@@ -100,7 +100,9 @@ export function createEditorPlaybackNav(deps: EditorPlaybackNavDeps) {
     }
     session.selectChart(s.activeChartIndex.value);
     const chartIntegralSec = canvas.beatToTime(s.scrollBeat.value);
-    session.previewFromSecond = chartIntegralSec - s.metaOffset.value;
+    const previewSec = chartIntegralSec - s.metaOffset.value;
+    session.previewFromSecond = previewSec;
+    session.editorPreviewAnchorSecond = previewSec;
     session.previewReturnToEditor = true;
     router.push("/player-options");
   }

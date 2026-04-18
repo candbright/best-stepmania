@@ -119,13 +119,35 @@ const meanOffset = computed(() => {
 });
 
 function goToPlayerOptions() {
-  // 结算页退出统一进入“游玩”玩家设置，避免沿用编辑器预览返回链路。
-  session.previewReturnToEditor = false;
+  // 清理已消费的预览起点；若来自编辑器预览，保留 previewReturnToEditor，以便在玩家设置返回时仍回编辑器侧，而非游玩选歌。
   session.previewFromSecond = null;
-  router.push("/player-options");
+  void router.push("/player-options");
 }
-function goToSelectMusic() { goToPlayerOptions(); }
-function retry() { router.push("/gameplay"); }
+
+function goToSelectMusic() {
+  if (session.previewReturnToEditor) {
+    session.previewReturnToEditor = false;
+    session.previewFromSecond = null;
+    session.editorPreviewAnchorSecond = null;
+    session.resumeFromEditor = true;
+    void router.push("/editor-select");
+    return;
+  }
+  session.previewFromSecond = null;
+  session.editorPreviewAnchorSecond = null;
+  session.resumePlaybackOnReturn = true;
+  void router.push("/select-music");
+}
+
+function retry() {
+  if (session.previewReturnToEditor) {
+    const anchor = session.editorPreviewAnchorSecond;
+    if (anchor != null && Number.isFinite(anchor)) {
+      session.previewFromSecond = anchor;
+    }
+  }
+  void router.push("/gameplay");
+}
 </script>
 
 <template>

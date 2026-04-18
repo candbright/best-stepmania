@@ -634,14 +634,20 @@ async function loadAndStart() {
     const previewSec = session.previewFromSecond;
     const isEditorPreview = previewSec !== null && session.previewReturnToEditor;
     editorPreviewMode.value = isEditorPreview;
+    if (isEditorPreview && previewSec !== null) {
+      session.editorPreviewAnchorSecond = previewSec;
+    }
     session.previewFromSecond = null; // consume once
-    if (!isEditorPreview) session.previewReturnToEditor = false;
+    if (!isEditorPreview) {
+      session.previewReturnToEditor = false;
+      session.editorPreviewAnchorSecond = null;
+    }
 
-    if (previewSec !== null) {
+    if (isEditorPreview) {
       // Preview: skip countdown, start audio from (previewSec - 2s) with no scoring
       gameState.value = "playing";
       bgPlaying.value = true;
-      await engine.startPlayingFrom(previewSec, 2.0);
+      await engine.startPlayingFrom(previewSec!, 2.0);
     } else {
       // Normal gameplay: 3-2-1-GO countdown
       gameState.value = "countdown";
@@ -751,6 +757,7 @@ function quitGame() {
   }
   session.previewReturnToEditor = false;
   session.previewFromSecond = null;
+  session.editorPreviewAnchorSecond = null;
   router.push(backToEditor ? "/editor" : "/player-options");
 }
 
@@ -762,6 +769,7 @@ function quitToSelectMusic() {
     session.editorWarmResume = true;
     session.previewReturnToEditor = false;
     session.previewFromSecond = null;
+    session.editorPreviewAnchorSecond = null;
     router.push("/editor");
     return;
   }

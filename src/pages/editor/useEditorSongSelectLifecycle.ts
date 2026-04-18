@@ -46,8 +46,10 @@ export function useEditorSongSelectLifecycle(options: UseEditorSongSelectLifecyc
 
     if (options.session.resumeFromEditor) {
       options.session.resumeFromEditor = false;
-      if (options.session.currentSongIndex >= 0) {
+      if (options.session.currentSongIndex >= 0 && options.library.songs.length > 0) {
         options.player.cleanup();
+        // 清空队列，避免 setQueue 因「同队列同索引」早退而不触发加载；再整轨播放当前曲。
+        options.player.setQueue([], 0);
         options.player.setQueue(options.library.songs, options.session.currentSongIndex);
         options.player.playSongAt(options.session.currentSongIndex, true);
       }
