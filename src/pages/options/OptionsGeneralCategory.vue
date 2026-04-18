@@ -8,6 +8,7 @@ import { SettingsSection } from "@/features/settings";
 import { SettingsSelectRow } from "@/features/settings";
 import { APP_THEME_IDS } from "@/shared/constants/appThemes";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
+import { logError } from "@/shared/lib/devLog";
 
 const { t } = useI18n();
 const settings = useSettingsStore();
@@ -31,7 +32,7 @@ async function resetAllSettings() {
     await settings.saveAppConfig(session.profileName);
     await library.loadSongs(settings.songDirectories, { force: true });
   } catch (e: unknown) {
-    console.error(e);
+    logError("Options", "resetAllSettings failed:", e);
   }
 }
 

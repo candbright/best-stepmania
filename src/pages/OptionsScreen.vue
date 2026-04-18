@@ -10,7 +10,7 @@ import {
   previewRhythmSfx,
   previewUiSfx,
 } from "@/shared/lib/sfx";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 import { useConfirmDialog } from "@/shared/composables/useConfirmDialog";
 import { useSettingsSaveQueue } from "@/shared/composables/useSettingsSaveQueue";
 import { useAppSettingsSync } from "@/shared/composables/useAppSettingsSync";
@@ -83,7 +83,7 @@ provide(OPTIONS_DIALOG, { requestConfirm });
 
 onMounted(() => {
   if (library.packs.length === 0) {
-    void library.loadPacks().catch((e) => logOptionalRejection("options.prefetchSongPacks", e));
+    void library.loadPacks().catch((e) => logDebug("Optional", "options.prefetchSongPacks", e));
   }
 });
 
@@ -142,13 +142,13 @@ const activeCategory = ref<SettingsCategoryId>("general");
 
       <div class="category-panel" role="tabpanel">
         <div class="sections">
-          <OptionsContentCategory v-show="activeCategory === 'content'" />
-          <OptionsAudioCategory v-show="activeCategory === 'audio'" />
-          <OptionsDisplayCategory v-show="activeCategory === 'display'" />
-          <OptionsGeneralCategory v-show="activeCategory === 'general'" />
-          <OptionsKeyboardCategory v-show="activeCategory === 'keyboard'" />
-          <OptionsGameCategory v-show="activeCategory === 'game'" />
-          <OptionsAboutCategory v-show="activeCategory === 'about'" />
+          <OptionsContentCategory v-if="activeCategory === 'content'" />
+          <OptionsAudioCategory v-if="activeCategory === 'audio'" />
+          <OptionsDisplayCategory v-if="activeCategory === 'display'" />
+          <OptionsGeneralCategory v-if="activeCategory === 'general'" />
+          <OptionsKeyboardCategory v-if="activeCategory === 'keyboard'" />
+          <OptionsGameCategory v-if="activeCategory === 'game'" />
+          <OptionsAboutCategory v-if="activeCategory === 'about'" />
         </div>
       </div>
     </div>

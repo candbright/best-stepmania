@@ -14,6 +14,7 @@ import { displayPercentFromDpRatio } from "@/shared/lib/engine/types";
 import { gradeTextGradientStyle } from "@/shared/constants/gradeColors";
 import { chartFitsPlayMode } from "@/shared/lib/chartPlayMode";
 import { PHYSICAL_ROOT_PACK } from "@/shared/constants/songLibrary";
+import { logError } from "@/shared/lib/devLog";
 
 export function useSelectMusicScreen() {
   const router = useRouter();
@@ -437,7 +438,7 @@ export function useSelectMusicScreen() {
     try {
       await session.clearCurrentChartTopScores();
     } catch (e: unknown) {
-      console.error(e);
+      logError("SelectMusic", "clearCurrentChartTopScores failed:", e);
     } finally {
       clearingTopScores.value = false;
     }

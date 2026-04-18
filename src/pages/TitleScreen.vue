@@ -16,6 +16,7 @@ import { applyWindowPreset, closeTauriMainWindow, tryCloseWebTab } from "@/share
 import { applyPlayModeSelection } from "@/shared/lib/applyPlayModeSelection";
 import { PlayModeStrip } from "@/entities";
 import type { SessionPlayMode } from "@/shared/lib/chartPlayMode";
+import { logError } from "@/shared/lib/devLog";
 
 const router = useRouter();
 const route = useRoute();
@@ -302,7 +303,7 @@ async function bootstrapTitleScreen(): Promise<void> {
     await runTitleBootstrap();
     blockingOverlay.hide();
   } catch (error: unknown) {
-    console.error("Title screen bootstrap failed:", error);
+    logError("TitleScreen", "bootstrap failed:", error);
     const msg = error instanceof Error ? error.message : String(error);
     scanError.value = msg;
     scanning.value = false;
@@ -444,7 +445,7 @@ async function exitApp() {
     try {
       await closeTauriMainWindow();
     } catch (e: unknown) {
-      console.error("Failed to close Tauri window:", e);
+      logError("TitleScreen", "Failed to close Tauri window:", e);
     }
     return;
   }

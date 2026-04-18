@@ -9,7 +9,7 @@ import { useI18n } from "@/shared/i18n";
 import { listNoteskins } from "@/shared/api";
 import { SettingsCard } from "@/widgets";
 import { ROUTINE_PLAYER_COLORS, type RoutinePlayerColorId } from "@/shared/constants/routinePlayerColors";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 import { chartFitsPlayMode } from "@/shared/lib/chartPlayMode";
 import { setMetronomeSfxEnabled, setRhythmSfxEnabled, setUiSfxEnabled } from "@/shared/lib/sfx";
 
@@ -265,7 +265,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener("keydown", onKeyDown);
-  settings.saveAppConfig(session.profileName).catch((e) => logOptionalRejection("playerOptions.unmount.saveAppConfig", e));
+  settings.saveAppConfig(session.profileName).catch((e) => logDebug("Optional", "playerOptions.unmount.saveAppConfig", e));
 });
 </script>
 

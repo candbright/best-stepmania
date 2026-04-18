@@ -5,6 +5,7 @@ import { useI18n } from "@/shared/i18n";
 import { SettingsSection } from "@/features/settings";
 import { exportDiagnosticsAndOpen } from "@/shared/services/tauri/diagnostics";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX } from "./injectionKeys";
+import { logError } from "@/shared/lib/devLog";
 
 const { t } = useI18n();
 const sfx = inject(OPTIONS_PANEL_SFX)!;
@@ -26,7 +27,7 @@ async function runExportDiagnostics() {
   try {
     await exportDiagnosticsAndOpen();
   } catch (e: unknown) {
-    console.error("Failed to export diagnostics:", e);
+    logError("Diagnostics", "Failed to export diagnostics:", e);
   }
 }
 
