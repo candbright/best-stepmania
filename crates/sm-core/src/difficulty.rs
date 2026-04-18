@@ -13,14 +13,23 @@ pub enum Difficulty {
 
 impl Difficulty {
     pub fn from_str_tag(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
+        let low = s.to_lowercase();
+        match low.as_str() {
             "beginner" => Some(Self::Beginner),
             "easy" | "basic" => Some(Self::Easy),
             "medium" | "another" | "trick" => Some(Self::Medium),
             "hard" | "maniac" | "ssr" => Some(Self::Hard),
             "challenge" | "expert" | "smaniac" => Some(Self::Challenge),
             "edit" => Some(Self::Edit),
-            _ => None,
+            _ => {
+                // Community `.sm`: `level19` in #NOTES metadata (SSC export roundtrip).
+                if let Some(tail) = low.strip_prefix("level") {
+                    if !tail.is_empty() && tail.chars().all(|c| c.is_ascii_digit()) {
+                        return Some(Self::Edit);
+                    }
+                }
+                None
+            }
         }
     }
 }

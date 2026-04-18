@@ -1,8 +1,12 @@
 pub mod encoding;
+mod pump_sm_layout;
 pub mod sm_parser;
 pub mod sm_writer;
+pub mod single_chart_sm;
 pub mod ssc_parser;
 mod tag_parser;
+
+pub use single_chart_sm::build_single_chart_sm_song;
 
 use serde::{Deserialize, Serialize};
 use sm_core::{Difficulty, NoteData, StepsType};
@@ -80,7 +84,7 @@ impl Default for SongFile {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DisplayBpm {
     Actual,
     Specified(f64),
@@ -99,6 +103,15 @@ pub struct Chart {
     pub credit: String,
     pub note_data: NoteData,
     pub chart_timing: Option<TimingData>,
+    /// First line of `#NOTES` as in the source `.sm` (e.g. `hard`) when it is not a valid [`StepsType`] tag.
+    #[serde(default)]
+    pub sm_notes_primary_tag: Option<String>,
+    /// When true, `.sm` export writes the third metadata line from [`Chart::chart_name`] (community misplaced header).
+    #[serde(default)]
+    pub sm_misplaced_notes_header: bool,
+    /// Right-hand side of the `//--------------- left - right ---------------` banner; defaults to [`Chart::description`] when unset.
+    #[serde(default)]
+    pub sm_banner_right: Option<String>,
 }
 
 /// Parse a chart file (SM or SSC) from the given path.

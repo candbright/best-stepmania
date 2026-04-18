@@ -177,6 +177,9 @@ fn parse_chart_section(section: &str) -> Result<Option<Chart>, ChartError> {
         credit,
         note_data,
         chart_timing,
+        sm_notes_primary_tag: None,
+        sm_misplaced_notes_header: false,
+        sm_banner_right: None,
     }))
 }
 

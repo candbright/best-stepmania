@@ -10,10 +10,11 @@ pub fn parse(content: &str) -> Result<SongFile, ChartError> {
     // First pass: parse all header tags
     while let Some(pos) = remaining.find('#') {
         remaining = &remaining[pos..];
+        let prelude = &content[..content.len() - remaining.len()];
 
         // Check for #NOTES tag (special multi-line block)
         if remaining.starts_with("#NOTES") && !remaining.starts_with("#NOTEDATA") {
-            let chart = parse_notes_block(remaining, &song)?;
+            let chart = parse_notes_block(remaining, &song, prelude)?;
             if let Some((c, advance)) = chart {
                 song.charts.push(c);
                 remaining = &remaining[advance..];
@@ -33,6 +34,8 @@ pub fn parse(content: &str) -> Result<SongFile, ChartError> {
 
     // Apply offset to timing data
     song.timing.offset = song.offset;
+
+    merge_adjacent_sm_lover_routine_charts(&mut song);
 
     Ok(song)
 }
@@ -124,13 +127,193 @@ fn parse_display_bpm(s: &str) -> DisplayBpm {
     DisplayBpm::Actual
 }
 
-fn parse_notes_block(input: &str, _song: &SongFile) -> Result<Option<(Chart, usize)>, ChartError> {
+/// Map a note row width to the usual StepMania steps type (when the tag line is missing or wrong).
+fn steps_type_for_note_width(width: usize) -> Option<StepsType> {
+    match width {
+        3 => Some(StepsType::DanceThreepanel),
+        4 => Some(StepsType::DanceSingle),
+        5 => Some(StepsType::PumpSingle),
+        6 => Some(StepsType::DanceSolo),
+        8 => Some(StepsType::DanceDouble),
+        10 => Some(StepsType::PumpDouble),
+        // PIU / community `.sm`: 20 chars for pump-double (10 lanes, sparse 2/3/5/7/8 per side).
+        20 => Some(StepsType::PumpDouble),
+        _ => None,
+    }
+}
+
+/// Non-standard `#NOTES` first field (difficulty or pack label) that still hints pump mode.
+fn sm_community_steps_type_tag(raw: &str) -> Option<StepsType> {
+    match raw.trim().to_lowercase().as_str() {
+        "double" => Some(StepsType::PumpDouble),
+        "lover1" | "lover2" => Some(StepsType::PumpRoutine),
+        _ => None,
+    }
+}
+
+fn note_glyph_line_is_all_note_chars(line: &str) -> bool {
+    line.chars().all(|c| {
+        c.is_ascii_digit()
+            || matches!(
+                c,
+                'M' | 'm' | 'L' | 'l' | 'F' | 'f' | 'K' | 'k'
+            )
+    })
+}
+
+/// First note row width in `#NOTES` body (after trimming / `//` comments).
+fn first_note_glyph_line_width(note_str: &str) -> Option<usize> {
+    for raw_line in note_str.lines() {
+        let line = raw_line.trim();
+        let line = line.split("//").next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        if note_glyph_line_is_all_note_chars(line) {
+            return Some(line.len());
+        }
+    }
+    None
+}
+
+/// Wide pump `.sm` rows: community layout uses columns 2/3/5/7/8 per half (see `pump_sm_layout`);
+/// legacy files may use **two ASCII columns per lane** (`track t` → `2t`,`2t+1`), still detected per row.
+fn sm_pump_uses_double_column_encoding(data: &str, num_tracks: usize) -> bool {
+    if num_tracks == 0 {
+        return false;
+    }
+    let Some(w) = first_note_glyph_line_width(data) else {
+        return false;
+    };
+    w >= 2 * num_tracks
+}
+
+fn sm_pump_line_has_odd_column_note(line: &str) -> bool {
+    let line = line.split("//").next().unwrap_or("").trim();
+    if !note_glyph_line_is_all_note_chars(line) {
+        return false;
+    }
+    for (i, c) in line.chars().enumerate() {
+        if i % 2 == 1 && c != '0' {
+            return true;
+        }
+    }
+    false
+}
+
+/// Misplaced header + 10-wide lines that fit community pump-single SM (pair and/or sparse 2/3/5/7/8).
+fn sm_misplaced_ten_wide_is_pump_single(note_str: &str) -> bool {
+    if first_note_glyph_line_width(note_str) != Some(10) {
+        return false;
+    }
+    for raw_line in note_str.lines() {
+        let line = raw_line.trim();
+        let line = line.split("//").next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        if !note_glyph_line_is_all_note_chars(line) {
+            continue;
+        }
+        let chars: Vec<char> = line.chars().collect();
+        if crate::pump_sm_layout::row_fits_sm_community_single_10(&chars) {
+            continue;
+        }
+        if sm_pump_line_has_odd_column_note(line) {
+            return false;
+        }
+    }
+    true
+}
+
+fn merge_adjacent_sm_lover_routine_charts(song: &mut SongFile) {
+    let mut i = 0;
+    while i + 1 < song.charts.len() {
+        let merge = matches!(
+            (
+                song.charts[i].sm_notes_primary_tag.as_deref(),
+                song.charts[i + 1].sm_notes_primary_tag.as_deref(),
+            ),
+            (Some("lover1"), Some("lover2"))
+        ) && song.charts[i].steps_type == StepsType::PumpRoutine
+            && song.charts[i + 1].steps_type == StepsType::PumpRoutine;
+
+        if merge {
+            let mut primary = song.charts[i].clone();
+            let lover2 = &song.charts[i + 1];
+            overlay_lover2_routine_layer(&mut primary, lover2);
+            primary.sm_notes_primary_tag = None;
+            primary.description = if primary.description == lover2.description {
+                primary.description.clone()
+            } else {
+                format!("{} · {}", primary.description, lover2.description)
+            };
+            song.charts.remove(i + 1);
+            song.charts[i] = primary;
+            continue;
+        }
+        i += 1;
+    }
+}
+
+fn overlay_lover2_routine_layer(primary: &mut Chart, lover2: &Chart) {
+    for ti in 0..lover2.note_data.num_tracks.min(primary.note_data.num_tracks) {
+        let rows: Vec<(i32, TapNote)> = lover2.note_data.tracks[ti]
+            .iter()
+            .map(|(&r, n)| (r, n.clone()))
+            .collect();
+        for (row, mut note) in rows {
+            note.routine_layer = Some(2);
+            primary.note_data.set_note(ti, row, note);
+        }
+    }
+}
+
+/// Scan `#NOTES` body for the first full note row and infer column count.
+/// Parse `//--------------- left - right -----...` immediately above `#NOTES`, if present.
+fn sm_banner_right_from_prelude(prelude: &str) -> Option<String> {
+    for raw in prelude.lines().rev() {
+        let line = raw.trim();
+        let Some(rest) = line.strip_prefix("//---------------") else {
+            continue;
+        };
+        let mid = rest.trim_end_matches('-').trim();
+        let Some((_, right)) = mid.split_once(" - ") else {
+            continue;
+        };
+        let right = right.trim();
+        if !right.is_empty() {
+            return Some(right.to_string());
+        }
+    }
+    None
+}
+
+fn infer_steps_type_from_note_block(note_str: &str) -> Option<StepsType> {
+    for raw_line in note_str.lines() {
+        let line = raw_line.trim();
+        let line = line.split("//").next().unwrap_or("").trim();
+        if line.is_empty() {
+            continue;
+        }
+        if note_glyph_line_is_all_note_chars(line) {
+            return steps_type_for_note_width(line.len());
+        }
+    }
+    None
+}
+
+fn parse_notes_block(
+    input: &str,
+    _song: &SongFile,
+    prelude: &str,
+) -> Result<Option<(Chart, usize)>, ChartError> {
     // #NOTES:
     //      <StepsType>:
     //      <Description>:
     //      <Difficulty>:
     //      <Meter>:
-    //      <RadarValues>:
+    //      <RadarValues>:   (optional — many community .sm files omit this row)
     //      <NoteData>;
     let Some(colon_after_notes) = input.find(':') else {
         return Ok(None);
@@ -144,25 +327,84 @@ fn parse_notes_block(input: &str, _song: &SongFile) -> Result<Option<(Chart, usi
     let block = &after_tag[..semi_pos];
     let total_consumed = colon_after_notes + 1 + semi_pos + 1;
 
-    // Split by colons to get the 6 sections
+    // Up to 6 ':'-delimited fields; the last field is all remaining note data.
     let sections: Vec<&str> = block.splitn(6, ':').collect();
-    if sections.len() < 6 {
-        return Ok(None);
-    }
-
-    let steps_type_str = sections[0].trim();
-    let description = sections[1].trim().to_string();
-    let difficulty_str = sections[2].trim();
-    let meter_str = sections[3].trim();
-    let radar_str = sections[4].trim();
-    let note_str = sections[5].trim();
-
-    let Some(steps_type) = StepsType::from_str_tag(steps_type_str) else {
-        return Ok(None);
+    let (steps_type_str, sec1, sec2, sec3, radar_str, note_str) = match sections.len() {
+        6 => (
+            sections[0].trim(),
+            sections[1].trim(),
+            sections[2].trim(),
+            sections[3].trim(),
+            sections[4].trim(),
+            sections[5].trim(),
+        ),
+        5 => (
+            sections[0].trim(),
+            sections[1].trim(),
+            sections[2].trim(),
+            sections[3].trim(),
+            "",
+            sections[4].trim(),
+        ),
+        _ => return Ok(None),
     };
 
-    let difficulty = Difficulty::from_str_tag(difficulty_str).unwrap_or(Difficulty::Edit);
-    let meter: i32 = meter_str.parse().unwrap_or(1);
+    let declared_st = StepsType::from_str_tag(steps_type_str)
+        .or_else(|| sm_community_steps_type_tag(steps_type_str));
+
+    let mut inferred_st = infer_steps_type_from_note_block(note_str);
+    if declared_st.is_none()
+        && inferred_st == Some(StepsType::PumpDouble)
+        && sm_misplaced_ten_wide_is_pump_single(note_str)
+    {
+        inferred_st = Some(StepsType::PumpSingle);
+    }
+
+    let steps_type = match (declared_st, inferred_st) {
+        // Routine charts often use 5-wide lines per player; width inference would wrongly pick pump-single.
+        (Some(d), _) if matches!(d.category(), sm_core::StepsTypeCategory::Routine) => d,
+        (Some(d), Some(i)) if d.num_columns() != i.num_columns() => i,
+        (Some(d), _) => d,
+        (None, Some(i)) => i,
+        (None, None) => return Ok(None),
+    };
+
+    // PIU/community files often put difficulty (e.g. "hard") in the steps-type slot and omit radar.
+    let metadata_misplaced = declared_st.is_none();
+    let (description, chart_name, difficulty) = if metadata_misplaced {
+        (
+            sec1.to_string(),
+            sec2.to_string(),
+            Difficulty::from_str_tag(steps_type_str).unwrap_or(Difficulty::Edit),
+        )
+    } else {
+        (
+            sec1.to_string(),
+            String::new(),
+            Difficulty::from_str_tag(sec2).unwrap_or(Difficulty::Edit),
+        )
+    };
+
+    let lover_merge_tag = {
+        let low = steps_type_str.trim().to_lowercase();
+        if low == "lover1" || low == "lover2" {
+            Some(low)
+        } else {
+            None
+        }
+    };
+
+    let (sm_notes_primary_tag, sm_misplaced_notes_header, sm_banner_right) = if metadata_misplaced {
+        (
+            Some(steps_type_str.to_string()),
+            true,
+            sm_banner_right_from_prelude(prelude),
+        )
+    } else {
+        (lover_merge_tag, false, None)
+    };
+
+    let meter: i32 = sec3.parse().unwrap_or(1);
     let radar_values: Vec<f64> = radar_str
         .split(',')
         .filter_map(|v| v.trim().parse().ok())
@@ -175,13 +417,16 @@ fn parse_notes_block(input: &str, _song: &SongFile) -> Result<Option<(Chart, usi
         Chart {
             steps_type,
             description,
-            chart_name: String::new(),
+            chart_name,
             difficulty,
             meter,
             radar_values,
             credit: String::new(),
             note_data,
             chart_timing: None,
+            sm_notes_primary_tag,
+            sm_misplaced_notes_header,
+            sm_banner_right,
         },
         total_consumed,
     )))
@@ -212,7 +457,15 @@ pub fn parse_note_data(
         let p2_data = p2_data.trim_end_matches(',').trim_end();
 
         if p2_data.trim().is_empty() {
-            parse_note_data_part(p1_data, &mut note_data, 0, num_tracks, false, Some(1))?;
+            parse_note_data_part(
+                p1_data,
+                &mut note_data,
+                0,
+                num_tracks,
+                true,
+                Some(1),
+                steps_type.is_pump(),
+            )?;
             return Ok(note_data);
         }
 
@@ -225,12 +478,22 @@ pub fn parse_note_data(
             (p1_commas as i32) * rows_per_measure
         };
 
+        let p1_pair = sm_pump_uses_double_column_encoding(p1_data, num_tracks);
+        let p1_max = if p1_pair { num_tracks } else { half_tracks };
         // Layer 1: full width when each line has ≥ num_tracks columns (SSC routine).
-        parse_note_data_part(p1_data, &mut note_data, 0, half_tracks, true, Some(1))?;
+        parse_note_data_part(
+            p1_data,
+            &mut note_data,
+            0,
+            p1_max,
+            true,
+            Some(1),
+            steps_type.is_pump(),
+        )?;
 
         if p2_row_offset == 0 {
             // Parallel SSC: second '&' block is another full 10 (or 8) column layer on the same rows.
-            merge_routine_parallel_layer(p2_data, &mut note_data)?;
+            merge_routine_parallel_layer(p2_data, &mut note_data, steps_type.is_pump())?;
         } else {
             // Stacked legacy: second block is narrow P2 lanes with time offset.
             parse_note_data_part_with_offset(
@@ -243,8 +506,15 @@ pub fn parse_note_data(
             )?;
         }
     } else {
-        // For non-routine, parse normally
-        parse_note_data_part(data, &mut note_data, 0, num_tracks, false, None)?;
+        parse_note_data_part(
+            data,
+            &mut note_data,
+            0,
+            num_tracks,
+            false,
+            None,
+            steps_type.is_pump(),
+        )?;
     }
 
     Ok(note_data)
@@ -256,6 +526,209 @@ fn with_routine_layer(mut note: TapNote, layer: Option<u8>) -> TapNote {
     note
 }
 
+#[derive(Clone, Copy)]
+enum PumpSmLineKind {
+    SparseSingle10,
+    SparseDouble20,
+    Pair { lanes: usize },
+    Sequential { count: usize },
+}
+
+fn classify_pump_sm_line(
+    chars: &[char],
+    total_tracks: usize,
+    max_tracks: usize,
+    routine_expand_wide_lines: bool,
+) -> PumpSmLineKind {
+    debug_assert!(matches!(total_tracks, 5 | 10));
+    if total_tracks == 5 {
+        if chars.len() >= 10 && crate::pump_sm_layout::row_fits_sm_community_single_10(&chars[..10])
+        {
+            return PumpSmLineKind::SparseSingle10;
+        }
+        if chars.len() >= 10 {
+            let lanes = max_tracks.min(5).min(chars.len() / 2);
+            return PumpSmLineKind::Pair { lanes };
+        }
+        return PumpSmLineKind::Sequential {
+            count: max_tracks.min(chars.len()).min(5),
+        };
+    }
+    if chars.len() >= 20 && crate::pump_sm_layout::row_fits_sm_community_double_20(chars) {
+        return PumpSmLineKind::SparseDouble20;
+    }
+    if chars.len() >= 20 {
+        let lanes = max_tracks.min(10).min(chars.len() / 2);
+        return PumpSmLineKind::Pair { lanes };
+    }
+    let count = if routine_expand_wide_lines && chars.len() >= total_tracks {
+        total_tracks
+    } else {
+        max_tracks.min(chars.len())
+    };
+    PumpSmLineKind::Sequential { count }
+}
+
+fn apply_pump_sm_sparse_row(
+    note_data: &mut NoteData,
+    track_offset: usize,
+    lanes: usize,
+    row: i32,
+    chars: &[char],
+    double_width: bool,
+    routine_layer: Option<u8>,
+) -> Result<(), ChartError> {
+    let col_of = |local_lane: usize| -> Option<usize> {
+        let g = track_offset + local_lane;
+        if double_width {
+            crate::pump_sm_layout::lane_to_sm_col0_double(g)
+        } else {
+            crate::pump_sm_layout::lane_to_sm_col0_single(g)
+        }
+    };
+    for pass in 0..3 {
+        for local in 0..lanes {
+            let track = track_offset + local;
+            if track >= note_data.num_tracks {
+                break;
+            }
+            let Some(ci) = col_of(local) else {
+                continue;
+            };
+            let ch = chars.get(ci).copied().unwrap_or('0');
+            match pass {
+                0 => {
+                    if ch == '3' {
+                        resolve_hold_tail(note_data, track, row);
+                    }
+                }
+                1 => {
+                    if matches!(ch, '2' | '4') {
+                        let note = match ch {
+                            '2' => TapNote::hold(0),
+                            '4' => TapNote::roll(0),
+                            _ => continue,
+                        };
+                        let note = with_routine_layer(note, routine_layer);
+                        note_data.set_note(track, row, note);
+                    }
+                }
+                _ => {
+                    let note = match ch {
+                        '0' | '2' | '3' | '4' => continue,
+                        '1' => TapNote::tap(),
+                        'M' | 'm' => TapNote::mine(),
+                        'L' | 'l' => TapNote::lift(),
+                        'F' | 'f' => TapNote::fake(),
+                        'K' | 'k' => TapNote {
+                            note_type: TapNoteType::AutoKeysound,
+                            sub_type: None,
+                            hold_duration: None,
+                            keysound_index: None,
+                            player_number: None,
+                            routine_layer: None,
+                        },
+                        _ => continue,
+                    };
+                    let note = with_routine_layer(note, routine_layer);
+                    note_data.set_note(track, row, note);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn parse_one_pump_note_line(
+    note_data: &mut NoteData,
+    track_offset: usize,
+    max_tracks: usize,
+    row: i32,
+    chars: &[char],
+    routine_expand_wide_lines: bool,
+    routine_layer: Option<u8>,
+) -> Result<(), ChartError> {
+    match classify_pump_sm_line(
+        chars,
+        note_data.num_tracks,
+        max_tracks,
+        routine_expand_wide_lines,
+    ) {
+        PumpSmLineKind::SparseSingle10 => {
+            let lanes = max_tracks.min(5);
+            apply_pump_sm_sparse_row(
+                note_data,
+                track_offset,
+                lanes,
+                row,
+                chars,
+                false,
+                routine_layer,
+            )?;
+        }
+        PumpSmLineKind::SparseDouble20 => {
+            let lanes = max_tracks.min(10);
+            apply_pump_sm_sparse_row(
+                note_data,
+                track_offset,
+                lanes,
+                row,
+                chars,
+                true,
+                routine_layer,
+            )?;
+        }
+        PumpSmLineKind::Pair { lanes } => {
+            for local_track in 0..lanes {
+                let track = track_offset + local_track;
+                if track >= note_data.num_tracks {
+                    break;
+                }
+                let i = 2 * local_track;
+                let ch0 = chars.get(i).copied().unwrap_or('0');
+                let ch1 = chars.get(i + 1).copied().unwrap_or('0');
+                apply_pump_pair_glyphs(note_data, track, row, ch0, ch1, routine_layer)?;
+            }
+        }
+        PumpSmLineKind::Sequential { count } => {
+            for local_track in 0..count {
+                let Some(&ch) = chars.get(local_track) else {
+                    break;
+                };
+                let track = track_offset + local_track;
+                if track >= note_data.num_tracks {
+                    break;
+                }
+                let note = match ch {
+                    '0' => continue,
+                    '1' => TapNote::tap(),
+                    '2' => TapNote::hold(0), // duration resolved later
+                    '3' => {
+                        resolve_hold_tail(note_data, track, row);
+                        continue;
+                    }
+                    '4' => TapNote::roll(0),
+                    'M' | 'm' => TapNote::mine(),
+                    'L' | 'l' => TapNote::lift(),
+                    'F' | 'f' => TapNote::fake(),
+                    'K' | 'k' => TapNote {
+                        note_type: TapNoteType::AutoKeysound,
+                        sub_type: None,
+                        hold_duration: None,
+                        keysound_index: None,
+                        player_number: None,
+                        routine_layer: None,
+                    },
+                    _ => continue,
+                };
+                let note = with_routine_layer(note, routine_layer);
+                note_data.set_note(track, row, note);
+            }
+        }
+    }
+    Ok(())
+}
+
 /// `routine_expand_wide_lines`: for pump/dance routine P1 blocks after '&', each line with
 /// at least `note_data.num_tracks` columns maps one digit per global track (0..10 / 0..8).
 fn parse_note_data_part(
@@ -265,6 +738,7 @@ fn parse_note_data_part(
     max_tracks: usize,
     routine_expand_wide_lines: bool,
     routine_layer: Option<u8>,
+    is_pump: bool,
 ) -> Result<(), ChartError> {
     let measures: Vec<&str> = data.split(',').collect();
 
@@ -287,6 +761,19 @@ fn parse_note_data_part(
                 + line_idx as i32 * rows_per_measure / rows_in_measure;
 
             let chars: Vec<char> = line.chars().collect();
+            if is_pump {
+                parse_one_pump_note_line(
+                    note_data,
+                    track_offset,
+                    max_tracks,
+                    row,
+                    &chars,
+                    routine_expand_wide_lines,
+                    routine_layer,
+                )?;
+                continue;
+            }
+
             let count = if routine_expand_wide_lines && chars.len() >= note_data.num_tracks {
                 note_data.num_tracks
             } else {
@@ -333,10 +820,63 @@ fn parse_note_data_part(
     Ok(())
 }
 
+/// PIU `.sm` pair columns: process hold tails before heads, then heads/rolls, then taps/mines.
+fn apply_pump_pair_glyphs(
+    note_data: &mut NoteData,
+    track: usize,
+    row: i32,
+    ch0: char,
+    ch1: char,
+    routine_layer: Option<u8>,
+) -> Result<(), ChartError> {
+    for &ch in &[ch0, ch1] {
+        if ch == '3' {
+            resolve_hold_tail(note_data, track, row);
+        }
+    }
+    for &ch in &[ch0, ch1] {
+        if matches!(ch, '2' | '4') {
+            let note = match ch {
+                '2' => TapNote::hold(0),
+                '4' => TapNote::roll(0),
+                _ => continue,
+            };
+            let note = with_routine_layer(note, routine_layer);
+            note_data.set_note(track, row, note);
+        }
+    }
+    for &ch in &[ch0, ch1] {
+        let note = match ch {
+            '0' | '2' | '3' | '4' => continue,
+            '1' => TapNote::tap(),
+            'M' | 'm' => TapNote::mine(),
+            'L' | 'l' => TapNote::lift(),
+            'F' | 'f' => TapNote::fake(),
+            'K' | 'k' => TapNote {
+                note_type: TapNoteType::AutoKeysound,
+                sub_type: None,
+                hold_duration: None,
+                keysound_index: None,
+                player_number: None,
+                routine_layer: None,
+            },
+            _ => continue,
+        };
+        let note = with_routine_layer(note, routine_layer);
+        note_data.set_note(track, row, note);
+    }
+    Ok(())
+}
+
 /// Second routine layer after '&' when both sides share the same measure map (`p2_row_offset == 0`).
 /// Each row matches layer 1; non-'0' glyphs overwrite / add notes on that track (StepMania 5 SSC routine).
-fn merge_routine_parallel_layer(data: &str, note_data: &mut NoteData) -> Result<(), ChartError> {
+fn merge_routine_parallel_layer(
+    data: &str,
+    note_data: &mut NoteData,
+    is_pump: bool,
+) -> Result<(), ChartError> {
     let half = note_data.num_tracks / 2;
+    let pair = !is_pump && sm_pump_uses_double_column_encoding(data, note_data.num_tracks);
     let measures: Vec<&str> = data.split(',').collect();
 
     for (measure_idx, measure) in measures.iter().enumerate() {
@@ -358,6 +898,31 @@ fn merge_routine_parallel_layer(data: &str, note_data: &mut NoteData) -> Result<
                 + line_idx as i32 * rows_per_measure / rows_in_measure;
 
             let chars: Vec<char> = line.chars().collect();
+            if is_pump {
+                parse_one_pump_note_line(
+                    note_data,
+                    0,
+                    note_data.num_tracks,
+                    row,
+                    &chars,
+                    true,
+                    Some(2),
+                )?;
+                continue;
+            }
+            if pair {
+                if chars.len() < 2 * note_data.num_tracks {
+                    continue;
+                }
+                for local_track in 0..note_data.num_tracks {
+                    let i = 2 * local_track;
+                    let ch0 = chars[i];
+                    let ch1 = chars.get(i + 1).copied().unwrap_or('0');
+                    apply_pump_pair_glyphs(note_data, local_track, row, ch0, ch1, Some(2))?;
+                }
+                continue;
+            }
+
             let count = if chars.len() >= note_data.num_tracks {
                 note_data.num_tracks
             } else {
@@ -728,5 +1293,150 @@ mod tests {
         assert_eq!(head.note_type, TapNoteType::HoldHead);
         assert!(head.hold_duration.unwrap() > 0);
         assert!(head.routine_layer.is_none());
+    }
+
+    /// Community `.sm`: misplaced header + 10-wide lines that only use even columns → `pump-single` (pair lanes).
+    #[test]
+    fn test_parse_five_field_notes_misplaced_header_pump_single_pair() {
+        let content = r#"#TITLE:T;
+#BPMS:0.000000=132.000000;
+#OFFSET:0.580000;
+#NOTES:
+
+     hard:
+
+     level19:
+
+     level19:
+
+     18:
+
+0000000000
+0000000000
+,
+0000001000
+;
+"#;
+        let song = parse(content).unwrap();
+        assert_eq!(song.charts.len(), 1);
+        let chart = &song.charts[0];
+        assert_eq!(chart.steps_type, StepsType::PumpSingle);
+        assert_eq!(chart.difficulty, Difficulty::Hard);
+        assert_eq!(chart.meter, 18);
+        assert_eq!(chart.note_data.num_tracks, 5);
+        assert!(chart.sm_misplaced_notes_header);
+        assert_eq!(chart.sm_notes_primary_tag.as_deref(), Some("hard"));
+        assert!(chart.note_data.get_note(3, 192).is_some());
+    }
+
+    #[test]
+    fn test_parse_wrong_tag_but_correct_width_prefers_geometry() {
+        let content = r#"#TITLE:T;
+#BPMS:0.000000=120.000000;
+#NOTES:
+     pump-single:
+     d:
+     Easy:
+     1:
+0000000000
+0000000000
+0000000000
+0000000000
+;
+"#;
+        let song = parse(content).unwrap();
+        assert_eq!(song.charts[0].steps_type, StepsType::PumpDouble);
+    }
+
+    #[test]
+    fn test_ten_wide_odd_column_keeps_pump_double() {
+        let content = r#"#TITLE:T;
+#BPMS:0.000000=120.000000;
+#NOTES:
+     hard:
+     x:
+     Easy:
+     1:
+0000000000
+0001000000
+;
+"#;
+        let song = parse(content).unwrap();
+        assert_eq!(song.charts[0].steps_type, StepsType::PumpDouble);
+        assert_eq!(song.charts[0].note_data.num_tracks, 10);
+    }
+
+    #[test]
+    fn test_sm_community_double_tag_20_wide_pair() {
+        let content = r#"#TITLE:T;
+#BPMS:0=120;
+#NOTES:
+     double:
+     d:
+     Hard:
+     1:
+00001000000000000000
+;
+"#;
+        let song = parse(content).unwrap();
+        assert_eq!(song.charts.len(), 1);
+        let chart = &song.charts[0];
+        assert_eq!(chart.steps_type, StepsType::PumpDouble);
+        assert!(chart.note_data.get_note(2, 0).is_some());
+    }
+
+    #[test]
+    fn test_sm_lover1_only_parses_tap() {
+        let content = r#"#TITLE:L;
+#BPMS:0=120;
+#NOTES:
+     lover1:
+     a:
+     Hard:
+     1:
+
+0000001000
+;"#;
+        let song = parse(content).unwrap();
+        assert_eq!(song.charts.len(), 1);
+        let c = &song.charts[0];
+        assert_eq!(c.steps_type, StepsType::PumpRoutine);
+        assert_eq!(c.note_data.num_tracks, 10);
+        assert!(
+            c.note_data.get_note(6, 0).is_some(),
+            "expected tap on track 6 row 0 (10-wide routine, digit at index 6)"
+        );
+    }
+
+    #[test]
+    fn test_sm_lover1_lover2_merge_to_one_routine_chart() {
+        let content = r#"#TITLE:L;
+#BPMS:0=120;
+#NOTES:
+     lover1:
+     a:
+     Hard:
+     1:
+
+0000001000
+;
+#NOTES:
+     lover2:
+     b:
+     Hard:
+     1:
+
+0000010000
+;
+"#;
+        let song = parse(content).unwrap();
+        assert_eq!(song.charts.len(), 1);
+        let chart = &song.charts[0];
+        assert_eq!(chart.steps_type, StepsType::PumpRoutine);
+        assert_eq!(chart.sm_notes_primary_tag, None);
+        let n61 = chart.note_data.get_note(6, 0).unwrap();
+        assert_eq!(n61.routine_layer, Some(1));
+        let n52 = chart.note_data.get_note(5, 0).unwrap();
+        assert_eq!(n52.routine_layer, Some(2));
     }
 }
