@@ -19,7 +19,7 @@ import {
   playCountdownGo,
   playRhythmLaneApproach,
 } from "@/shared/lib/sfx";
-import { devWarn, logOptionalRejection } from "@/shared/lib/devLog";
+import { devInfo, logOptionalRejection } from "@/shared/lib/devLog";
 import { useI18n } from "@/shared/i18n";
 import { playModeAndCoopForStepsType } from "@/shared/lib/chartPlayMode";
 
@@ -469,8 +469,9 @@ async function loadAndStart() {
         if (fix) {
           chartForLoad = fix;
           chartIdx = fix.chartIndex;
-          devWarn(
-            `[Gameplay] pump-routine 模式下列表索引曾指向 ${wrongType}，已改用合并型协作谱面 chartIndex=${chartIdx}`,
+          devInfo(
+            "Gameplay",
+            `pump-routine 模式下列表索引曾指向 ${wrongType}，已改用合并型协作谱面 chartIndex=${chartIdx}`,
           );
         }
       }
@@ -482,8 +483,9 @@ async function loadAndStart() {
       if (fix) {
         chartForLoad = fix;
         chartIdx = fix.chartIndex;
-        devWarn(
-          `[Gameplay] pump-double 模式下列表索引曾指向 ${wrongType}，已改用 pump-double 谱面 chartIndex=${chartIdx}`,
+        devInfo(
+          "Gameplay",
+          `pump-double 模式下列表索引曾指向 ${wrongType}，已改用 pump-double 谱面 chartIndex=${chartIdx}`,
         );
       }
     }
@@ -532,12 +534,13 @@ async function loadAndStart() {
       }
     }
 
-    devWarn(
-      `[Gameplay] singleWideChart=${mergedFromSingleWideChart} P1 rows: ${p1NoteRows.length}, P2 rows: ${p2NoteRows.length}`,
+    devInfo(
+      "Gameplay",
+      `singleWideChart=${mergedFromSingleWideChart} P1 rows: ${p1NoteRows.length}, P2 rows: ${p2NoteRows.length}`,
     );
 
     if (p1NoteRows.length === 0 && p2NoteRows.length === 0) {
-      devWarn("[Gameplay] No notes found, returning to select-music");
+      devInfo("Gameplay", "No notes found, returning to select-music");
       router.push("/select-music");
       return;
     }
@@ -582,8 +585,9 @@ async function loadAndStart() {
 
     // Validate merged chart (10 tracks)
     const chartValid = validateChartNotes(mergedRows, 10);
-    devWarn(
-      `[Gameplay] Merged rows: ${mergedRows.length}, valid=${chartValid}, first note at: ${mergedRows[0]?.second ?? "none"}`,
+    devInfo(
+      "Gameplay",
+      `Merged rows: ${mergedRows.length}, valid=${chartValid}, first note at: ${mergedRows[0]?.second ?? "none"}`,
     );
     if (!chartValid) {
       console.error("[Gameplay] Invalid merged chart data");
@@ -598,10 +602,13 @@ async function loadAndStart() {
 
     const musicPath = await api.getSongMusicPath(song.path);
     const audioOk = await engine.loadAudio(musicPath);
-    devWarn(`[Gameplay] Audio load: ${audioOk ? "OK" : "FAILED"}, duration=${engine.songDuration}s`);
+    devInfo("Gameplay", `Audio load: ${audioOk ? "OK" : "FAILED"}, duration=${engine.songDuration}s`);
     // Load merged chart into single engine (10 tracks, double mode)
     engine.loadChart(mergedRows, audioOk ? engine.songDuration : 180);
-    devWarn(`[Gameplay] Merged chart loaded: ${engine.notes.length} notes, engine.state=${engine.state}, lastNoteSecond=${engine.getDebugState().lastNoteSecond}`);
+    devInfo(
+      "Gameplay",
+      `Merged chart loaded: ${engine.notes.length} notes, engine.state=${engine.state}, lastNoteSecond=${engine.getDebugState().lastNoteSecond}`,
+    );
 
     updateHUD();
     if (isPerPlayerDualSession()) updateHUD2();

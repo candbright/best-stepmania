@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory, createWebHistory } from "vue-router";
 import { isTauri } from "@/shared/lib/platform";
+import { devInfo } from "@/shared/lib/devLog";
 import { titleOptionsMusicGuard } from "@/app/router/titleOptionsMusicGuard";
 /** 首屏同步打包，避免懒加载 chunk 未到时的空窗黑屏 */
 import TitleScreen from "@/pages/TitleScreen.vue";
@@ -60,6 +61,10 @@ const router = createRouter({
 });
 
 router.beforeEach(titleOptionsMusicGuard);
+
+router.afterEach((to) => {
+  devInfo("Router", String(to.name ?? to.path), to.fullPath);
+});
 
 router.onError((error) => {
   console.error("Router navigation failed:", error);

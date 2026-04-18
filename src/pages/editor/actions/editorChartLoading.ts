@@ -1,5 +1,6 @@
 import type { RouteLocationNormalizedLoaded } from "vue-router";
 import { useSessionStore } from "@/shared/stores/session";
+import { devDebug } from "@/shared/lib/devLog";
 import * as api from "@/shared/api";
 import type { EditorState } from "../useEditorState";
 import { defaultQuantizeFromTimeSignatures } from "../quantizeFromTimeSignature";
@@ -143,7 +144,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
     if (!song) return;
 
     if (expectedSongPath && song.path !== expectedSongPath) {
-      console.warn("[Editor] Song changed during load, ignoring stale load");
+      devDebug("Editor", "Song changed during load, ignoring stale load");
       return;
     }
 
@@ -159,7 +160,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
       }
 
       if (session.currentSong?.path !== currentSongPath) {
-        console.warn("[Editor] Song changed during chart load, ignoring");
+        devDebug("Editor", "Song changed during chart load, ignoring");
         return;
       }
 
@@ -175,7 +176,7 @@ export function createEditorChartLoading(deps: EditorChartLoadingDeps) {
       }
 
       if (session.currentSong?.path !== currentSongPath) {
-        console.warn("[Editor] Song changed after chart load, ignoring");
+        devDebug("Editor", "Song changed after chart load, ignoring");
         return;
       }
     } catch {

@@ -1,5 +1,5 @@
 import type { ChartNote, ChartNoteRow, GameConfig, JudgmentEvent, ScoreState } from "./types";
-import { logOptionalRejection } from "@/shared/lib/devLog";
+import { devDebug, logOptionalRejection } from "@/shared/lib/devLog";
 import { JudgmentSystem } from "./JudgmentSystem";
 import type { AudioPort, AudioPlaybackState } from "./ports";
 import { usesSplitWidePanelLayout } from "./render/panelLayout";
@@ -164,6 +164,7 @@ export class GameEngine {
     this.keysDown = new Array(config.numTracks).fill(false);
     this.syncAudioOffsetFromConfig();
     this.playbackRate = config.playbackRate ?? 1;
+    devDebug("GameEngine", "constructed", { numTracks: config.numTracks, coopMode: config.coopMode });
   }
 
   /**
@@ -249,6 +250,11 @@ export class GameEngine {
     this.simulatedSecond = this.audioOffset;
     this.resetBeatLineSfxCursor();
     this.state = "countdown";
+    devDebug("GameEngine", "loadChart", {
+      noteCount: this.notes.length,
+      songDuration: this.songDuration,
+      lastNoteSecond: this.lastNoteSecond,
+    });
   }
 
   async loadAudio(musicPath: string): Promise<boolean> {
@@ -264,6 +270,7 @@ export class GameEngine {
       this.audioLoaded = true;
       this.useAudioSync = true;
       this.resetAudioTimelineGuards();
+      devDebug("GameEngine", "loadAudio ok", { duration: this.songDuration });
       return true;
     } catch (e: unknown) {
       console.warn("Audio load failed, using fallback timer:", e);
