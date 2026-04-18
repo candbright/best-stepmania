@@ -10,5 +10,6 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["src/**/*.test.ts"],
+    setupFiles: [resolve(__dirname, "src/test/vitestLogSetup.ts")],
   },
 });
