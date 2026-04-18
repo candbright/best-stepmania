@@ -1,6 +1,6 @@
 # Best-StepMania User Guide (Simplified)
 
-This guide aligns with **v1.3.4**. Release notes: [changelog/bsm-v1.3.4.md](../changelog/bsm-v1.3.4.md).
+This guide aligns with **v1.3.5**. Release notes: [changelog/bsm-v1.3.5.md](../changelog/bsm-v1.3.5.md).
 
 ## 1. What You Need
 
@@ -24,6 +24,7 @@ Note: do not launch `target/debug/best-stepmania.exe` directly. It expects the `
 - Browse songs, then use search/filter/sort.
 - Favorite songs and filter by favorites only.
 - After a library scan or import finishes, returning here refreshes the list automatically.
+- With no song selected yet, the preview queue still warms from a random starting point so you can hear preview audio sooner.
 - Create song packs to organize your library.
 
 ### Gameplay
@@ -41,7 +42,7 @@ Note: do not launch `target/debug/best-stepmania.exe` directly. It expects the `
 ## 4. Common Settings
 
 - Audio: master/SFX/preview volume.
-- Visual: theme, window mode, render quality.
+- Visual: theme, window mode, render quality, optional on-screen **FPS** overlay.
 - Input: key mapping, shortcuts, player layout.
 - Gameplay: judgment display, life behavior, play modifiers.
 
@@ -75,4 +76,4 @@ Note: do not launch `target/debug/best-stepmania.exe` directly. It expects the `
 
 - Chinese guide: `docs/zh/USER_GUIDE.md`
 - English guide: `docs/en/USER_GUIDE.md`
-- Release notes: `docs/changelog/bsm-v1.0.0.md`
+- Release notes: `docs/changelog/bsm-v1.3.5.md`
