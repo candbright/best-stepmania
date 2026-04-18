@@ -68,7 +68,8 @@ cargo clippy --fix -W clippy::pedantic  # Auto-fix pedantic lints
 
 ### General
 
-- **No `console.log` in hot paths**: Use `console.warn` / `console.error`
+- **Logging**: Use `@/shared/lib/devLog` — levels only: `logDebug` (development builds only), `logInfo` / `logWarn` / `logError` (all environments). Bootstrap with `initLogSinks` from [`app/initLogging.ts`](src/app/initLogging.ts) (imported first in `main.ts`): console sink + in Tauri [`fileLogSink`](src/shared/lib/fileLogSink.ts) appending to `data_dir/logs/frontend.log` via [`append_frontend_log_lines`](src-tauri/src/commands/logging.rs). Use `registerLogSink` / `setLogSinks` to extend or replace. Avoid raw `console.*` outside `devLog.ts`.
+- **No `console.log` in hot paths**: Prefer `logWarn` / `logError` or `logDebug` / `logInfo`
 - **No premature optimization**: Profile first. "Correct and slow" beats "fast and wrong"
 - **Keep functions small**: Single responsibility. Split if a comment is needed to explain *what* it does
 - **Null handling**: Use `??`, `?.`, `?.()` operators. Avoid `|| {}` traps

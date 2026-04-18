@@ -7,3 +7,4 @@ export * from "./imports";
 export * from "./scoring";
 export * from "./editor";
 export * from "./noteskin";
+export * from "./logging";

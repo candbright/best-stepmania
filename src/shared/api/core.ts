@@ -1,5 +1,5 @@
 import { invoke as tauriInvoke, type InvokeArgs } from "@tauri-apps/api/core";
-import { devDebug } from "@/shared/lib/devLog";
+import { logDebug } from "@/shared/lib/devLog";
 
 /** Dev-only IPC invoke counts (per command). */
 const ipcInvokeCounts = new Map<string, number>();
@@ -32,7 +32,7 @@ export async function invoke<T>(cmd: string, args: InvokeArgs = {}): Promise<T> 
     } finally {
       const dt = performance.now() - t0;
       if (dt > IPC_SLOW_MS) {
-        devDebug("IPC", cmd, `${dt.toFixed(0)}ms`);
+        logDebug("IPC", cmd, `${dt.toFixed(0)}ms`);
       }
     }
   }

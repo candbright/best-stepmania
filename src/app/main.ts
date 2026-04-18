@@ -1,9 +1,11 @@
+import "@/app/initLogging";
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import router from "@/app/router";
 import App from "@/app/App.vue";
 import "../assets/main.css";
 import { installThemeCssBridge } from "@/shared/lib/themeCssBridge";
+import { logError } from "@/shared/lib/devLog";
 
 function renderFatalScreen(message: string): void {
   const root = document.getElementById("app");
@@ -23,19 +25,19 @@ function renderFatalScreen(message: string): void {
 
 const app = createApp(App);
 app.config.errorHandler = (error, instance, info) => {
-  console.error("Vue runtime error:", { error, instance, info });
+  logError("App", "Vue runtime error:", { error, instance, info });
   const detail = error instanceof Error ? error.stack ?? error.message : String(error);
   renderFatalScreen(`启动失败（Vue runtime error）\n\n${info}\n\n${detail}`);
 };
 
 window.addEventListener("unhandledrejection", (event) => {
-  console.error("Unhandled promise rejection:", event.reason);
+  logError("App", "Unhandled promise rejection:", event.reason);
   const detail = event.reason instanceof Error ? event.reason.stack ?? event.reason.message : String(event.reason);
   renderFatalScreen(`启动失败（Unhandled promise rejection）\n\n${detail}`);
 });
 
 window.addEventListener("error", (event) => {
-  console.error("Global window error:", event.error ?? event.message);
+  logError("App", "Global window error:", event.error ?? event.message);
   const detail = event.error instanceof Error ? event.error.stack ?? event.error.message : String(event.message);
   renderFatalScreen(`启动失败（Window error）\n\n${detail}`);
 });
