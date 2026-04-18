@@ -19,7 +19,7 @@ import {
   playCountdownGo,
   playRhythmLaneApproach,
 } from "@/shared/lib/sfx";
-import { devInfo, logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug, logError, logInfo } from "@/shared/lib/devLog";
 import { useI18n } from "@/shared/i18n";
 import { playModeAndCoopForStepsType } from "@/shared/lib/chartPlayMode";
 
@@ -178,11 +178,24 @@ async function loadSkinForGame() {
 
 watch(() => [settings.player1Config.noteskin, settings.player2Config?.noteskin] as const, loadSkinForGame, { immediate: true });
 
+watch(gameState, (to, from) => {
+  logDebug("Gameplay", "gameState", { from, to });
+});
+
 function shouldShowCenterJudgment(): boolean {
   return !(session.playMode === "pump-double" || (session.hasPlayer1 && session.hasPlayer2));
 }
 
 function onJudgment(evt: JudgmentEvent) {
+  logDebug("Gameplay", "judgment", {
+    judgment: evt.judgment,
+    player: evt.player,
+    track: evt.track,
+    noteRow: evt.noteRow,
+    chartTime: evt.time,
+    offsetSec: evt.offset,
+    offsetMs: Math.round(evt.offset * 1000),
+  });
   const name = getJudgmentName(evt.judgment, p1Config.judgmentStyle);
   const color = JUDGMENT_COLORS[evt.judgment];
   if (shouldShowCenterJudgment()) {
@@ -307,7 +320,7 @@ async function saveScoreToProfile() {
     });
     session.lastScoreSaved = true;
   } catch (err: unknown) {
-    console.error("Failed to save score:", err);
+    logError("Gameplay", "Failed to save score:", err);
     session.lastScoreSaved = false;
   } finally {
     savingScore.value = false;
@@ -322,6 +335,7 @@ engine.callbacks = {
     if (session.playMode !== "pump-double" && isPerPlayerDualSession()) updateHUD2();
   },
   onMineHit: (track: number) => {
+    logDebug("Gameplay", "mineHit", { track, chartTime: engine.currentSecond });
     noteFieldRef.value?.showJudgment("Mine", "#ff1744", track);
     updateHUD();
     if (session.playMode !== "pump-double" && isPerPlayerDualSession()) updateHUD2();
@@ -342,13 +356,41 @@ engine.callbacks = {
     }
     gameState.value = "finished";
     try {
-      session.lastResults = buildResultsObject();
+      const results = buildResultsObject();
+      const finishEngine = engine.getDebugState();
+      logDebug("Gameplay", "onFinish", {
+        grade: results.grade,
+        dpPercent: results.dpPercent,
+        maxCombo: results.maxCombo,
+        comboP1: engine.judgment?.player1Score.combo ?? 0,
+        comboP2: engine.judgment?.player2Score.combo ?? 0,
+        tallies: {
+          w1: results.w1,
+          w2: results.w2,
+          w3: results.w3,
+          w4: results.w4,
+          w5: results.w5,
+          miss: results.miss,
+          held: results.held,
+          letGo: results.letGo,
+          minesHit: results.minesHit,
+        },
+        engine: finishEngine,
+      });
+      logInfo("Gameplay", "onFinish", {
+        editorPreview: editorPreviewMode.value,
+        editorAnchorSecond: session.editorPreviewAnchorSecond,
+        grade: results.grade,
+        dpPercent: results.dpPercent,
+        engine: finishEngine,
+      });
+      session.lastResults = results;
       const dualPerPlayerResults = isPerPlayerDualSession();
       session.lastResults2 = dualPerPlayerResults ? buildResultsObject2() : null;
       await saveScoreToProfile();
       if (dualPerPlayerResults) await saveScoreToProfile2();
     } catch (err: unknown) {
-      console.error("[Gameplay] onFinish failed:", err);
+      logError("Gameplay", "onFinish failed:", err);
     }
     resultNavTimer.value = setTimeout(() => router.push("/evaluation"), 1500);
   },
@@ -359,13 +401,24 @@ engine.callbacks = {
     }
     gameState.value = "failed";
     try {
-      session.lastResults = buildResultsObject();
+      const results = buildResultsObject();
+      const j = engine.judgment;
+      logDebug("Gameplay", "onFail", {
+        grade: results.grade,
+        dpPercent: results.dpPercent,
+        lifeP1: j?.player1Score.life,
+        lifeP2: j?.player2Score.life,
+        failedP1: j?.player1Score.failed,
+        failedP2: j?.player2Score.failed,
+        engine: engine.getDebugState(),
+      });
+      session.lastResults = results;
       const dualPerPlayerResults = isPerPlayerDualSession();
       session.lastResults2 = dualPerPlayerResults ? buildResultsObject2() : null;
       await saveScoreToProfile();
       if (dualPerPlayerResults) await saveScoreToProfile2();
     } catch (err: unknown) {
-      console.error("[Gameplay] onFail failed:", err);
+      logError("Gameplay", "onFail failed:", err);
     }
     resultNavTimer.value = setTimeout(() => router.push("/evaluation"), 2000);
   },
@@ -404,7 +457,7 @@ async function saveScoreToProfile2() {
       modifiers: "",
     });
   } catch (err: unknown) {
-    console.error("[Gameplay] Failed to save P2 score:", err);
+    logError("Gameplay", "Failed to save P2 score:", err);
   }
 }
 
@@ -416,6 +469,18 @@ async function loadAndStart() {
   const primaryChart = session.charts[primaryListIdx];
   let chartForLoad = primaryChart ?? session.currentChart;
   let chartIdx = chartForLoad?.chartIndex ?? primaryListIdx;
+  logDebug("Gameplay", "loadAndStart:begin", {
+    songPath: song?.path,
+    playMode: session.playMode,
+    hasP1: session.hasPlayer1,
+    hasP2: session.hasPlayer2,
+    p1ChartIndex: session.p1ChartIndex,
+    p2ChartIndex: session.p2ChartIndex,
+    chartIdx,
+    stepsType: chartForLoad?.stepsType,
+    previewFromSecond: session.previewFromSecond,
+    previewReturnToEditor: session.previewReturnToEditor,
+  });
   if (!song) {
     router.push("/select-music");
     return;
@@ -469,7 +534,7 @@ async function loadAndStart() {
         if (fix) {
           chartForLoad = fix;
           chartIdx = fix.chartIndex;
-          devInfo(
+          logInfo(
             "Gameplay",
             `pump-routine 模式下列表索引曾指向 ${wrongType}，已改用合并型协作谱面 chartIndex=${chartIdx}`,
           );
@@ -483,7 +548,7 @@ async function loadAndStart() {
       if (fix) {
         chartForLoad = fix;
         chartIdx = fix.chartIndex;
-        devInfo(
+        logInfo(
           "Gameplay",
           `pump-double 模式下列表索引曾指向 ${wrongType}，已改用 pump-double 谱面 chartIndex=${chartIdx}`,
         );
@@ -534,13 +599,13 @@ async function loadAndStart() {
       }
     }
 
-    devInfo(
+    logInfo(
       "Gameplay",
       `singleWideChart=${mergedFromSingleWideChart} P1 rows: ${p1NoteRows.length}, P2 rows: ${p2NoteRows.length}`,
     );
 
     if (p1NoteRows.length === 0 && p2NoteRows.length === 0) {
-      devInfo("Gameplay", "No notes found, returning to select-music");
+      logInfo("Gameplay", "No notes found, returning to select-music");
       router.push("/select-music");
       return;
     }
@@ -585,12 +650,12 @@ async function loadAndStart() {
 
     // Validate merged chart (10 tracks)
     const chartValid = validateChartNotes(mergedRows, 10);
-    devInfo(
+    logInfo(
       "Gameplay",
       `Merged rows: ${mergedRows.length}, valid=${chartValid}, first note at: ${mergedRows[0]?.second ?? "none"}`,
     );
     if (!chartValid) {
-      console.error("[Gameplay] Invalid merged chart data");
+      logError("Gameplay", "Invalid merged chart data");
       router.push("/select-music");
       return;
     }
@@ -602,10 +667,10 @@ async function loadAndStart() {
 
     const musicPath = await api.getSongMusicPath(song.path);
     const audioOk = await engine.loadAudio(musicPath);
-    devInfo("Gameplay", `Audio load: ${audioOk ? "OK" : "FAILED"}, duration=${engine.songDuration}s`);
+    logInfo("Gameplay", `Audio load: ${audioOk ? "OK" : "FAILED"}, duration=${engine.songDuration}s`);
     // Load merged chart into single engine (10 tracks, double mode)
     engine.loadChart(mergedRows, audioOk ? engine.songDuration : 180);
-    devInfo(
+    logInfo(
       "Gameplay",
       `Merged chart loaded: ${engine.notes.length} notes, engine.state=${engine.state}, lastNoteSecond=${engine.getDebugState().lastNoteSecond}`,
     );
@@ -645,10 +710,33 @@ async function loadAndStart() {
 
     if (isEditorPreview) {
       // Preview: skip countdown, start audio from (previewSec - 2s) with no scoring
+      const leadInSec = 2.0;
+      const dbg = engine.getDebugState();
+      const firstRowSec = mergedRows[0]?.second;
+      logDebug("Gameplay", "start:editorPreview", { previewSec, leadInSec });
+      logInfo("Gameplay", "editorPreview:start", {
+        previewSec,
+        leadInSec,
+        chartTimingOffset: timingData.offset,
+        stopsCount: timingData.stops.length,
+        delaysCount: timingData.delays.length,
+        firstRowSecond: firstRowSec,
+        lastNoteSecond: dbg.lastNoteSecond,
+        songDuration: dbg.songDuration,
+        previewPastLastNote: previewSec! > dbg.lastNoteSecond + 1e-3,
+        audioOffsetMs: settings.audioOffsetMs,
+        playbackRate: p1Config.playbackRate,
+      });
       gameState.value = "playing";
       bgPlaying.value = true;
-      await engine.startPlayingFrom(previewSec!, 2.0);
+      await engine.startPlayingFrom(previewSec!, leadInSec);
+      logInfo("Gameplay", "editorPreview:afterStartPlayingFrom", engine.getDebugState());
     } else {
+      logDebug("Gameplay", "start:countdown", {
+        audioOffsetMs: settings.audioOffsetMs,
+        playbackRate: p1Config.playbackRate,
+        autoPlay: p1Config.autoPlay,
+      });
       // Normal gameplay: 3-2-1-GO countdown
       gameState.value = "countdown";
       countdown.value = 3;
@@ -668,7 +756,8 @@ async function loadAndStart() {
       }, 700);
     }
   } catch (err: unknown) {
-    console.error("[Gameplay] Failed to load chart:", err);
+    logError("Gameplay", "Failed to load chart:", err);
+    logDebug("Gameplay", "loadAndStart:error", { err });
     // 显示加载失败状态，不静默失败
     gameState.value = "failed";
     resultNavTimer.value = setTimeout(() => router.push("/select-music"), 2000);
@@ -720,6 +809,15 @@ function handleKeyDown(e: KeyboardEvent) {
   const keyMap = resolveGameplayKeyMap10(settings.gameplayPumpDoubleLanes);
   const col = keyMapLookupTrack(keyMap, e.code, e.key);
   if (col !== undefined) {
+    if (showDevPanel.value) {
+      logDebug("Gameplay", "input:keydown", {
+        code: e.code,
+        key: e.key,
+        track: col,
+        gameState: gameState.value,
+        chartTime: engine.currentSecond,
+      });
+    }
     engine.pressKey(col);
     e.preventDefault();
   }
@@ -729,11 +827,21 @@ function handleKeyUp(e: KeyboardEvent) {
   const keyMap = resolveGameplayKeyMap10(settings.gameplayPumpDoubleLanes);
   const col = keyMapLookupTrack(keyMap, e.code, e.key);
   if (col !== undefined) {
+    if (showDevPanel.value) {
+      logDebug("Gameplay", "input:keyup", {
+        code: e.code,
+        key: e.key,
+        track: col,
+        gameState: gameState.value,
+        chartTime: engine.currentSecond,
+      });
+    }
     engine.releaseKey(col);
   }
 }
 
 function pauseGame() {
+  logDebug("Gameplay", "pause", { chartTime: engine.currentSecond, engineState: engine.state });
   engine.pause();
   bgPlaying.value = false;
   gameState.value = "paused";
@@ -741,6 +849,7 @@ function pauseGame() {
 }
 
 function resumeGame() {
+  logDebug("Gameplay", "resume", { chartTime: engine.currentSecond, engineState: engine.state });
   showPauseMenu.value = false;
   engine.resume();
   bgPlaying.value = true;
@@ -748,6 +857,7 @@ function resumeGame() {
 }
 
 function quitGame() {
+  logDebug("Gameplay", "quit", { to: session.previewReturnToEditor ? "editor" : "player-options" });
   engine.cleanup();
   if (countdownInterval.value) clearInterval(countdownInterval.value);
   if (resultNavTimer.value) { clearTimeout(resultNavTimer.value); resultNavTimer.value = null; }
@@ -762,6 +872,9 @@ function quitGame() {
 }
 
 function quitToSelectMusic() {
+  logDebug("Gameplay", "quitToSelectMusic", {
+    previewReturnToEditor: session.previewReturnToEditor,
+  });
   engine.cleanup();
   if (countdownInterval.value) clearInterval(countdownInterval.value);
   if (resultNavTimer.value) { clearTimeout(resultNavTimer.value); resultNavTimer.value = null; }
@@ -839,7 +952,7 @@ const p2LifeClass = computed(() => {
     if (resultNavTimer.value) clearTimeout(resultNavTimer.value);
     if (devPanelTimer.value) clearInterval(devPanelTimer.value);
     engine.cleanup();
-    void api.audioSetRate(1.0).catch((e) => logOptionalRejection("gameplay.unmount.audioSetRate", e));
+    void api.audioSetRate(1.0).catch((e) => logDebug("Optional", "gameplay.unmount.audioSetRate", e));
   }
 
   return {
