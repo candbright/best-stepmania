@@ -29,6 +29,8 @@ const emit = defineEmits<{
   openNewChart: [];
   duplicateChart: [];
   openDeleteChart: [];
+  exportChartSm: [];
+  importChartSm: [];
   applyChartProperties: [];
   startMeterEdit: [];
   meterValueChanged: [];
@@ -108,6 +110,33 @@ const chartDifficultySelectOptions = computed(() =>
         <span class="chart-action-inner">
           <span class="chart-action-glyph" aria-hidden="true">✕</span>
           <span class="chart-action-label">{{ t('editor.deleteChart') }}</span>
+        </span>
+      </button>
+    </div>
+
+    <div v-if="allCharts.length" class="chart-actions chart-actions-secondary">
+      <button
+        type="button"
+        class="tool-btn small chart-action-btn"
+        :disabled="saving"
+        :title="t('editor.exportSmHint')"
+        @click="emit('exportChartSm')"
+      >
+        <span class="chart-action-inner">
+          <span class="chart-action-glyph" aria-hidden="true">↓</span>
+          <span class="chart-action-label">{{ t('editor.exportSm') }}</span>
+        </span>
+      </button>
+      <button
+        type="button"
+        class="tool-btn small chart-action-btn"
+        :disabled="saving"
+        :title="t('editor.importSmHint')"
+        @click="emit('importChartSm')"
+      >
+        <span class="chart-action-inner">
+          <span class="chart-action-glyph" aria-hidden="true">↑</span>
+          <span class="chart-action-label">{{ t('editor.importSm') }}</span>
         </span>
       </button>
     </div>

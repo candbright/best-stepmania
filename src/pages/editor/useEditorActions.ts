@@ -21,6 +21,7 @@ import { createEditorChartLoading } from "./actions/editorChartLoading";
 import { createEditorChartCrud } from "./actions/editorChartCrud";
 import { createEditorBpmActions } from "./actions/editorBpmActions";
 import { createEditorSave } from "./actions/editorSave";
+import { createEditorSmExchange } from "./actions/editorSmExchange";
 import { createEditorOffsetActions } from "./actions/editorOffsetActions";
 import { createEditorPlaybackNav } from "./actions/editorPlaybackNav";
 import { createEditorScrollbar } from "./actions/editorScrollbar";
@@ -128,6 +129,7 @@ export function useEditorActions(
     const delay = msg.startsWith(t("editor.saved")) || msg === t("editor.metaSaved")
       || msg === t("editor.chartCreated") || msg === t("editor.chartDeleted")
       || msg === t("editor.chartPropertiesSaved")
+      || msg === t("editor.exportSmSuccess") || msg === t("editor.importSmSuccess")
       ? successMs : errorMs;
     _saveMessageTimer = setTimeout(() => {
       _saveMessageTimer = null;
@@ -219,6 +221,16 @@ export function useEditorActions(
     buildSaveNotesPayload,
     refreshEditorChartBaseline,
     refreshEditorMetaBaseline,
+  });
+
+  const { exportCurrentChartAsSm, importSmAsNewChart } = createEditorSmExchange({
+    s,
+    session,
+    library,
+    t,
+    setSaveMessage,
+    saveToFile,
+    loadChartNotes,
   });
 
   const {
@@ -375,6 +387,8 @@ export function useEditorActions(
     // Save
     saveToFile,
     saveMetadata,
+    exportCurrentChartAsSm,
+    importSmAsNewChart,
     // Offset
     startEditingOffset,
     commitOffsetChange,

@@ -65,6 +65,19 @@ export async function deleteChart(
   return invoke("delete_chart", { songPath, chartIndex });
 }
 
+export async function exportChartAsSm(
+  songPath: string,
+  chartIndex: number,
+  outputPath: string,
+): Promise<void> {
+  return invoke("export_chart_as_sm", { songPath, chartIndex, outputPath });
+}
+
+/** Appends one chart from a single-difficulty `.sm` file; returns the new chart index. */
+export async function importSmAsNewChart(songPath: string, smPath: string): Promise<number> {
+  return invoke<number>("import_sm_as_new_chart", { songPath, smPath });
+}
+
 export async function updateChartProperties(
   songPath: string,
   chartIndex: number,

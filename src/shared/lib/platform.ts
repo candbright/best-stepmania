@@ -49,6 +49,25 @@ export async function openDirectoryDialog(title?: string): Promise<string | null
 }
 
 /**
+ * Save file dialog (desktop Tauri only). Returns chosen path or null if cancelled.
+ */
+export async function saveFileDialog(options?: {
+  title?: string;
+  defaultPath?: string;
+  filters?: Array<{ name: string; extensions: string[] }>;
+}): Promise<string | null> {
+  if (isTauri()) {
+    const { save } = await import("@tauri-apps/plugin-dialog");
+    return save({
+      title: options?.title,
+      defaultPath: options?.defaultPath,
+      filters: options?.filters,
+    });
+  }
+  return null;
+}
+
+/**
  * Open a file picker dialog.
  * - In Tauri: uses the native Tauri dialog plugin.
  * - In web: uses <input type="file">.

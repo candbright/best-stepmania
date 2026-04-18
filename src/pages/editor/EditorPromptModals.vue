@@ -6,6 +6,8 @@ const { t } = useI18n();
 defineProps<{
   showBackupRestore: boolean;
   showUnsavedExit: boolean;
+  showExportSmConfirm: boolean;
+  showImportSmConfirm: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -15,6 +17,10 @@ const emit = defineEmits<{
   unsavedDiscard: [];
   unsavedStash: [];
   unsavedSave: [];
+  exportSmCancel: [];
+  exportSmConfirm: [];
+  importSmCancel: [];
+  importSmConfirm: [];
 }>();
 </script>
 
@@ -35,6 +41,48 @@ const emit = defineEmits<{
         </button>
         <button type="button" class="tool-btn accent" @click="emit('backupLoad')">
           {{ t("editor.backupRestoreLoad") }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="showExportSmConfirm"
+    class="modal-overlay modal-overlay--editor-prompt"
+    @click.self="emit('exportSmCancel')"
+  >
+    <div class="modal-content editor-prompt-modal" role="dialog" aria-modal="true">
+      <h3 class="editor-prompt-modal__title">{{ t("editor.exportSmConfirmTitle") }}</h3>
+      <p v-if="t('editor.exportSmConfirmMessage').trim()" class="modal-desc editor-prompt-modal__desc">
+        {{ t("editor.exportSmConfirmMessage") }}
+      </p>
+      <div class="modal-actions editor-prompt-modal__actions">
+        <button type="button" class="tool-btn" @click="emit('exportSmCancel')">
+          {{ t("cancel") }}
+        </button>
+        <button type="button" class="tool-btn accent" @click="emit('exportSmConfirm')">
+          {{ t("confirm") }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div
+    v-if="showImportSmConfirm"
+    class="modal-overlay modal-overlay--editor-prompt"
+    @click.self="emit('importSmCancel')"
+  >
+    <div class="modal-content editor-prompt-modal" role="dialog" aria-modal="true">
+      <h3 class="editor-prompt-modal__title">{{ t("editor.importSmConfirmTitle") }}</h3>
+      <p v-if="t('editor.importSmConfirmMessage').trim()" class="modal-desc editor-prompt-modal__desc">
+        {{ t("editor.importSmConfirmMessage") }}
+      </p>
+      <div class="modal-actions editor-prompt-modal__actions">
+        <button type="button" class="tool-btn" @click="emit('importSmCancel')">
+          {{ t("cancel") }}
+        </button>
+        <button type="button" class="tool-btn accent" @click="emit('importSmConfirm')">
+          {{ t("confirm") }}
         </button>
       </div>
     </div>

@@ -28,14 +28,29 @@ defineExpose({
     <div class="status-bar-scroll">
       <div ref="statusBarScrollTrackRef" class="status-bar-scroll-track">
         <div class="status-bar-scroll-row">
-          <span>{{ t('editor.statusBeat') }}: {{ scrollBeat.toFixed(2) }}</span>
-          <span>{{ t('editor.statusBpm') }}: {{ bpmAtBeat }}</span>
-          <span>{{ t('editor.statusZoom') }}: {{ zoom }}px/beat</span>
-          <span>{{ t('editor.statusRate') }}: {{ editorRate }}x</span>
-          <span v-if="activeChart">
-            {{ translateChartStepsType(activeChart.stepsType) }} / {{ translateChartDifficulty(activeChart.difficulty) }} {{ activeChart.meter }}
+          <span class="status-metric">
+            <span class="status-metric__label">{{ t("editor.statusBeat") }}:</span>
+            <span class="status-metric__val status-metric__val--beat">{{ scrollBeat.toFixed(2) }}</span>
           </span>
-          <span>{{ t('editor.shortcutsBar') }}</span>
+          <span class="status-metric">
+            <span class="status-metric__label">{{ t("editor.statusBpm") }}:</span>
+            <span class="status-metric__val status-metric__val--bpm">{{ bpmAtBeat.toFixed(2) }}</span>
+          </span>
+          <span class="status-metric">
+            <span class="status-metric__label">{{ t("editor.statusZoom") }}:</span>
+            <span class="status-metric__val status-metric__val--zoom">{{ zoom.toFixed(1) }}</span>
+            <span class="status-metric__suffix">px/beat</span>
+          </span>
+          <span class="status-metric">
+            <span class="status-metric__label">{{ t("editor.statusRate") }}:</span>
+            <span class="status-metric__val status-metric__val--rate">{{ editorRate.toFixed(2) }}</span>
+            <span class="status-metric__suffix">x</span>
+          </span>
+          <span v-if="activeChart" class="status-bar-chart-line">
+            {{ translateChartStepsType(activeChart.stepsType) }} / {{ translateChartDifficulty(activeChart.difficulty) }}
+            {{ activeChart.meter }}
+          </span>
+          <span class="status-bar-shortcuts">{{ t("editor.shortcutsBar") }}</span>
         </div>
       </div>
     </div>
@@ -80,8 +95,33 @@ defineExpose({
   background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
 }
-.status-bar-scroll-row span {
+.status-bar-scroll-row > .status-metric,
+.status-bar-scroll-row > .status-bar-chart-line,
+.status-bar-scroll-row > .status-bar-shortcuts {
   flex-shrink: 0;
   white-space: nowrap;
+}
+.status-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2em;
+}
+.status-metric__val {
+  display: inline-block;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+/* Reserve width so digit-count changes during playback do not shift the rest of the bar */
+.status-metric__val--beat {
+  min-width: 10ch;
+}
+.status-metric__val--bpm {
+  min-width: 7ch;
+}
+.status-metric__val--zoom {
+  min-width: 7ch;
+}
+.status-metric__val--rate {
+  min-width: 5ch;
 }
 </style>

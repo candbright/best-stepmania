@@ -383,6 +383,9 @@
   gap: 4px;
   margin-bottom: 0.75rem;
 }
+.chart-actions-secondary {
+  margin-top: -2px;
+}
 .chart-actions .tool-btn.chart-action-btn {
   width: 100%;
   box-sizing: border-box;

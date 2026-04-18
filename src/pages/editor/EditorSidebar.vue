@@ -59,6 +59,8 @@ const emit = defineEmits<{
   openNewChart: [];
   duplicateChart: [];
   openDeleteChart: [];
+  exportChartSm: [];
+  importChartSm: [];
   applyChartProperties: [];
   saveMetadata: [];
   updateBpmChange: [idx: number, bpm: number];
@@ -111,6 +113,8 @@ const emit = defineEmits<{
         @open-new-chart="emit('openNewChart')"
         @duplicate-chart="emit('duplicateChart')"
         @open-delete-chart="emit('openDeleteChart')"
+        @export-chart-sm="emit('exportChartSm')"
+        @import-chart-sm="emit('importChartSm')"
         @apply-chart-properties="emit('applyChartProperties')"
         @start-meter-edit="emit('startMeterEdit')"
         @meter-value-changed="emit('meterValueChanged')"

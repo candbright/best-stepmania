@@ -84,7 +84,7 @@ const {
   selectAll, clearSelection, copySelection, cutSelection, pasteSelection,
   deleteSelection, flipHorizontal, flipVertical, flipDiagonal,
   addBeatShiftNotesDown, deleteBeatShiftNotesUp, canDeleteBeatShiftNotesUp,
-  saveToFile, saveMetadata,
+  saveToFile, saveMetadata, exportCurrentChartAsSm, importSmAsNewChart,
   handleCanvasClick, handleMouseDown, handleRightClick, handleScroll,
   handleScrollbarMouseDown,
   switchChart, createNewChart, duplicateCurrentChart, performDeleteCurrentChart, applyChartProperties,
@@ -102,6 +102,8 @@ const {
 } = actions;
 
 const showDeleteChartModal = ref(false);
+const showExportSmConfirm = ref(false);
+const showImportSmConfirm = ref(false);
 
 const {
   showBackupRestoreModal,
@@ -194,6 +196,32 @@ function translateChartStepsType(st: string): string {
 
 async function onDeleteChartConfirmed() {
   await performDeleteCurrentChart();
+}
+
+function openExportSmConfirm() {
+  showExportSmConfirm.value = true;
+}
+
+function onExportSmCancel() {
+  showExportSmConfirm.value = false;
+}
+
+function onExportSmConfirm() {
+  showExportSmConfirm.value = false;
+  void exportCurrentChartAsSm();
+}
+
+function openImportSmConfirm() {
+  showImportSmConfirm.value = true;
+}
+
+function onImportSmCancel() {
+  showImportSmConfirm.value = false;
+}
+
+function onImportSmConfirm() {
+  showImportSmConfirm.value = false;
+  void importSmAsNewChart();
 }
 
 function stepsTypePropertyLabel(st: string): string {
@@ -502,6 +530,8 @@ useEditorScreenLifecycle({
         @open-new-chart="showNewChartModal = true"
         @duplicate-chart="duplicateCurrentChart"
         @open-delete-chart="showDeleteChartModal = true"
+        @export-chart-sm="openExportSmConfirm"
+        @import-chart-sm="openImportSmConfirm"
         @apply-chart-properties="applyChartProperties"
         @start-meter-edit="startEditingChartMeter"
         @meter-value-changed="onChartMeterValueChanged"
@@ -534,12 +564,18 @@ useEditorScreenLifecycle({
     <EditorPromptModals
       :show-backup-restore="showBackupRestoreModal"
       :show-unsaved-exit="showUnsavedExitModal"
+      :show-export-sm-confirm="showExportSmConfirm"
+      :show-import-sm-confirm="showImportSmConfirm"
       @backup-use-disk="onBackupRestoreUseDisk"
       @backup-load="onBackupRestoreLoad"
       @unsaved-cancel="onUnsavedCancel"
       @unsaved-discard="onUnsavedDiscardAndLeave"
       @unsaved-stash="onUnsavedStashAndLeave"
       @unsaved-save="onUnsavedSaveAndLeave"
+      @export-sm-cancel="onExportSmCancel"
+      @export-sm-confirm="onExportSmConfirm"
+      @import-sm-cancel="onImportSmCancel"
+      @import-sm-confirm="onImportSmConfirm"
     />
 
     <EditorScreenChartModals
