@@ -120,6 +120,33 @@ describe("GameEngine.startPlayingFrom", () => {
     expect(engine.getDebugState().anchorSecond).toBeCloseTo(3 - 0.05, 6);
   });
 
+  it("update during await seek does not use stale audio anchor (regression)", async () => {
+    vi.useRealTimers();
+    const { port, log } = createMockAudio();
+    const engine = new GameEngine(makeConfig(0), port);
+    engine.loadChart(minimalRows(), 120);
+    await engine.loadAudio("test.ogg");
+
+    const targetSecond = -0.5;
+    const leadIn = 2;
+    const chartStart = targetSecond - leadIn;
+
+    let nowMs = 5_000_000;
+    const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => nowMs);
+
+    port.seek = async (seconds: number) => {
+      log.push(`seek(${seconds})`);
+      nowMs += 16;
+      engine.update(nowMs);
+      expect(engine.state).toBe("playing");
+      expect(engine.currentSecond).toBeGreaterThan(chartStart - 0.2);
+      expect(engine.currentSecond).toBeLessThan(10);
+    };
+
+    await engine.startPlayingFrom(targetSecond, leadIn);
+    nowSpy.mockRestore();
+  });
+
   it("cleanup clears delayed preview timer so play never fires", async () => {
     const { port, log } = createMockAudio();
     const engine = new GameEngine(makeConfig(0), port);

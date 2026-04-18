@@ -1,5 +1,5 @@
 import type { ChartNote, ChartNoteRow, GameConfig, JudgmentEvent, ScoreState } from "./types";
-import { devDebug, logOptionalRejection } from "@/shared/lib/devLog";
+import { logDebug, logInfo, logWarn } from "@/shared/lib/devLog";
 import { JudgmentSystem } from "./JudgmentSystem";
 import type { AudioPort, AudioPlaybackState } from "./ports";
 import { usesSplitWidePanelLayout } from "./render/panelLayout";
@@ -169,7 +169,7 @@ export class GameEngine {
       this.audioAnchorPerfMs = performance.now();
       this.startAudioSync();
     } catch (e: unknown) {
-      console.warn("Editor preview delayed play failed, using fallback clock:", e);
+      logDebug("GameEngine", "Editor preview delayed play failed, using fallback clock:", e);
       this.useAudioSync = false;
     }
   }
@@ -201,7 +201,7 @@ export class GameEngine {
     this.keysDown = new Array(config.numTracks).fill(false);
     this.syncAudioOffsetFromConfig();
     this.playbackRate = config.playbackRate ?? 1;
-    devDebug("GameEngine", "constructed", { numTracks: config.numTracks, coopMode: config.coopMode });
+    logDebug("GameEngine", "constructed", { numTracks: config.numTracks, coopMode: config.coopMode });
   }
 
   /**
@@ -287,7 +287,7 @@ export class GameEngine {
     this.simulatedSecond = this.audioOffset;
     this.resetBeatLineSfxCursor();
     this.state = "countdown";
-    devDebug("GameEngine", "loadChart", {
+    logDebug("GameEngine", "loadChart", {
       noteCount: this.notes.length,
       songDuration: this.songDuration,
       lastNoteSecond: this.lastNoteSecond,
@@ -307,10 +307,10 @@ export class GameEngine {
       this.audioLoaded = true;
       this.useAudioSync = true;
       this.resetAudioTimelineGuards();
-      devDebug("GameEngine", "loadAudio ok", { duration: this.songDuration });
+      logDebug("GameEngine", "loadAudio ok", { duration: this.songDuration });
       return true;
     } catch (e: unknown) {
-      console.warn("Audio load failed, using fallback timer:", e);
+      logWarn("GameEngine", "Audio load failed, using fallback timer:", e);
       this.audioLoaded = false;
       this.useAudioSync = false;
       return false;
@@ -358,6 +358,12 @@ export class GameEngine {
         this.useAudioSync = false;
       }
       this.resetBeatLineSfxCursor();
+      logDebug("GameEngine", "startPlaying", {
+        leadIn: "none",
+        audioOffset: this.audioOffset,
+        useAudioSync: this.useAudioSync,
+        playbackRate: this.playbackRate,
+      });
       return;
     }
 
@@ -377,6 +383,13 @@ export class GameEngine {
       await this.audioPort?.seek(0);
     }
     this.resetBeatLineSfxCursor();
+    logDebug("GameEngine", "startPlaying", {
+      leadInSec: L,
+      startSim,
+      chartLeadInEndSimSecond: this.chartLeadInEndSimSecond,
+      audioOffset: this.audioOffset,
+      playbackRate: this.playbackRate,
+    });
   }
 
   /**
@@ -411,10 +424,14 @@ export class GameEngine {
     this.fallbackStartTime =
       performance.now() - ((chartStart - this.audioOffset) / this.playbackRate) * 1000;
 
+    // `loadAudio` sets useAudioSync true without initializing anchors. If we `await seek`
+    // while state is playing, `update()` would call `predictAudioSecond` with anchorPerfMs=0
+    // and jump chart time to ~performance.now()/1000. Disable sync until anchor is set below.
+    this.useAudioSync = false;
+
     if (this.audioLoaded && this.audioPort) {
       if (rawFileSeek < 0) {
         await this.audioPort.seek(0);
-        this.useAudioSync = false;
         const delayMs = (-rawFileSeek / this.playbackRate) * 1000;
         this.previewPlayDelayHandle = setTimeout(() => {
           void this.finishEditorPreviewDelayedPlay();
@@ -432,6 +449,29 @@ export class GameEngine {
       this.useAudioSync = false;
     }
     this.resetBeatLineSfxCursor();
+    logDebug("GameEngine", "startPlayingFrom", {
+      targetSecond,
+      leadInSeconds,
+      chartStart,
+      chartMetaOffset,
+      rawFileSeek,
+      fileSeek,
+      delayedPlay: rawFileSeek < 0,
+      useAudioSync: this.useAudioSync,
+    });
+    logInfo("GameEngine", "startPlayingFrom", {
+      targetSecond,
+      leadInSeconds,
+      chartStart,
+      chartMetaOffset,
+      rawFileSeek,
+      fileSeek,
+      delayedPlay: rawFileSeek < 0,
+      useAudioSync: this.useAudioSync,
+      songDuration: this.songDuration,
+      lastNoteSecond: this.lastNoteSecond,
+      previewPastTail: targetSecond > this.lastNoteSecond + 1e-3,
+    });
   }
 
   async pause() {
@@ -442,6 +482,10 @@ export class GameEngine {
         await this.audioPort?.pause();
       }
       this.stopAudioSync();
+      logDebug("GameEngine", "pause", {
+        simulatedSecond: this.simulatedSecond,
+        currentSecond: this.currentSecond,
+      });
     }
   }
 
@@ -458,6 +502,11 @@ export class GameEngine {
         this.audioAnchorPerfMs = performance.now();
         this.startAudioSync();
       }
+      logDebug("GameEngine", "resume", {
+        pauseDurationMs: pauseDuration,
+        simulatedSecond: this.simulatedSecond,
+        currentSecond: this.currentSecond,
+      });
     }
   }
 
@@ -489,8 +538,17 @@ export class GameEngine {
         playback.duration > 0 &&
         !playback.isPlaying
       ) {
-        if (playback.time >= playback.duration - PLAYBACK_EOF_EPS_SEC) {
+        if (
+          playback.time >= playback.duration - PLAYBACK_EOF_EPS_SEC &&
+          !this.playbackEndedLatch
+        ) {
           this.playbackEndedLatch = true;
+          logInfo("GameEngine", "playbackEndedLatch", {
+            backendTime: playback.time,
+            duration: playback.duration,
+            msSinceGameStart,
+            isPlaying: playback.isPlaying,
+          });
         }
       }
 
@@ -570,7 +628,7 @@ export class GameEngine {
       this.audioAnchorPerfMs = performance.now();
       this.startAudioSync();
     } catch (e: unknown) {
-      console.warn("Chart lead-in: audio play failed, falling back to timer:", e);
+      logWarn("GameEngine", "Chart lead-in: audio play failed, falling back to timer:", e);
       const end = this.chartLeadInEndSimSecond;
       this.useAudioSync = false;
       this.fallbackStartTime =
@@ -718,6 +776,7 @@ export class GameEngine {
     const chartTailSecond = this.lastNoteSecond + 2;
     const endMarkChart = this.songDuration > 0 ? songEndSecond + AUDIO_END_FINISH_GRACE_SEC : -Infinity;
 
+    let audioEndFlushSteps = 0;
     if (audioEnded) {
       // Audio clock stops near `songEndSecond`, but chart notes/holds may extend beyond it.
       // Advance simulation in small steps (needed for rolls / hold tails) until we reach the chart tail.
@@ -727,11 +786,13 @@ export class GameEngine {
         chartTailSecond,
         endMarkChart,
       );
-      let flushSteps = 0;
-      while (this.simulatedSecond + 1e-9 < flushUntil && flushSteps < MAX_AUDIO_END_FLUSH_STEPS) {
+      while (
+        this.simulatedSecond + 1e-9 < flushUntil &&
+        audioEndFlushSteps < MAX_AUDIO_END_FLUSH_STEPS
+      ) {
         this.simulatedSecond = Math.min(flushUntil, this.simulatedSecond + SIMULATION_DT);
         this.runSimulationStep(this.simulatedSecond);
-        flushSteps++;
+        audioEndFlushSteps++;
         if (this.state !== "playing") return;
       }
       if (this.state !== "playing") return;
@@ -747,6 +808,28 @@ export class GameEngine {
       : false;
 
     if (finishedByChartTail || noPendingPastJudgmentLine) {
+      const finishPayload = {
+        reason: finishedByChartTail ? "chartTail" : "settledPastJudgmentLine",
+        finishedByChartTail,
+        noPendingPastJudgmentLine,
+        audioEnded,
+        endPastSongChart,
+        playbackEndedLatch: this.playbackEndedLatch,
+        latchedChartPastSongEnd: this.latchedChartPastSongEnd,
+        audioEndFlushSteps,
+        elapsedSinceStart,
+        chartTailCutoff,
+        currentSecond: this.currentSecond,
+        simulatedSecond: this.simulatedSecond,
+        lastNoteSecond: this.lastNoteSecond,
+        songDuration: this.songDuration,
+        songEndSecond,
+        audioOffset: this.audioOffset,
+        useAudioSync: this.useAudioSync,
+        notesCount: this.notes.length,
+      };
+      logDebug("GameEngine", "finish", finishPayload);
+      logInfo("GameEngine", "finish", finishPayload);
       this.state = "finished";
       if (this.config.autoPlay && this.judgment) {
         this.judgment.snapAutoPlayScoresToMaximum();
@@ -774,6 +857,14 @@ export class GameEngine {
     }
 
     if (this.judgment.isBothFailed()) {
+      logDebug("GameEngine", "fail", {
+        simulatedSecond: simSecond,
+        currentSecond: this.currentSecond,
+        p1Life: this.judgment.player1Score.life,
+        p2Life: this.judgment.player2Score.life,
+        p1Failed: this.judgment.player1Score.failed,
+        p2Failed: this.judgment.player2Score.failed,
+      });
       this.state = "failed";
       this.cleanup();
       this.callbacks.onFail?.(this.judgment.score);
@@ -818,7 +909,7 @@ export class GameEngine {
     this.leadInSyncGuardUntilMs = 0;
     this.chartTiming = null;
     if (this.audioLoaded) {
-      this.audioPort?.stop().catch((e) => logOptionalRejection("gameEngine.cleanup.audioStop", e));
+      this.audioPort?.stop().catch((e) => logDebug("Optional", "gameEngine.cleanup.audioStop", e));
     }
   }
 

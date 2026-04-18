@@ -1,4 +1,5 @@
 import type { NoteSkinSnapshot } from "@/shared/api";
+import { logWarn } from "@/shared/lib/devLog";
 
 export interface ChartNote {
   row: number;
@@ -227,7 +228,7 @@ async function _doInitScoringConfig(): Promise<void> {
 
     GRADE_THRESHOLDS = cfg.gradeThresholds;
   } catch (e: unknown) {
-    console.warn("[ScoringConfig] Failed to load from backend, using defaults:", e);
+    logWarn("ScoringConfig", "Failed to load from backend, using defaults:", e);
   }
 }
 

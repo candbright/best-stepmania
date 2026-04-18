@@ -8,6 +8,7 @@ import type {
   ScoringSnapshot,
 } from "./types";
 import { captureCurrentScoringConfig } from "./types";
+import { logDebug, logWarn } from "@/shared/lib/devLog";
 
 const ROLL_TICK_INTERVAL = 0.25;
 
@@ -257,10 +258,24 @@ export class JudgmentSystem {
    * so notes before the starting point don't fire as misses.
    */
   skipBefore(skipSecond: number): void {
+    let skippedBefore = 0;
     for (const note of this.notes) {
       if (note.second < skipSecond) {
         this.judgedRows.add(this.noteKey(note.track, note.row));
+        skippedBefore++;
       }
+    }
+    logDebug("JudgmentSystem", "skipBefore", {
+      skipSecond,
+      notesTotal: this.notes.length,
+      skippedNotes: skippedBefore,
+    });
+    if (this.notes.length > 0 && skippedBefore >= this.notes.length) {
+      logWarn(
+        "JudgmentSystem",
+        "skipBefore marked all notes as past — check previewSec vs chart note.second timeline",
+        { skipSecond, notesTotal: this.notes.length },
+      );
     }
     
     // Adjust max possible DP so skipped notes are not counted toward the denominator.
