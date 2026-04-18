@@ -3,7 +3,7 @@ export type { GameState, EngineCallbacks } from "./GameEngine";
 export { JudgmentSystem } from "./JudgmentSystem";
 export { initScoringConfig, captureCurrentScoringConfig } from "./types";
 export type { ScoringSnapshot, LastResults } from "./types";
-export type { AudioPort } from "./ports";
+export type { AudioPort, AudioPlaybackState } from "./ports";
 export { createTauriAudioPort } from "./adapters/tauriAudioPort";
 export { KEY_MAPS } from "./keyMaps";
 export * from "./keyBindings";

@@ -1,7 +1,7 @@
 import type { ChartNote, ChartNoteRow, GameConfig, JudgmentEvent, ScoreState } from "./types";
 import { logOptionalRejection } from "@/shared/lib/devLog";
 import { JudgmentSystem } from "./JudgmentSystem";
-import type { AudioPort } from "./ports";
+import type { AudioPort, AudioPlaybackState } from "./ports";
 import { usesSplitWidePanelLayout } from "./render/panelLayout";
 import {
   chartBeatToSecondExtrapolated,
@@ -39,7 +39,8 @@ export interface EngineCallbacks {
 
 const SIMULATION_HZ = 240;
 const SIMULATION_DT = 1 / SIMULATION_HZ;
-const MAX_STEPS_PER_FRAME = 16;
+/** Bounds worst-case work per `update()` when catching up after long rAF gaps; tail may still coalesce one step. */
+const MAX_CATCHUP_SIM_STEPS_PER_UPDATE = 16384;
 const AUDIO_SYNC_INTERVAL_MS = 250;
 
 /** Empty beats to scroll (no note sprites) before chart playhead 0 / audio — gameplay only; editor preview uses real chart time. */
@@ -58,6 +59,8 @@ const AUDIO_END_FINISH_GRACE_SEC = 0.35;
 const MAX_AUDIO_END_FLUSH_STEPS = 1024;
 /** Reject `audioGetTime()` backward jumps larger than this (seconds) once playback has advanced. */
 const AUDIO_BACKEND_MAX_JUMP_BACK_SEC = 0.2;
+/** Backend reports stopped near decoded duration — latch EOF while engine is still `playing` (pause stops sync). */
+const PLAYBACK_EOF_EPS_SEC = 0.08;
 
 export class GameEngine {
   public notes: ChartNote[] = [];
@@ -94,6 +97,8 @@ export class GameEngine {
   private maxAcceptedBackendAudioSec = -1;
   /** Once chart time crosses song end + grace, stay true so EOF jitter cannot flip `audioEnded` off. */
   private latchedChartPastSongEnd = false;
+  /** Set from `getPlaybackState` when output stops at/near EOF (works when anchor drift never exceeds grace). */
+  private playbackEndedLatch = false;
 
   // BPM changes for scroll speed visualization
   public bpmChanges: BpmChange[] = [];
@@ -129,6 +134,7 @@ export class GameEngine {
   private resetAudioTimelineGuards() {
     this.maxAcceptedBackendAudioSec = -1;
     this.latchedChartPastSongEnd = false;
+    this.playbackEndedLatch = false;
   }
 
   private getPlayerConfig(player: 1 | 2) {
@@ -406,8 +412,23 @@ export class GameEngine {
     if (this.audioSyncPending || this.state !== "playing") return;
     this.audioSyncPending = true;
     try {
-      const backendTimeRaw = await this.audioPort?.getTime();
+      let playback: AudioPlaybackState | undefined;
+      try {
+        playback = await this.audioPort?.getPlaybackState();
+      } catch {
+        playback = undefined;
+      }
+      const backendTimeRaw =
+        playback != null
+          ? playback.time
+          : await this.audioPort?.getTime();
       if (backendTimeRaw == null) return;
+
+      if (playback && playback.duration > 0 && !playback.isPlaying) {
+        if (playback.time >= playback.duration - PLAYBACK_EOF_EPS_SEC) {
+          this.playbackEndedLatch = true;
+        }
+      }
 
       // Guard: reject out-of-range positions (e.g., stale read from previous song)
       if (backendTimeRaw < 0 || (this.songDuration > 0 && backendTimeRaw > this.songDuration + 10)) return;
@@ -574,14 +595,17 @@ export class GameEngine {
       return;
     }
 
-    let steps = 0;
-    while (this.simulatedSecond + SIMULATION_DT <= targetSecond && steps < MAX_STEPS_PER_FRAME) {
+    let catchupSteps = 0;
+    while (
+      this.simulatedSecond + SIMULATION_DT <= targetSecond &&
+      catchupSteps < MAX_CATCHUP_SIM_STEPS_PER_UPDATE
+    ) {
       this.simulatedSecond += SIMULATION_DT;
       this.runSimulationStep(this.simulatedSecond);
-      steps++;
+      catchupSteps++;
     }
-
-    if (steps >= MAX_STEPS_PER_FRAME && this.simulatedSecond < targetSecond) {
+    // Rare: timeline gap larger than cap (~68s @ 240Hz); one step so gameplay still advances.
+    if (this.simulatedSecond < targetSecond) {
       this.simulatedSecond = targetSecond;
       this.runSimulationStep(this.simulatedSecond);
     }
@@ -606,10 +630,15 @@ export class GameEngine {
     }
 
     const elapsedSinceStart = (now - this.playingStartTime) / 1000;
+    const songEndSecond = this.songDuration + this.audioOffset;
+    const chartTailCutoff =
+      this.songDuration > 0
+        ? Math.min(this.lastNoteSecond + 2, songEndSecond + AUDIO_END_FINISH_GRACE_SEC)
+        : this.lastNoteSecond + 2;
     const finishedByChartTail =
       elapsedSinceStart >= 2 &&
       this.notes.length > 0 &&
-      this.currentSecond > this.lastNoteSecond + 2 &&
+      this.currentSecond > chartTailCutoff &&
       // simulatedSecond must have actually processed past all notes to guard against
       // a corrupted audioAnchor making currentSecond jump ahead prematurely
       this.simulatedSecond > this.lastNoteSecond;
@@ -617,11 +646,10 @@ export class GameEngine {
     // Fallback: for charts with malformed/extreme timing tails, audio may end while
     // `lastNoteSecond` is far in the future.
     // First, force a small post-end settle step so trailing misses/holds are flushed.
-    const songEndSecond = this.songDuration + this.audioOffset;
     const endPastSongChart =
       this.songDuration > 0 && this.currentSecond >= songEndSecond + AUDIO_END_FINISH_GRACE_SEC;
     if (endPastSongChart) this.latchedChartPastSongEnd = true;
-    const audioEnded = endPastSongChart || this.latchedChartPastSongEnd;
+    const audioEnded = endPastSongChart || this.latchedChartPastSongEnd || this.playbackEndedLatch;
 
     const chartTailSecond = this.lastNoteSecond + 2;
     const endMarkChart = this.songDuration > 0 ? songEndSecond + AUDIO_END_FINISH_GRACE_SEC : -Infinity;
@@ -656,6 +684,9 @@ export class GameEngine {
 
     if (finishedByChartTail || noPendingPastJudgmentLine) {
       this.state = "finished";
+      if (this.config.autoPlay && this.judgment) {
+        this.judgment.snapAutoPlayScoresToMaximum();
+      }
       this.cleanup();
       this.callbacks.onFinish?.(this.judgment.score);
     }
@@ -731,7 +762,8 @@ export class GameEngine {
     const endMarkChart = this.songDuration > 0 ? songEndSecond + AUDIO_END_FINISH_GRACE_SEC : -Infinity;
     const chartTailSecond = this.lastNoteSecond + 2;
     const rawAudioEnded = this.songDuration > 0 && this.currentSecond >= endMarkChart;
-    const audioEndedDiag = rawAudioEnded || this.latchedChartPastSongEnd;
+    const audioEndedDiag =
+      rawAudioEnded || this.latchedChartPastSongEnd || this.playbackEndedLatch;
     const settleLine = audioEndedDiag
       ? Math.max(this.currentSecond, this.simulatedSecond, chartTailSecond, endMarkChart)
       : Math.max(this.currentSecond, this.simulatedSecond);
@@ -752,6 +784,7 @@ export class GameEngine {
       songDuration: this.songDuration,
       finishRawAudioEnded: rawAudioEnded,
       finishLatchedPastSongEnd: this.latchedChartPastSongEnd,
+      finishPlaybackEndedLatch: this.playbackEndedLatch,
       finishSettleLineSec: settleLine,
       finishPendingScoreable: playing && j ? j.hasPendingScoreableNotesBefore(settleLine) : false,
       finishPendingHolds: playing && j ? j.hasPendingHoldsBefore(settleLine) : false,

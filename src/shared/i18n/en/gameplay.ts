@@ -24,6 +24,7 @@ export default {
   "gameplay.dev.songDuration": "Song duration",
   "gameplay.dev.finishRaw": "Past end (raw)",
   "gameplay.dev.finishLatch": "Past end (latched)",
+  "gameplay.dev.finishPlaybackEof": "Backend EOF",
   "gameplay.dev.finishSettle": "Settle line",
   "gameplay.dev.finishPending": "Pending (notes/holds)",
   "gameplay.dev.yes": "Y",

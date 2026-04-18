@@ -18,6 +18,9 @@ export function createTauriAudioPort(): AudioPort {
     async getTime() {
       return api.audioGetTime();
     },
+    async getPlaybackState() {
+      return api.audioGetPlaybackState();
+    },
     async stop() {
       return api.audioStop();
     },

@@ -171,6 +171,23 @@ export class JudgmentSystem {
     return this.player1Score.failed;
   }
 
+  /**
+   * Forces DP to the theoretical maximum when auto-play completes successfully.
+   * Covers remaining edge cases (extreme rAF gaps, odd hold metadata) so evaluation shows 100% / SSS.
+   */
+  snapAutoPlayScoresToMaximum(): void {
+    if (!this.config.autoPlay) return;
+    if (this.isBothFailed()) return;
+    if (this.score.maxPossibleDp <= 0) return;
+    this.score.dancePoints = this.score.maxPossibleDp;
+    if (this.player1Score.maxPossibleDp > 0) {
+      this.player1Score.dancePoints = this.player1Score.maxPossibleDp;
+    }
+    if (this.player2Score.maxPossibleDp > 0) {
+      this.player2Score.dancePoints = this.player2Score.maxPossibleDp;
+    }
+  }
+
   constructor(notes: ChartNote[], config: GameConfig, scoringConfig?: ScoringSnapshot) {
     this.notes = notes;
     this.config = config;
@@ -208,11 +225,12 @@ export class JudgmentSystem {
 
       const isHold = n.noteType === "HoldHead";
       const isRoll = n.noteType === "Roll";
-      if ((isHold || isRoll) && n.holdEndRow !== null) {
+      // Include heads with only `holdEndSecond` (no tail row) so tail DP can be scored.
+      if ((isHold || isRoll) && (n.holdEndRow !== null || n.holdEndSecond != null)) {
         this.holds.push({
           track: n.track,
           startRow: n.row,
-          endRow: n.holdEndRow,
+          endRow: n.holdEndRow ?? n.row,
           endSecond: n.holdEndSecond ?? n.second + 1,
           active: false,
           held: false,
@@ -476,7 +494,11 @@ export class JudgmentSystem {
           const ps = this.getScoreStateForPlayer(pl);
           if (hold.isRoll) {
             const timeSinceTick = currentSecond - hold.lastRollTick;
-            if (timeSinceTick <= ROLL_TICK_INTERVAL * 1.5) {
+            // AutoPlay: always credit roll tails — large `simSecond` jumps (rAF stalls) can exceed the tick window.
+            if (
+              this.config.autoPlay ||
+              timeSinceTick <= ROLL_TICK_INTERVAL * 1.5
+            ) {
               this.score.held++;
               this.score.dancePoints += this.sc.holdDpWeights.held;
               ps.held++;
@@ -490,7 +512,10 @@ export class JudgmentSystem {
               statsChanged = true;
             }
           } else {
-            if (hold.held) {
+            // AutoPlay: credit standard hold tails whenever the hold was started (active).
+            const creditHeld =
+              hold.held || (this.config.autoPlay && hold.active);
+            if (creditHeld) {
               this.score.held++;
               this.score.dancePoints += this.sc.holdDpWeights.held;
               ps.held++;

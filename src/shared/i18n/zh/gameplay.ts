@@ -24,6 +24,7 @@ export default {
   "gameplay.dev.songDuration": "音频时长",
   "gameplay.dev.finishRaw": "过尾(瞬时)",
   "gameplay.dev.finishLatch": "过尾(闩锁)",
+  "gameplay.dev.finishPlaybackEof": "后端EOF",
   "gameplay.dev.finishSettle": "结算线",
   "gameplay.dev.finishPending": "待结算(音符/长按)",
   "gameplay.dev.yes": "是",
