@@ -2,10 +2,9 @@
 
 进入此 prompt 后，**立即执行完整流程**，不再停留在分流选择。
 
-执行顺序固定为三步：
-1. 先执行 `@.github/prompts/验证-未提交变更.prompt.md`
-2. 再执行 `@.github/prompts/sub/github-提交.prompt.md`
-3. 最后执行 `@.github/prompts/sub/github-推送.prompt.md`
+执行顺序固定为两步：
+1. 先执行 `@.github/prompts/sub/github-提交.prompt.md`
+2. 再执行 `@.github/prompts/sub/github-推送.prompt.md`
 
 若验证未通过，立即停止，不执行提交与推送。
 
