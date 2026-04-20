@@ -8,6 +8,7 @@
     "clean": "rimraf dist && cargo clean --profile release",
     "build": "vue-tsc --noEmit && vite build",
     "test": "vitest run",
+    "check:redundancy": "node scripts/check-redundancy.mjs",
     "check:fsd-boundaries": "node scripts/check-fsd-boundaries.mjs",
     "build:clean": "npm run clean && npm run build",
     "preview": "vite preview",
