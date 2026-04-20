@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { computed, ref } from "vue";
+import { computed } from "vue";
 import type { SongListItem, ChartInfoItem, HighScoreInfo } from "@/shared/api";
 import type { CoopMode, PerPlayerConfig } from "@/shared/lib/engine/types";
 import {
@@ -12,9 +12,8 @@ import type { RoutinePlayerColorId } from "@/shared/constants/routinePlayerColor
 import { useSettingsStore } from "./settings";
 import { useSessionStore } from "./session";
 import { useLibraryStore } from "./library";
+import type { SortMode } from "./library";
 import type { WindowDisplayPresetId } from "@/shared/constants/windowDisplay";
-
-export type SortMode = "title" | "artist" | "bpm" | "pack";
 
 /**
  * Game store — backwards-compatible facade composing settings, session, and library stores.
@@ -221,17 +220,6 @@ export const useGameStore = defineStore("game", () => {
     set: (v: RoutinePlayerColorId) => { session.routineP2ColorId = v; },
   });
 
-  /** EditorScreen registers this to block global back / toolbar back when there are unsaved edits. */
-  const editorBackGuard = ref<null | (() => Promise<boolean>)>(null);
-  function setEditorBackGuard(fn: null | (() => Promise<boolean>)) {
-    editorBackGuard.value = fn;
-  }
-  async function runEditorBackGuard(): Promise<boolean> {
-    const fn = editorBackGuard.value;
-    if (!fn) return true;
-    return fn();
-  }
-
   // --- Delegated actions ---
   async function loadAppConfig() { return settings.loadAppConfig(); }
   async function saveAppConfig() { return settings.saveAppConfig(session.profileName); }
@@ -288,7 +276,6 @@ export const useGameStore = defineStore("game", () => {
     coopMode, player1Config, player2Config,
     playMode, hasPlayer1, hasPlayer2, p1ChartIndex, p2ChartIndex,
     routineP1ColorId, routineP2ColorId,
-    setEditorBackGuard, runEditorBackGuard,
     language, theme, songDirectories,
     gameplayPumpDoubleLanes: computed({
       get: () => settings.gameplayPumpDoubleLanes,

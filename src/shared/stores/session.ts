@@ -76,6 +76,8 @@ export const useSessionStore = defineStore("session", () => {
   /** Pump Routine: per-layer note display colors (chart '&' layers; default note shape only). */
   const routineP1ColorId = ref<RoutinePlayerColorId>("blue");
   const routineP2ColorId = ref<RoutinePlayerColorId>("red");
+  /** EditorScreen registers this to block global back / toolbar back when there are unsaved edits. */
+  const editorBackGuard = ref<null | (() => Promise<boolean>)>(null);
 
   const currentSong = computed(() =>
     currentSongIndex.value >= 0 ? songs.value[currentSongIndex.value] : null,
@@ -190,6 +192,16 @@ export const useSessionStore = defineStore("session", () => {
     }
   }
 
+  function setEditorBackGuard(fn: null | (() => Promise<boolean>)) {
+    editorBackGuard.value = fn;
+  }
+
+  async function runEditorBackGuard(): Promise<boolean> {
+    const fn = editorBackGuard.value;
+    if (!fn) return true;
+    return fn();
+  }
+
   return {
     songs, currentSongIndex, currentChartIndex, charts,
     playMode, hasPlayer1, hasPlayer2, p1ChartIndex, p2ChartIndex,
@@ -203,5 +215,7 @@ export const useSessionStore = defineStore("session", () => {
     setCurrentSongIndexFromPlayer,
     loadTopScores,
     clearCurrentChartTopScores,
+    setEditorBackGuard,
+    runEditorBackGuard,
   };
 });

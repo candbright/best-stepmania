@@ -4,7 +4,6 @@ import en from "./en";
 import zh from "./zh";
 
 export type Locale = "en" | "zh-CN";
-export type TranslationKey = keyof typeof en;
 
 const LOCALE_STORAGE_KEY = "locale";
 

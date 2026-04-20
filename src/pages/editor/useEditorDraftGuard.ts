@@ -3,7 +3,6 @@ import { defaultQuantizeFromTimeSignatures } from "./quantizeFromTimeSignature";
 import type { EditorState } from "./useEditorState";
 import type { EditorCanvas } from "./useEditorCanvas";
 import { useSessionStore } from "@/shared/stores/session";
-import { useGameStore } from "@/shared/stores/game";
 import type { EditorChartBackupStored } from "@/pages/editor/editorChartBackup";
 import {
   applyEditorChartBackupToState,
@@ -24,7 +23,6 @@ export function useEditorDraftGuard(deps: {
 }) {
   const { s, canvas, reseedUndoStackAfterHydrate, saveToFile, saveMetadata } = deps;
   const session = useSessionStore();
-  const gameFacade = useGameStore();
 
   const draftChartSerialized = ref("");
   const draftMetaSerialized = ref("");
@@ -145,7 +143,7 @@ export function useEditorDraftGuard(deps: {
   }
 
   function installEditorBackGuard() {
-    gameFacade.setEditorBackGuard(async () => {
+    session.setEditorBackGuard(async () => {
       if (!isDirty.value) return true;
       return await new Promise<boolean>((resolve) => {
         unsavedExitResolve = resolve;
@@ -155,7 +153,7 @@ export function useEditorDraftGuard(deps: {
   }
 
   function uninstallEditorBackGuard() {
-    gameFacade.setEditorBackGuard(null);
+    session.setEditorBackGuard(null);
     if (unsavedExitResolve) {
       unsavedExitResolve(false);
       unsavedExitResolve = null;

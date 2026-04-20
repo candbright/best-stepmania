@@ -3,7 +3,6 @@
 // metadata, BPM management, keyboard/mouse handlers.
 
 import { useRouter, type RouteLocationNormalizedLoaded } from "vue-router";
-import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useSessionStore } from "@/shared/stores/session";
 import { useLibraryStore } from "@/shared/stores/library";
@@ -39,7 +38,6 @@ export function useEditorActions(
   route: Pick<RouteLocationNormalizedLoaded, "query">,
 ) {
   const router = useRouter();
-  const gameFacade = useGameStore();
   const player = usePlayerStore();
   const session = useSessionStore();
   const library = useLibraryStore();
@@ -257,7 +255,6 @@ export function useEditorActions(
     canvas,
     router,
     session,
-    gameFacade,
     player,
   });
 

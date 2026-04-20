@@ -1,6 +1,5 @@
 import type { Router } from "vue-router";
 import { useSessionStore } from "@/shared/stores/session";
-import { useGameStore } from "@/shared/stores/game";
 import { usePlayerStore } from "@/shared/stores/player";
 import * as api from "@/shared/api";
 import { logDebug, logInfo } from "@/shared/lib/devLog";
@@ -8,7 +7,6 @@ import type { EditorCanvas } from "../useEditorCanvas";
 import type { EditorState } from "../useEditorState";
 
 type SessionStore = ReturnType<typeof useSessionStore>;
-type GameFacadeStore = ReturnType<typeof useGameStore>;
 type PlayerStore = ReturnType<typeof usePlayerStore>;
 
 export interface EditorPlaybackNavDeps {
@@ -16,12 +14,11 @@ export interface EditorPlaybackNavDeps {
   canvas: EditorCanvas;
   router: Router;
   session: SessionStore;
-  gameFacade: GameFacadeStore;
   player: PlayerStore;
 }
 
 export function createEditorPlaybackNav(deps: EditorPlaybackNavDeps) {
-  const { s, canvas, router, session, gameFacade, player } = deps;
+  const { s, canvas, router, session, player } = deps;
 
   function togglePlayback() {
     if (s.allCharts.value.length === 0) return;
@@ -87,7 +84,7 @@ export function createEditorPlaybackNav(deps: EditorPlaybackNavDeps) {
   }
 
   function goBack() {
-    void gameFacade.runEditorBackGuard().then((ok) => {
+    void session.runEditorBackGuard().then((ok) => {
       if (ok) goBackNow();
     });
   }

@@ -1,4 +1,4 @@
-import type { RhythmSfxStyle } from "@/shared/api/config";
+import type { RhythmSfxStyle, UiSfxStyle } from "@/shared/api/config";
 
 let audioCtx: AudioContext | null = null;
 
@@ -20,8 +20,6 @@ let metronomeSfxStyle: RhythmSfxStyle = "bright";
 let rhythmSfxEnabled = true;
 let rhythmSfxGain = 1;
 let rhythmSfxStyle: RhythmSfxStyle = "bright";
-
-export type UiSfxStyle = "classic" | "soft" | "arcade";
 
 // UI SFX: menu navigation / button interactions
 let uiSfxVolume = 0.7;
@@ -61,7 +59,7 @@ export function setRhythmSfxStyle(style: RhythmSfxStyle) {
 }
 
 /** Snapshot of persisted options (audio) — keep gameplay / editor / bridge on one code path. */
-export interface GameplayRhythmSfxSettingsSnapshot {
+interface GameplayRhythmSfxSettingsSnapshot {
   effectVolume: number;
   metronomeSfxEnabled: boolean;
   metronomeSfxVolume: number;
