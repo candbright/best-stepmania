@@ -1,4 +1,5 @@
 export * from "./core";
+export * from "./window";
 export * from "./song";
 export * from "./audio";
 export * from "./config";
