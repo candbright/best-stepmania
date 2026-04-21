@@ -1,6 +1,6 @@
 /**
- * Single debounced entry for persisting app config from settings pages.
- * Call `flush()` from the screen's `onUnmounted` after stopping reactive sync.
+ * Debounced persist for `saveAppConfig`. Use `flushAwait()` when the process may exit
+ * immediately after (e.g. window close) so the write finishes before teardown.
  */
 export function useSettingsSaveQueue(saveFn: () => void | Promise<void>, debounceMs = 800) {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -21,5 +21,13 @@ export function useSettingsSaveQueue(saveFn: () => void | Promise<void>, debounc
     void Promise.resolve(saveFn());
   }
 
-  return { schedule, flush };
+  async function flushAwait() {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    await Promise.resolve(saveFn());
+  }
+
+  return { schedule, flush, flushAwait };
 }
