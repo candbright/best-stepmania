@@ -18,6 +18,16 @@ export interface RenderDrawerDeps {
   getEffectsForTrack: (track: number) => { sudden: boolean; hidden: boolean; rotate: boolean };
 }
 
+const RECEPTOR_KEY_SIZE_SCALE = 0.9;
+const NOTE_KEY_SIZE_SCALE = RECEPTOR_KEY_SIZE_SCALE;
+const SKIN_KEY_FRAME_U = 0.86;
+const DEFAULT_ARROW_WIDTH_U = 0.88;
+const ARROW_SQUARE_SCALE = SKIN_KEY_FRAME_U / DEFAULT_ARROW_WIDTH_U;
+// Derived from buildArrowPath(): stem side x = ±0.40 * s, s = size * 0.5 => stem width = 0.40 * size.
+const ARROW_STEM_WIDTH_U = 0.40 * ARROW_SQUARE_SCALE;
+// Derived from buildArrowPath(): bottom-most arrow head y = +0.72 * s => +0.36 * size from center.
+const ARROW_HEAD_EDGE_OFFSET_U = 0.36 * ARROW_SQUARE_SCALE;
+
 export function drawReceptorDrawer(
   c: CanvasRenderingContext2D,
   x: number,
@@ -33,11 +43,12 @@ export function drawReceptorDrawer(
   const isPump = deps.numTracks === 5 || deps.numTracks === 10;
   const cx = x + colW / 2;
   const style = deps.getPlayerConfig(panelPlayer)?.noteStyle ?? "default";
+  const receptorGlyphSize = recSize * RECEPTOR_KEY_SIZE_SCALE;
 
   if (isPump) {
     const pumpDirection = deps.getPumpDirection(col);
     if (pumpDirection) {
-      const arrowSize = recSize * 0.92;
+      const arrowSize = receptorGlyphSize;
       c.save();
       if (pressed && deps.qualityLevel !== "low") {
         c.shadowColor = color;
@@ -45,18 +56,30 @@ export function drawReceptorDrawer(
       }
       c.globalAlpha = pressed ? 1 : 0.92;
       const directionalStyle = style === "musical" ? "musical" : style;
-      drawArrowWithSkin(c, cx, y, arrowSize, pumpDirection, color, directionalStyle, deps.qualityLevel, true, pressed);
+      drawArrowWithSkin(
+        c,
+        cx,
+        y,
+        arrowSize,
+        pumpDirection,
+        color,
+        directionalStyle,
+        deps.qualityLevel,
+        true,
+        pressed,
+        false,
+      );
       c.restore();
     } else {
-      drawPumpPanelWithSkin(c, cx, y, recSize * 0.78, color, style, true, deps.qualityLevel, true, pressed);
+      drawPumpPanelWithSkin(c, cx, y, receptorGlyphSize, color, style, true, deps.qualityLevel, true, pressed);
     }
     return;
   }
 
   const direction = deps.getTrackDirection(col);
   if (direction) {
-    const arrowSize = recSize * 0.88;
-    drawArrowWithSkin(c, cx, y, arrowSize, direction, color, style, deps.qualityLevel, true, pressed);
+    const arrowSize = receptorGlyphSize;
+    drawArrowWithSkin(c, cx, y, arrowSize, direction, color, style, deps.qualityLevel, true, pressed, false);
     return;
   }
 
@@ -103,13 +126,11 @@ export function drawNoteDrawer(
     const pumpDirection = deps.getPumpDirection(track);
 
     if (pumpDirection) {
-      // Match receptor arrow size formula: recSize * 0.92
-      const arrowSize = recSize * 0.92 * scale;
+      const arrowSize = recSize * NOTE_KEY_SIZE_SCALE * scale;
       const directionalStyle = noteStyle === "musical" ? "musical" : noteStyle;
       drawArrowWithSkin(c, cx, y, arrowSize, pumpDirection, fillColor, directionalStyle, deps.qualityLevel);
     } else {
-      // Match receptor panel size formula: recSize * 0.78
-      const panelSize = recSize * 0.78 * scale;
+      const panelSize = recSize * NOTE_KEY_SIZE_SCALE * scale;
       drawPumpPanelWithSkin(c, cx, y, panelSize, fillColor, noteStyle, true, deps.qualityLevel);
     }
     return;
@@ -118,8 +139,7 @@ export function drawNoteDrawer(
   const direction = deps.getTrackDirection(track);
   const fillColor = noteType === "Roll" ? "#ff9800" : color;
   if (direction) {
-    // Match receptor arrow size formula: recSize * 0.88
-    const arrowSize = recSize * 0.88 * scale;
+    const arrowSize = recSize * NOTE_KEY_SIZE_SCALE * scale;
     drawArrowWithSkin(c, cx, y, arrowSize, direction, fillColor, noteStyle, deps.qualityLevel);
     return;
   }
@@ -146,6 +166,7 @@ export function drawHoldDrawer(
   receptorY: number,
   canvasH: number,
   colW: number,
+  recSize: number,
   panel: PanelConfig,
   deps: RenderDrawerDeps,
 ): void {
@@ -174,6 +195,7 @@ export function drawHoldDrawer(
 
   const startY = engine.getNoteY(clipStartSec, receptorY, canvasH, panel.speedMod, panel.reverse);
   const endY = engine.getNoteY(clipEndSec, receptorY, canvasH, panel.speedMod, panel.reverse);
+  const headY = engine.getNoteY(startSec, receptorY, canvasH, panel.speedMod, panel.reverse);
 
   const localTrack = hold.track - panel.startTrack;
   const x = fieldX + localTrack * colW;
@@ -181,11 +203,20 @@ export function drawHoldDrawer(
   const isRoll = hold.isRoll ?? false;
   const rollColor = "#ff9800";
   const bodyColor = isRoll ? rollColor : color;
-  const bodyW = Math.min(24, colW - 16);
+  const arrowSize = recSize * NOTE_KEY_SIZE_SCALE;
+  const bodyW = Math.max(2, Math.min(arrowSize * ARROW_STEM_WIDTH_U, colW));
   const bodyX = x + (colW - bodyW) / 2;
 
   let topY = Math.min(startY, endY);
   let bottomY = Math.max(startY, endY);
+  const headEdgeOffset = arrowSize * ARROW_HEAD_EDGE_OFFSET_U;
+  const tailGoesDown = endY >= headY;
+  const bodyStartBoundary = tailGoesDown ? headY + headEdgeOffset : headY - headEdgeOffset;
+  if (tailGoesDown) {
+    topY = Math.max(topY, bodyStartBoundary);
+  } else {
+    bottomY = Math.min(bottomY, bodyStartBoundary);
+  }
 
   let holdAlpha = 1.0;
   const hfx = deps.getEffectsForTrack(hold.track);

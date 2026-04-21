@@ -6,12 +6,14 @@ interface Props {
   sortLabel?: string;
   refreshTitle: string;
   filterLabel: string;
+  randomTitle?: string;
 }
 
 interface Emits {
   (e: "refresh"): void;
   (e: "openFilter"): void;
   (e: "cycleSort"): void;
+  (e: "randomPick"): void;
 }
 
 withDefaults(defineProps<Props>(), {
@@ -19,12 +21,23 @@ withDefaults(defineProps<Props>(), {
   hasActiveFilter: false,
   activeFilterCount: 0,
   sortLabel: "",
+  randomTitle: "",
 });
 
 const emit = defineEmits<Emits>();
 </script>
 
 <template>
+  <button class="tb-icon-btn" :title="randomTitle" @click="emit('randomPick')">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+      <polyline points="16 3 21 3 21 8" />
+      <line x1="4" y1="20" x2="21" y2="3" />
+      <polyline points="21 16 21 21 16 21" />
+      <line x1="15" y1="15" x2="21" y2="21" />
+      <line x1="4" y1="4" x2="9" y2="9" />
+    </svg>
+  </button>
+
   <button class="tb-icon-btn" :title="refreshTitle" :disabled="refreshing" @click="emit('refresh')">
     <svg
       v-if="!refreshing"

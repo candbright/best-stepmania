@@ -18,6 +18,15 @@ import type { QualityLevel } from "./drawers";
 /** Approx. axis-aligned bbox of `buildArrowPath(size)` in `size` units (width × height). */
 const DEFAULT_ARROW_WIDTH_U = 0.88;
 const DEFAULT_ARROW_HEIGHT_U = 0.86;
+const SKIN_KEY_FRAME_U = Math.min(DEFAULT_ARROW_WIDTH_U, DEFAULT_ARROW_HEIGHT_U);
+
+function getPumpCenterFrameScale(skin: string): number {
+  if (skin === "default" || skin === "neon" || skin === "mechanical") {
+    // Visual-balance: center key should match directional keys' perceived size.
+    return 0.9;
+  }
+  return 1;
+}
 
 /**
  * Uniform scale about the origin so a glyph whose native AABB is `nativeW·size × nativeH·size`
@@ -35,6 +44,40 @@ function applyUniformScaleToDefaultArrowBox(
   );
   c.save();
   c.scale(k, k);
+}
+
+/**
+ * Uniformly fit a glyph into a square key frame so all skin variants align to
+ * the same per-lane box size and center anchor.
+ */
+export function computeSkinSquareScaleXY(nativeW: number, nativeH: number): { sx: number; sy: number } {
+  return {
+    sx: SKIN_KEY_FRAME_U / nativeW,
+    sy: SKIN_KEY_FRAME_U / nativeH,
+  };
+}
+
+function applyUniformScaleToSkinKeySquare(
+  c: CanvasRenderingContext2D,
+  nativeW: number,
+  nativeH: number,
+): void {
+  const { sx, sy } = computeSkinSquareScaleXY(nativeW, nativeH);
+  c.save();
+  c.scale(sx, sy);
+}
+
+function applyArrowPathToSkinKeySquare(c: CanvasRenderingContext2D): void {
+  applyUniformScaleToSkinKeySquare(c, DEFAULT_ARROW_WIDTH_U, DEFAULT_ARROW_HEIGHT_U);
+}
+
+export function getTetrisMinoCenters(cell: number): ReadonlyArray<readonly [number, number]> {
+  return [
+    [-cell, -0.5 * cell],
+    [0, -0.5 * cell],
+    [cell, -0.5 * cell],
+    [0, 0.5 * cell],
+  ] as const;
 }
 
 // ── Path builders ─────────────────────────────────────────────────────────────
@@ -105,12 +148,14 @@ function _drawPumpCenter(
   isReceptor: boolean,
   pressed: boolean,
 ): void {
-  /** Larger than legacy dot so the center key reads clearly vs. corner keys. */
-  const radius = size * 0.40;
+  // Keep center-key visual scale aligned with the four directional keys.
+  const radius = size * 0.34;
+  const centerFrame = SKIN_KEY_FRAME_U * size * getPumpCenterFrameScale(skin);
+  const centerHalf = centerFrame / 2;
 
   if (skin === "neon") {
-    const cw = DEFAULT_ARROW_WIDTH_U * size;
-    const ch = DEFAULT_ARROW_HEIGHT_U * size;
+    const cw = centerFrame;
+    const ch = centerFrame;
     const hw = cw / 2;
     const hh = ch / 2;
     if (qualityLevel !== "low") {
@@ -129,8 +174,8 @@ function _drawPumpCenter(
     }
     c.shadowBlur = 0;
   } else if (skin === "retro") {
-    const cw = DEFAULT_ARROW_WIDTH_U * size;
-    const ch = DEFAULT_ARROW_HEIGHT_U * size;
+    const cw = SKIN_KEY_FRAME_U * size;
+    const ch = SKIN_KEY_FRAME_U * size;
     const hw = cw / 2;
     const hh = ch / 2;
     c.strokeStyle = isReceptor ? (pressed ? color : "rgba(255,255,255,0.22)") : color;
@@ -179,8 +224,8 @@ function _drawPumpCenter(
     c.restore();
     c.restore();
   } else if (skin === "default") {
-    const cw = DEFAULT_ARROW_WIDTH_U * size;
-    const ch = DEFAULT_ARROW_HEIGHT_U * size;
+    const cw = centerFrame;
+    const ch = centerFrame;
     const hw = cw / 2;
     const hh = ch / 2;
     c.fillStyle = isReceptor ? (pressed ? color + "22" : "rgba(255,255,255,0.04)") : color;
@@ -195,37 +240,45 @@ function _drawPumpCenter(
       c.fillRect(-ih, -ih, inS, inS);
     }
   } else if (skin === "tetris") {
-    /** 2×2 跨度2·0.52·radius = 0.416·size。 */
-    applyUniformScaleToDefaultArrowBox(c, 0.416, 0.416);
-    /** O-四连方块：2×2 圆角格，与方向键俄罗斯方块风格一致。 */
-    const cell = radius * 0.52;
-    const rr = Math.max(1, cell * 0.14);
-    const strokeM = isReceptor ? (pressed ? color : "rgba(255,255,255,0.28)") : "rgba(0,0,0,0.5)";
+    applyUniformScaleToDefaultArrowBox(c, 0.46, 0.46);
+    const cell = radius * 0.58;
+    const rr = Math.max(1.1, cell * 0.12);
+    const strokeM = isReceptor ? (pressed ? color : "rgba(255,255,255,0.28)") : "rgba(0,0,0,0.55)";
+    const baseFill = isReceptor ? (pressed ? color + "40" : "rgba(255,255,255,0.08)") : color;
+    const bevelShade = isReceptor ? "rgba(0,0,0,0.18)" : "rgba(0,0,0,0.24)";
+    const seam = isReceptor ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.3)";
+
     for (const ox of [-cell / 2, cell / 2] as const) {
       for (const oy of [-cell / 2, cell / 2] as const) {
+        const x = ox - cell / 2;
+        const y = oy - cell / 2;
         c.beginPath();
-        c.roundRect(ox - cell / 2, oy - cell / 2, cell, cell, rr);
-        if (!isReceptor) {
-          c.fillStyle = color;
-          c.fill();
-          c.fillStyle = "rgba(255,255,255,0.2)";
-          c.fillRect(ox - cell / 2 + cell * 0.1, oy - cell / 2 + cell * 0.1, cell * 0.32, cell * 0.2);
-        } else {
-          c.fillStyle = pressed ? color + "38" : "rgba(255,255,255,0.07)";
-          c.fill();
-        }
+        c.roundRect(x, y, cell, cell, rr);
+        c.fillStyle = baseFill;
+        c.fill();
         c.strokeStyle = strokeM;
-        c.lineWidth = isReceptor ? 1.35 : 1.5;
+        c.lineWidth = isReceptor ? 1.35 : 1.6;
         c.stroke();
+
+        c.fillStyle = "rgba(255,255,255,0.24)";
+        c.fillRect(x + cell * 0.1, y + cell * 0.1, cell * 0.52, cell * 0.18);
+        c.fillStyle = bevelShade;
+        c.fillRect(x + cell * 0.12, y + cell * 0.72, cell * 0.76, cell * 0.14);
       }
     }
+    c.strokeStyle = seam;
+    c.lineWidth = 0.9;
+    c.beginPath();
+    c.moveTo(0, -cell);
+    c.lineTo(0, cell);
+    c.moveTo(-cell, 0);
+    c.lineTo(cell, 0);
+    c.stroke();
     c.restore();
   } else if (skin === "cyberpunk") {
-    /** 边长约 1.02·radius → 0.408·size。 */
-    applyUniformScaleToDefaultArrowBox(c, 0.408, 0.408);
-    /** 切角 HUD 方块：与赛博箭头相同的倒角语言。 */
-    const h = radius * 1.02;
-    const w = radius * 1.02;
+    applyUniformScaleToDefaultArrowBox(c, 0.45, 0.45);
+    const h = radius * 1.12;
+    const w = radius * 1.12;
     const ch = Math.min(w, h) * 0.22;
     c.beginPath();
     c.moveTo(-w / 2 + ch, -h / 2);
@@ -238,7 +291,7 @@ function _drawPumpCenter(
     c.lineTo(-w / 2, -h / 2 + ch);
     c.closePath();
     if (isReceptor) {
-      c.fillStyle = pressed ? color + "32" : "rgba(6,10,18,0.55)";
+      c.fillStyle = pressed ? color + "36" : "rgba(6,10,18,0.6)";
       c.fill();
       c.strokeStyle = pressed ? color : "rgba(255,255,255,0.32)";
       c.lineWidth = 2;
@@ -248,14 +301,14 @@ function _drawPumpCenter(
       c.fill();
       if (qualityLevel !== "low") {
         c.shadowColor = color;
-        c.shadowBlur = qualityLevel === "high" ? 10 : 6;
+        c.shadowBlur = qualityLevel === "high" ? 9 : 5;
       }
       c.strokeStyle = color;
       c.lineWidth = 2.2;
       c.stroke();
       c.shadowBlur = 0;
       c.save();
-      c.scale(0.88, 0.88);
+      c.scale(0.84, 0.84);
       c.beginPath();
       c.moveTo(-w / 2 + ch, -h / 2);
       c.lineTo(w / 2 - ch, -h / 2);
@@ -266,26 +319,28 @@ function _drawPumpCenter(
       c.lineTo(-w / 2, h / 2 - ch);
       c.lineTo(-w / 2, -h / 2 + ch);
       c.closePath();
-      c.strokeStyle = "rgba(255,80,255,0.42)";
+      c.strokeStyle = "rgba(255,80,255,0.38)";
       c.lineWidth = 1;
       c.stroke();
       c.restore();
     }
-    const tick = radius * 0.14;
-    c.strokeStyle = isReceptor ? (pressed ? color : "rgba(255,255,255,0.35)") : "rgba(0,255,255,0.45)";
-    c.lineWidth = 0.9;
+    const tick = radius * 0.16;
+    c.strokeStyle = isReceptor ? (pressed ? color : "rgba(255,255,255,0.35)") : "rgba(0,255,255,0.42)";
+    c.lineWidth = 0.85;
     c.beginPath();
     c.moveTo(-w / 2, -h / 2 + ch * 0.6);
     c.lineTo(-w / 2 - tick, -h / 2 + ch * 0.6);
     c.moveTo(w / 2, -h / 2 + ch * 0.6);
     c.lineTo(w / 2 + tick, -h / 2 + ch * 0.6);
+    c.moveTo(-w / 2 + ch * 0.55, h / 2);
+    c.lineTo(-w / 2 + ch * 0.55, h / 2 + tick * 0.75);
+    c.moveTo(w / 2 - ch * 0.55, h / 2);
+    c.lineTo(w / 2 - ch * 0.55, h / 2 + tick * 0.75);
     c.stroke();
     c.restore();
   } else if (skin === "mechanical") {
-    applyUniformScaleToDefaultArrowBox(c, 0.432, 0.392);
-    /** 小型金属盖板：圆角矩形 + 接缝 + 四角铆钉。 */
-    const pw = radius * 1.08;
-    const ph = radius * 0.98;
+    const pw = centerFrame;
+    const ph = centerFrame;
     const rx = 2.5;
     c.beginPath();
     c.roundRect(-pw / 2, -ph / 2, pw, ph, rx);
@@ -298,13 +353,15 @@ function _drawPumpCenter(
     c.strokeStyle = edge;
     c.lineWidth = isReceptor ? 2 : 2.2;
     c.stroke();
-    c.strokeStyle = isReceptor ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.4)";
+    c.strokeStyle = isReceptor ? "rgba(255,255,255,0.18)" : "rgba(20,20,20,0.55)";
     c.lineWidth = 0.9;
     c.beginPath();
     c.moveTo(-pw / 2 + 4, 0);
     c.lineTo(pw / 2 - 4, 0);
     c.stroke();
-    const rivetR = radius * 0.09;
+    c.fillStyle = isReceptor ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.16)";
+    c.fillRect(-pw * 0.34, -ph * 0.32, pw * 0.5, ph * 0.14);
+    const rivetR = centerHalf * 0.18;
     const inset = rivetR * 1.5;
     for (const [sx, sy] of [
       [-pw / 2 + inset, -ph / 2 + inset],
@@ -324,8 +381,8 @@ function _drawPumpCenter(
     }
     c.restore();
   } else {
-    const cw = DEFAULT_ARROW_WIDTH_U * size;
-    const ch = DEFAULT_ARROW_HEIGHT_U * size;
+    const cw = SKIN_KEY_FRAME_U * size;
+    const ch = SKIN_KEY_FRAME_U * size;
     const hw = cw / 2;
     const hh = ch / 2;
     c.fillStyle = isReceptor ? (pressed ? color + "22" : "rgba(255,255,255,0.04)") : color;
@@ -351,8 +408,8 @@ function _drawPumpCorner(
   isReceptor: boolean,
   pressed: boolean,
 ): void {
-  const cornerW = DEFAULT_ARROW_WIDTH_U * size;
-  const cornerH = DEFAULT_ARROW_HEIGHT_U * size;
+  const cornerW = SKIN_KEY_FRAME_U * size;
+  const cornerH = SKIN_KEY_FRAME_U * size;
   const cornerHalfW = cornerW / 2;
   const cornerHalfH = cornerH / 2;
 
@@ -408,11 +465,12 @@ export function drawArrowWithSkin(
   qualityLevel: QualityLevel,
   isReceptor = false,
   pressed = false,
+  keepParallel = false,
 ): void {
   c.save();
   c.translate(cx, cy);
   // Retro uses on-screen axis-aligned squares; rotating would make them look diamond-shaped.
-  if (skin !== "retro") {
+  if (skin !== "retro" && !keepParallel) {
     c.rotate(getDirectionRotation(direction));
   }
 
@@ -433,6 +491,7 @@ function _drawArrowNeon(
   c: CanvasRenderingContext2D, size: number, color: string,
   qualityLevel: QualityLevel, isReceptor: boolean, pressed: boolean,
 ): void {
+  applyArrowPathToSkinKeySquare(c);
   buildArrowPath(c, size);
   if (qualityLevel !== "low") {
     c.shadowColor = color;
@@ -449,14 +508,15 @@ function _drawArrowNeon(
     c.fill();
   }
   c.shadowBlur = 0;
+  c.restore();
 }
 
 function _drawArrowRetro(
   c: CanvasRenderingContext2D, size: number, color: string,
   isReceptor: boolean, pressed: boolean,
 ): void {
-  const w = DEFAULT_ARROW_WIDTH_U * size;
-  const h = DEFAULT_ARROW_HEIGHT_U * size;
+  const w = SKIN_KEY_FRAME_U * size;
+  const h = SKIN_KEY_FRAME_U * size;
   c.strokeStyle = isReceptor ? (pressed ? color : "rgba(255,255,255,0.22)") : color;
   c.lineWidth = isReceptor ? (pressed ? 3 : 2) : 2.5;
   c.strokeRect(-w / 2, -h / 2, w, h);
@@ -467,42 +527,42 @@ function _drawArrowTetris(
   c: CanvasRenderingContext2D, size: number, color: string,
   isReceptor: boolean, pressed: boolean,
 ): void {
-  /** Native span: 3×0.22 wide, 2.35×0.22 tall → 0.66×0.517. */
-  applyUniformScaleToDefaultArrowBox(c, 0.66, 0.517);
-
-  const cell = size * 0.22;
+  // Keep Tetris skin inside the shared square lane frame.
+  applyUniformScaleToSkinKeySquare(c, 0.7, 0.56);
+  const cell = size * 0.225;
   const r = Math.max(1.2, cell * 0.12);
   const strokeMino = isReceptor ? (pressed ? color : "rgba(255,255,255,0.3)") : "rgba(0,0,0,0.5)";
+  const baseFill = isReceptor ? (pressed ? color + "44" : "rgba(255,255,255,0.07)") : color;
 
-  const centers: [number, number][] = [
-    [-cell, -1.45 * cell],
-    [0, -1.45 * cell],
-    [cell, -1.45 * cell],
-    [0, -0.2 * cell],
-  ];
+  const centers = getTetrisMinoCenters(cell);
 
   const drawMino = (mx: number, my: number) => {
     const x = mx - cell / 2;
     const y = my - cell / 2;
     c.beginPath();
     c.roundRect(x, y, cell, cell, r);
-    if (!isReceptor) {
-      c.fillStyle = color;
-      c.fill();
-      c.fillStyle = "rgba(255,255,255,0.22)";
-      c.fillRect(x + cell * 0.12, y + cell * 0.12, cell * 0.35, cell * 0.22);
-    } else {
-      c.fillStyle = pressed ? color + "42" : "rgba(255,255,255,0.06)";
-      c.fill();
-    }
+    c.fillStyle = baseFill;
+    c.fill();
     c.strokeStyle = strokeMino;
     c.lineWidth = isReceptor ? 1.45 : 1.65;
     c.stroke();
+    c.fillStyle = "rgba(255,255,255,0.23)";
+    c.fillRect(x + cell * 0.1, y + cell * 0.1, cell * 0.52, cell * 0.2);
+    c.fillStyle = isReceptor ? "rgba(0,0,0,0.18)" : "rgba(0,0,0,0.24)";
+    c.fillRect(x + cell * 0.14, y + cell * 0.72, cell * 0.72, cell * 0.14);
   };
 
   for (const [mx, my] of centers) {
     drawMino(mx, my);
   }
+  c.strokeStyle = isReceptor ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.28)";
+  c.lineWidth = 0.9;
+  c.beginPath();
+  c.moveTo(0, -cell);
+  c.lineTo(0, cell);
+  c.moveTo(-1.5 * cell, 0);
+  c.lineTo(1.5 * cell, 0);
+  c.stroke();
 
   c.restore();
 }
@@ -512,6 +572,7 @@ function _drawArrowCyberpunk(
   c: CanvasRenderingContext2D, size: number, color: string,
   qualityLevel: QualityLevel, isReceptor: boolean, pressed: boolean,
 ): void {
+  applyArrowPathToSkinKeySquare(c);
   const s = size * 0.5;
   const chamfer = s * 0.22;
   c.beginPath();
@@ -527,7 +588,7 @@ function _drawArrowCyberpunk(
   c.closePath();
 
   if (isReceptor) {
-    c.fillStyle = pressed ? color + "35" : "rgba(6,10,18,0.55)";
+    c.fillStyle = pressed ? color + "38" : "rgba(6,10,18,0.58)";
     c.fill();
     c.strokeStyle = pressed ? color : "rgba(255,255,255,0.32)";
     c.lineWidth = 2;
@@ -537,14 +598,14 @@ function _drawArrowCyberpunk(
     c.fill();
     if (qualityLevel !== "low") {
       c.shadowColor = color;
-      c.shadowBlur = qualityLevel === "high" ? 14 : 8;
+      c.shadowBlur = qualityLevel === "high" ? 11 : 7;
     }
     c.strokeStyle = color;
-    c.lineWidth = 2.5;
+    c.lineWidth = 2.3;
     c.stroke();
     c.shadowBlur = 0;
     c.save();
-    c.scale(0.86, 0.86);
+    c.scale(0.82, 0.82);
     c.beginPath();
     c.moveTo(0, -s);
     c.lineTo(s * 0.88 - chamfer * 0.2, s * 0.15 - chamfer * 0.35);
@@ -556,21 +617,26 @@ function _drawArrowCyberpunk(
     c.lineTo(-s * 0.88, s * 0.15 + chamfer * 0.15);
     c.lineTo(-s * 0.88 + chamfer * 0.2, s * 0.15 - chamfer * 0.35);
     c.closePath();
-    c.strokeStyle = "rgba(255,80,255,0.45)";
-    c.lineWidth = 1.2;
+    c.strokeStyle = "rgba(255,80,255,0.38)";
+    c.lineWidth = 1;
     c.stroke();
     c.restore();
   }
 
   const tick = size * 0.06;
-  c.strokeStyle = isReceptor ? (pressed ? color : "rgba(255,255,255,0.35)") : "rgba(0,255,255,0.5)";
-  c.lineWidth = 1;
+  c.strokeStyle = isReceptor ? (pressed ? color : "rgba(255,255,255,0.35)") : "rgba(0,255,255,0.42)";
+  c.lineWidth = 0.9;
   c.beginPath();
   c.moveTo(-s * 0.88, -s * 0.35);
   c.lineTo(-s * 0.88 - tick, -s * 0.35);
   c.moveTo(s * 0.88, -s * 0.35);
   c.lineTo(s * 0.88 + tick, -s * 0.35);
+  c.moveTo(-s * 0.42, s * 0.72);
+  c.lineTo(-s * 0.42, s * 0.72 + tick * 0.75);
+  c.moveTo(s * 0.42, s * 0.72);
+  c.lineTo(s * 0.42, s * 0.72 + tick * 0.75);
   c.stroke();
+  c.restore();
 }
 
 /** Steel bracket plate: trapezoid crown + base, rivets, center seam. */
@@ -578,7 +644,8 @@ function _drawArrowMechanical(
   c: CanvasRenderingContext2D, size: number, color: string,
   isReceptor: boolean, pressed: boolean,
 ): void {
-  applyUniformScaleToDefaultArrowBox(c, 0.8, 0.78);
+  // Keep Mechanical skin inside the shared square lane frame.
+  applyUniformScaleToSkinKeySquare(c, 0.82, 0.8);
 
   const w = size * 0.4;
   const yTop = -size * 0.42;
@@ -611,6 +678,8 @@ function _drawArrowMechanical(
   c.moveTo(-w + notch, yMid);
   c.lineTo(w - notch, yMid);
   c.stroke();
+  c.fillStyle = isReceptor ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.16)";
+  c.fillRect(-w * 0.32, yTop + size * 0.1, w * 0.5, size * 0.08);
 
   const rivetR = size * 0.045;
   const rivets: [number, number][] = [
@@ -639,39 +708,51 @@ function _drawArrowMusical(
   c: CanvasRenderingContext2D, size: number, color: string,
   isReceptor: boolean, pressed: boolean,
 ): void {
-  /** Native AABB ~0.7×0.85 (left −0.3·size, right 0.4·size; top −0.4·size, bottom ~0.45·size). */
-  applyUniformScaleToDefaultArrowBox(c, 0.7, 0.85);
+  // Keep Musical skin inside the shared square lane frame.
+  applyUniformScaleToSkinKeySquare(c, 0.72, 0.86);
+  const headW = size * 0.44;
+  const headH = size * 0.26;
+  const headY = size * 0.18;
+  const stemX = size * 0.17;
+  const stemTop = -size * 0.4;
+  const stemBottom = size * 0.03;
+  const tailY = size * 0.54;
+  const rr = Math.max(3, headH * 0.25);
 
   c.beginPath();
-  c.moveTo(0, -size * 0.4);
-  c.bezierCurveTo(size * 0.2, -size * 0.3, size * 0.4, -size * 0.1, size * 0.4, size * 0.1);
-  c.lineTo(size * 0.1, size * 0.1);
-  c.lineTo(size * 0.1, size * 0.3);
-  c.arc(0, size * 0.3, size * 0.15, 0, Math.PI * 2);
-  c.lineTo(-size * 0.1, -size * 0.1);
-  c.lineTo(-size * 0.3, -size * 0.1);
-  c.closePath();
-
+  c.roundRect(-headW / 2, headY - headH / 2, headW, headH, rr);
   if (isReceptor) {
-    c.fillStyle = pressed ? color + "35" : "rgba(255,255,255,0.05)";
-    c.strokeStyle = pressed ? color : "rgba(255,255,255,0.2)";
-    c.lineWidth = 1.5;
+    c.fillStyle = pressed ? color + "36" : "rgba(255,255,255,0.06)";
+    c.strokeStyle = pressed ? color : "rgba(255,255,255,0.22)";
+    c.lineWidth = 1.6;
   } else {
     c.fillStyle = color;
     c.strokeStyle = "rgba(255,255,255,0.5)";
-    c.lineWidth = 2;
+    c.lineWidth = 1.9;
   }
   c.fill();
   c.stroke();
 
-  if (!isReceptor) {
-    c.beginPath();
-    c.moveTo(0, -size * 0.3);
-    c.bezierCurveTo(size * 0.1, -size * 0.2, size * 0.3, 0, size * 0.25, size * 0.05);
-    c.strokeStyle = "rgba(255,255,255,0.4)";
-    c.lineWidth = 2;
-    c.stroke();
-  }
+  c.beginPath();
+  c.moveTo(stemX, stemBottom);
+  c.lineTo(stemX, stemTop);
+  c.strokeStyle = isReceptor ? (pressed ? color : "rgba(255,255,255,0.22)") : "rgba(255,255,255,0.58)";
+  c.lineWidth = isReceptor ? 1.8 : 2.2;
+  c.stroke();
+
+  c.beginPath();
+  c.moveTo(stemX, stemTop);
+  c.quadraticCurveTo(size * 0.28, -size * 0.29, size * 0.3, -size * 0.12);
+  c.strokeStyle = isReceptor ? (pressed ? color : "rgba(255,255,255,0.18)") : "rgba(255,255,255,0.44)";
+  c.lineWidth = isReceptor ? 1.2 : 1.45;
+  c.stroke();
+
+  c.beginPath();
+  c.moveTo(0, headY + headH / 2);
+  c.quadraticCurveTo(-size * 0.02, size * 0.4, 0, tailY);
+  c.quadraticCurveTo(size * 0.02, size * 0.4, 0, headY + headH / 2);
+  c.fillStyle = isReceptor ? "rgba(255,255,255,0.07)" : "rgba(255,255,255,0.2)";
+  c.fill();
 
   c.restore();
 }
@@ -680,6 +761,7 @@ function _drawArrowDefault(
   c: CanvasRenderingContext2D, size: number, color: string,
   qualityLevel: QualityLevel, isReceptor: boolean, pressed: boolean,
 ): void {
+  applyArrowPathToSkinKeySquare(c);
   buildArrowPath(c, size);
   if (isReceptor) {
     if (pressed && qualityLevel !== "low") {
@@ -704,4 +786,5 @@ function _drawArrowDefault(
     c.fillStyle = "rgba(255,255,255,0.28)";
     c.fill();
   }
+  c.restore();
 }

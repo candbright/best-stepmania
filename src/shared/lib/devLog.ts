@@ -17,6 +17,17 @@
 export const isDebugLogLevelEnabled = import.meta.env.DEV;
 
 export type LogSinkLevel = "debug" | "info" | "warn" | "error";
+export type LogSeverity = "debug" | "info" | "warn" | "error" | "fatal";
+
+export interface LogEvent {
+  namespace: string;
+  op: string;
+  severity: LogSeverity;
+  recoverable: boolean;
+  cause?: unknown;
+  context?: Record<string, unknown>;
+  ts?: string;
+}
 
 /**
  * Receives each log event after `logDebug` / `logInfo` / `logWarn` / `logError` is called.
@@ -101,4 +112,27 @@ export function logWarn(namespace: string, ...args: unknown[]): void {
 /** Failures that matter in production (`console.error` via sink chain). */
 export function logError(namespace: string, ...args: unknown[]): void {
   emitToSinks("error", namespace, args);
+}
+
+function mapSeverityToLevel(severity: LogSeverity): LogSinkLevel {
+  if (severity === "fatal") return "error";
+  return severity;
+}
+
+/**
+ * Structured reliability event log helper.
+ * Emits one normalized payload so sinks/files can be queried consistently.
+ */
+export function logEvent(event: LogEvent): void {
+  const ts = event.ts ?? new Date().toISOString();
+  emitToSinks(mapSeverityToLevel(event.severity), event.namespace, [
+    {
+      ts,
+      op: event.op,
+      severity: event.severity,
+      recoverable: event.recoverable,
+      context: event.context ?? null,
+      cause: event.cause ?? null,
+    },
+  ]);
 }

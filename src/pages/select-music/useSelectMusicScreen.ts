@@ -4,6 +4,7 @@ import { useSessionStore } from "@/shared/stores/session";
 import { usePlayerStore } from "@/shared/stores/player";
 import { useLibraryStore } from "@/shared/stores/library";
 import { useSettingsStore } from "@/shared/stores/settings";
+import { useSongRandomStore } from "@/shared/stores/songRandom";
 import { useI18n } from "@/shared/i18n";
 import * as api from "@/shared/api";
 import { playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/shared/lib/sfx";
@@ -14,7 +15,7 @@ import { displayPercentFromDpRatio } from "@/shared/lib/engine/types";
 import { gradeTextGradientStyle } from "@/shared/constants/gradeColors";
 import { chartFitsPlayMode } from "@/shared/lib/chartPlayMode";
 import { PHYSICAL_ROOT_PACK } from "@/shared/constants/songLibrary";
-import { logDebug, logError } from "@/shared/lib/devLog";
+import { logDebug, logError, logEvent } from "@/shared/lib/devLog";
 
 export function useSelectMusicScreen() {
   const router = useRouter();
@@ -22,6 +23,7 @@ export function useSelectMusicScreen() {
   const player = usePlayerStore();
   const library = useLibraryStore();
   const settings = useSettingsStore();
+  const songRandom = useSongRandomStore();
   const blockingOverlay = useBlockingOverlayStore();
   const { t } = useI18n();
   const bannerCache = ref<Record<string, string>>({});
@@ -36,7 +38,9 @@ export function useSelectMusicScreen() {
   const clearingTopScores = ref(false);
   const confirmSelectionBusy = ref(false);
   const refreshing = ref(false);
+  const randomToast = ref("");
   const songScrollRef = ref<HTMLElement | null>(null);
+  let randomToastTimer: ReturnType<typeof setTimeout> | null = null;
   let loadAbortCtrl: AbortController | null = null;
 
   function markPerf(name: string, started: number) {
@@ -279,6 +283,55 @@ export function useSelectMusicScreen() {
       player.playSongAt(idx);
     }
     loadBannerLazy(idx);
+  }
+
+  function showRandomToast(message: string) {
+    randomToast.value = message;
+    if (randomToastTimer) {
+      clearTimeout(randomToastTimer);
+    }
+    randomToastTimer = setTimeout(() => {
+      randomToast.value = "";
+      randomToastTimer = null;
+    }, 1600);
+  }
+
+  function pickRandomSong() {
+    const filteredPaths = filteredSongs.value.map((song) => song.path);
+    const randomResult = songRandom.pickFromFiltered(filteredPaths);
+    if (randomResult.empty || !randomResult.picked) {
+      showRandomToast(t("select.random.empty"));
+      logEvent({
+        namespace: "SelectMusic",
+        op: "SelectMusic.random.empty",
+        severity: "info",
+        recoverable: true,
+      });
+      return;
+    }
+    if (randomResult.reset) {
+      logEvent({
+        namespace: "SelectMusic",
+        op: "SelectMusic.random.pool_reset",
+        severity: "info",
+        recoverable: true,
+        context: { size: filteredPaths.length },
+      });
+    }
+    const pickedIndex = library.songs.findIndex((song) => song.path === randomResult.picked);
+    if (pickedIndex < 0) {
+      logError("SelectMusic", "random pick not found in library songs:", randomResult.picked);
+      return;
+    }
+    selectSong(pickedIndex);
+    ensureCurrentSongVisible();
+    logEvent({
+      namespace: "SelectMusic",
+      op: "SelectMusic.random.pick",
+      severity: "info",
+      recoverable: true,
+      context: { songPath: randomResult.picked, filteredCount: filteredPaths.length },
+    });
   }
 
   function focusSongByDelta(delta: number) {
@@ -525,8 +578,18 @@ export function useSelectMusicScreen() {
         session.currentSongIndex >= 0
           ? session.currentSongIndex
           : Math.floor(Math.random() * library.songs.length);
+      logDebug("SelectMusic", "initial select-music playback setQueue", {
+        reason: "empty_player_queue_on_mount",
+        songsCount: library.songs.length,
+        sessionSongIndex: session.currentSongIndex,
+        startIdx,
+        startSongPath: library.songs[startIdx]?.path ?? null,
+      });
       player.setQueue(library.songs, startIdx);
       if (player.status === "idle") {
+        logDebug("SelectMusic", "play default music after initial setQueue", {
+          reason: "player_idle_after_setQueue",
+        });
         player.playDefaultMusic();
       }
       ensureCurrentSongVisible();
@@ -542,6 +605,11 @@ export function useSelectMusicScreen() {
   onUnmounted(() => {
     window.removeEventListener("keydown", onKeyDown);
     cancelScreenLoad();
+    if (randomToastTimer) {
+      clearTimeout(randomToastTimer);
+      randomToastTimer = null;
+    }
+    songRandom.clearState();
   });
 
   watch(() => session.currentSongIndex, () => ensureCurrentSongVisible());
@@ -603,6 +671,8 @@ export function useSelectMusicScreen() {
     gradeTextGradientStyle,
     toggleFavorite,
     cycleShowFavoritesOnly,
+    pickRandomSong,
+    randomToast,
     setShowFavoritesOnly,
     showFavoritesOnly: computed(() => library.showFavoritesOnly),
     isFavorite: (path: string) => library.isFavorite(path),

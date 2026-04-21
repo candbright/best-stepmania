@@ -144,14 +144,87 @@ function onRetry() {
 .app-load-backdrop {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--bg-gradient-start) 88%, transparent) 0%,
-    color-mix(in srgb, var(--bg-color) 82%, transparent) 45%,
-    color-mix(in srgb, var(--primary-color) 18%, var(--bg-gradient-end)) 100%
-  );
-  backdrop-filter: blur(12px) saturate(1.1);
-  -webkit-backdrop-filter: blur(12px) saturate(1.1);
+  overflow: hidden;
+  /* Fallback for environments where color-mix is not supported */
+  background-color: #0b0b1a;
+  background:
+    radial-gradient(140% 120% at 8% 8%, rgba(124, 58, 237, 0.24) 0%, transparent 46%),
+    radial-gradient(120% 100% at 88% 18%, rgba(244, 63, 94, 0.2) 0%, transparent 55%),
+    linear-gradient(145deg, #171733 0%, #0b0b1a 45%, #05050f 100%);
+  background:
+    radial-gradient(
+      140% 120% at 8% 8%,
+      color-mix(in srgb, var(--primary-color) 28%, transparent) 0%,
+      transparent 46%
+    ),
+    radial-gradient(
+      120% 100% at 88% 18%,
+      color-mix(in srgb, #f43f5e 20%, transparent) 0%,
+      transparent 55%
+    ),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--bg-gradient-start) 86%, #0f0f23) 0%,
+      color-mix(in srgb, var(--bg-color) 90%, #090915) 45%,
+      color-mix(in srgb, var(--bg-gradient-end) 82%, #05050f) 100%
+    );
+  backdrop-filter: blur(14px) saturate(1.15);
+  -webkit-backdrop-filter: blur(14px) saturate(1.15);
+}
+
+.app-load-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: -10%;
+  background:
+    radial-gradient(circle at 24% 28%, rgba(124, 58, 237, 0.3) 0%, transparent 42%),
+    radial-gradient(circle at 74% 66%, rgba(167, 139, 250, 0.28) 0%, transparent 44%);
+  background:
+    radial-gradient(
+      circle at 24% 28%,
+      color-mix(in srgb, var(--primary-color) 35%, transparent) 0%,
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 74% 66%,
+      color-mix(in srgb, #a78bfa 30%, transparent) 0%,
+      transparent 44%
+    );
+  opacity: 0.7;
+  filter: blur(30px);
+  animation: app-load-aurora 9s ease-in-out infinite alternate;
+}
+
+.app-load-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06) 0px,
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 2px,
+      transparent 5px
+    ),
+    linear-gradient(180deg, rgba(96, 165, 250, 0.06) 0%, transparent 30%, rgba(244, 114, 182, 0.07) 100%);
+  background:
+    repeating-linear-gradient(
+      180deg,
+      color-mix(in srgb, #ffffff 7%, transparent) 0px,
+      color-mix(in srgb, #ffffff 7%, transparent) 1px,
+      transparent 2px,
+      transparent 5px
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, #60a5fa 6%, transparent) 0%,
+      transparent 30%,
+      color-mix(in srgb, #f472b6 7%, transparent) 100%
+    );
+  opacity: 0.28;
+  mix-blend-mode: screen;
+  pointer-events: none;
 }
 
 .app-load-drag-strip {
@@ -169,10 +242,7 @@ function onRetry() {
   position: relative;
   z-index: 2;
   width: min(360px, 100%);
-  padding: 1.25rem 1.25rem 1rem;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--section-bg) 50%, var(--bg-color));
-  border: 1px solid var(--border-color);
+  padding: 0.75rem 1rem;
   text-align: center;
 }
 
@@ -224,6 +294,15 @@ function onRetry() {
   }
 }
 
+@keyframes app-load-aurora {
+  0% {
+    transform: translate3d(-1.5%, -1%, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(1.5%, 1%, 0) scale(1.05);
+  }
+}
+
 .app-load-actions {
   display: flex;
   flex-wrap: wrap;
@@ -272,5 +351,11 @@ function onRetry() {
 .app-load-fade-enter-from,
 .app-load-fade-leave-to {
   opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-load-backdrop::before {
+    animation: none;
+  }
 }
 </style>

@@ -46,6 +46,8 @@ const {
   cycleSortMode,
   refreshSongs,
   refreshing,
+  pickRandomSong,
+  randomToast,
   hasActiveFilter,
   activeFilterCount,
   togglePack,
@@ -76,10 +78,18 @@ const setSongScrollRef = (el: Element | ComponentPublicInstance | null) => {
         :sortLabel="sortLabel"
         :refreshTitle="t('select.refresh')"
         :filterLabel="t('select.filter')"
+        :randomTitle="t('select.random.button')"
         @refresh="refreshSongs"
         @openFilter="showFilterModal = true"
         @cycleSort="cycleSortMode"
+        @randomPick="pickRandomSong"
       />
+    </template>
+
+    <template #import-toast>
+      <div v-if="randomToast" class="random-toast">
+        {{ randomToast }}
+      </div>
     </template>
 
     <template #song-panel>
@@ -244,6 +254,18 @@ const setSongScrollRef = (el: Element | ComponentPublicInstance | null) => {
   padding: 0.15rem 0.5rem; background: #00e676; color: #000;
   border-radius: 4px; font-size: 0.7rem; font-weight: 800;
   font-family: 'Orbitron', sans-serif;
+}
+
+.random-toast {
+  position: relative;
+  z-index: 10;
+  padding: 0.4rem 1rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: color-mix(in srgb, #2196f3 15%, transparent);
+  color: color-mix(in srgb, #90caf9 75%, var(--text-color));
+  border-bottom: 1px solid color-mix(in srgb, #2196f3 30%, transparent);
 }
 
 </style>

@@ -62,4 +62,6 @@ export default {
   "select.bpmUnit": "BPM",
   "select.onlyFavorites": "仅收藏",
   "select.refresh": "刷新",
+  "select.random.button": "随机",
+  "select.random.empty": "当前筛选无可随机歌曲",
 } as const;

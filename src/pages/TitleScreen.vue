@@ -258,7 +258,22 @@ async function pollScanStatus() {
       if (library.songs.length > 0 && player.queue.length === 0) {
         // 预热队列用随机起始曲；标题路由下不同步 session，避免挡掉选模式时的随机首曲。
         const startIdx = Math.floor(Math.random() * library.songs.length);
+        logDebug("TitleScreen", "initial title playback setQueue", {
+          reason: "scan_done_and_empty_player_queue",
+          songsCount: library.songs.length,
+          startIdx,
+          startSongPath: library.songs[startIdx]?.path ?? null,
+        });
         player.setQueue(library.songs, startIdx);
+      } else {
+        logDebug("TitleScreen", "skip initial title playback setQueue", {
+          reason: library.songs.length <= 0 ? "songs_empty" : "player_queue_not_empty",
+          songsCount: library.songs.length,
+          playerQueueCount: player.queue.length,
+          playerQueueIndex: player.queueIndex,
+          currentQueueSongPath:
+            player.queueIndex >= 0 ? player.queue[player.queueIndex]?.path ?? null : null,
+        });
       }
       return;
     }

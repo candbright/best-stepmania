@@ -37,8 +37,6 @@ export default {
   "settings.rhythmSfxStyleOption.bright": "Bright",
   "settings.rhythmSfxStyleOption.crisp": "Crisp",
   "settings.uiSfxEnabled": "Click SFX",
-  "settings.uiSfxToggleOn": "Enable Click SFX",
-  "settings.uiSfxToggleOff": "Disable Click SFX",
   "settings.uiSfxVolume": "Click SFX level",
   "settings.uiSfxStyle": "UI Click SFX Style",
   "settings.uiSfxStyleOption.classic": "Classic",

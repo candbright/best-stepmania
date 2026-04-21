@@ -62,4 +62,6 @@ export default {
   "select.bpmUnit": "BPM",
   "select.onlyFavorites": "Only favorites",
   "select.refresh": "Refresh",
+  "select.random.button": "RANDOM",
+  "select.random.empty": "No songs available in current filter",
 } as const;

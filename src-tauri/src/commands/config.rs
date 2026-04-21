@@ -144,6 +144,8 @@ impl Default for PerPlayerConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
+    #[serde(default = "default_config_version")]
+    pub config_version: u32,
     #[serde(default = "default_language")]
     pub language: String,
     #[serde(default = "default_theme")]
@@ -254,6 +256,9 @@ pub struct AppConfig {
 
 fn default_language() -> String {
     "en".to_string()
+}
+fn default_config_version() -> u32 {
+    1
 }
 fn default_theme() -> String {
     "default".to_string()
@@ -367,6 +372,7 @@ fn default_song_dirs() -> Vec<String> {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
+            config_version: default_config_version(),
             language: default_language(),
             theme: default_theme(),
             default_profile: default_profile(),
@@ -424,10 +430,25 @@ fn config_path(state: &State<AppState>) -> std::path::PathBuf {
     state.data_dir.join("config.toml")
 }
 
+fn migrate_config(mut config: AppConfig) -> AppConfig {
+    // Keep backend migration as authoritative persistence boundary.
+    // Frontend applies equivalent normalization as runtime/UI safety net.
+    if config.config_version < 1 {
+        if config.song_directories.is_empty() {
+            config.song_directories = default_song_dirs();
+        }
+        config.target_fps = config.target_fps.clamp(30, 360);
+        config.ui_scale = config.ui_scale.clamp(0.75, 1.5);
+        config.chart_cache_size = config.chart_cache_size.clamp(1, 64);
+    }
+    config.config_version = default_config_version();
+    config
+}
+
 /// Parses an on-disk `config.toml` with the same migrations as [`load_config`] for existing files.
 fn parse_existing_config_file(path: &Path) -> Result<AppConfig, String> {
     let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-    let mut config: AppConfig = toml::from_str(&content).unwrap_or_default();
+    let mut config: AppConfig = migrate_config(toml::from_str(&content).unwrap_or_default());
     if config.window_display_preset == "normal" && config.fullscreen {
         config.window_display_preset = "exclusiveFullscreen".to_string();
     }
@@ -555,15 +576,7 @@ pub fn load_config(app: AppHandle, state: State<AppState>) -> Result<AppConfig, 
 
         let mut config = AppConfig::default();
         config.window_display_preset = preset;
-        // OS-specific default language: Windows → Chinese, Linux → English
-        #[cfg(target_os = "windows")]
-        {
-            config.language = "zh-CN".to_string();
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            config.language = "en".to_string();
-        }
+        config.language = get_factory_default_language();
         let toml_str = toml::to_string_pretty(&config).map_err(|e| e.to_string())?;
         std::fs::write(&path, toml_str).ok();
         Ok(config)
@@ -573,7 +586,29 @@ pub fn load_config(app: AppHandle, state: State<AppState>) -> Result<AppConfig, 
 #[tauri::command]
 pub fn save_config(state: State<AppState>, config: AppConfig) -> Result<(), String> {
     let path = config_path(&state);
+    let config = migrate_config(config);
     let toml_str = toml::to_string_pretty(&config).map_err(|e| e.to_string())?;
     std::fs::write(&path, toml_str).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{migrate_config, AppConfig};
+
+    #[test]
+    fn migrate_legacy_config_clamps_and_stamps_version() {
+        let mut cfg = AppConfig::default();
+        cfg.config_version = 0;
+        cfg.song_directories.clear();
+        cfg.target_fps = 999;
+        cfg.ui_scale = 9.0;
+        cfg.chart_cache_size = 0;
+        let migrated = migrate_config(cfg);
+        assert_eq!(migrated.config_version, 1);
+        assert_eq!(migrated.target_fps, 360);
+        assert_eq!(migrated.ui_scale, 1.5);
+        assert_eq!(migrated.chart_cache_size, 1);
+        assert_eq!(migrated.song_directories, vec!["songs".to_string()]);
+    }
 }

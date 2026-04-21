@@ -17,6 +17,7 @@ import { syncWindowBorderlessDom } from "@/shared/services/tauri/applyWindowDisp
 import type { CursorStylePreset, RhythmSfxStyle, UiSfxStyle } from "@/shared/api/config";
 import * as api from "@/shared/api";
 import { logError } from "@/shared/lib/devLog";
+import { LATEST_CONFIG_VERSION, migrateConfig } from "@/shared/lib/config/migrations";
 import {
   applyGameplayRhythmSfxSettings,
   setUiSfxEnabled,
@@ -166,69 +167,75 @@ export const useSettingsStore = defineStore("settings", () => {
     if (configLoaded.value && !opts?.force) return;
     try {
       const cfg = await api.loadConfig();
-      language.value = cfg.language;
+      const normalizedCfg = migrateConfig(cfg);
+      if ((cfg.configVersion ?? 0) !== normalizedCfg.configVersion) {
+        void api.saveConfig(normalizedCfg).catch((err: unknown) => {
+          logError("Settings", "Failed to persist migrated config:", err);
+        });
+      }
+      language.value = normalizedCfg.language;
       // Cache factory default language for resetToFactoryDefaults
       factoryDefaultLanguage.value = await api.getFactoryDefaultLanguage();
-      theme.value = normalizeAppThemeId(cfg.theme ?? "default");
-      masterVolume.value = Math.round(cfg.masterVolume * 100);
+      theme.value = normalizeAppThemeId(normalizedCfg.theme ?? "default");
+      masterVolume.value = Math.round(normalizedCfg.masterVolume * 100);
       
       // Update i18n locale
       const i18nMod = await import("@/shared/i18n");
-      i18nMod.currentLocale.value = cfg.language as "en" | "zh-CN";
-      localStorage.setItem("locale", cfg.language);
+      i18nMod.currentLocale.value = normalizedCfg.language as "en" | "zh-CN";
+      localStorage.setItem("locale", normalizedCfg.language);
       
       // Update theme on document body
       document.body.setAttribute('data-theme', theme.value);
-      musicVolume.value = Math.round(cfg.musicVolume * 100);
-      effectVolume.value = Math.round(cfg.effectVolume * 100);
-      metronomeSfxEnabled.value = cfg.metronomeSfxEnabled ?? cfg.rhythmSfxEnabled ?? false;
+      musicVolume.value = Math.round(normalizedCfg.musicVolume * 100);
+      effectVolume.value = Math.round(normalizedCfg.effectVolume * 100);
+      metronomeSfxEnabled.value = normalizedCfg.metronomeSfxEnabled ?? normalizedCfg.rhythmSfxEnabled ?? false;
       metronomeSfxVolume.value = Math.round(
-        (cfg.metronomeSfxVolume ?? cfg.rhythmSfxVolume ?? cfg.effectVolume ?? 1) * 100,
+        (normalizedCfg.metronomeSfxVolume ?? normalizedCfg.rhythmSfxVolume ?? normalizedCfg.effectVolume ?? 1) * 100,
       );
-      metronomeSfxStyle.value = normalizeRhythmSfxStyle(cfg.metronomeSfxStyle ?? cfg.rhythmSfxStyle);
-      rhythmSfxEnabled.value = cfg.rhythmSfxEnabled ?? true;
-      rhythmSfxVolume.value = Math.round((cfg.rhythmSfxVolume ?? cfg.effectVolume ?? 1) * 100);
-      rhythmSfxStyle.value = normalizeRhythmSfxStyle(cfg.rhythmSfxStyle);
-      uiSfxEnabled.value = cfg.uiSfxEnabled ?? true;
-      uiSfxVolume.value = Math.round((cfg.uiSfxVolume ?? 0.7) * 100);
-      uiSfxStyle.value = cfg.uiSfxStyle ?? "classic";
-      audioOffsetMs.value = cfg.audioOffsetMs;
+      metronomeSfxStyle.value = normalizeRhythmSfxStyle(normalizedCfg.metronomeSfxStyle ?? normalizedCfg.rhythmSfxStyle);
+      rhythmSfxEnabled.value = normalizedCfg.rhythmSfxEnabled ?? true;
+      rhythmSfxVolume.value = Math.round((normalizedCfg.rhythmSfxVolume ?? normalizedCfg.effectVolume ?? 1) * 100);
+      rhythmSfxStyle.value = normalizeRhythmSfxStyle(normalizedCfg.rhythmSfxStyle);
+      uiSfxEnabled.value = normalizedCfg.uiSfxEnabled ?? true;
+      uiSfxVolume.value = Math.round((normalizedCfg.uiSfxVolume ?? 0.7) * 100);
+      uiSfxStyle.value = normalizedCfg.uiSfxStyle ?? "classic";
+      audioOffsetMs.value = normalizedCfg.audioOffsetMs;
       windowDisplayPreset.value = normalizeWindowDisplayPreset(
-        cfg.windowDisplayPreset ?? undefined,
-        cfg.fullscreen,
+        normalizedCfg.windowDisplayPreset ?? undefined,
+        normalizedCfg.fullscreen,
       );
       syncWindowBorderlessDom(windowDisplayPreset.value);
-      windowWidth.value = Number.isFinite(cfg.windowWidth) ? Math.round(cfg.windowWidth as number) : null;
-      windowHeight.value = Number.isFinite(cfg.windowHeight) ? Math.round(cfg.windowHeight as number) : null;
-      vsync.value = cfg.vsync;
-      targetFps.value = cfg.targetFps;
-      showFpsOverlay.value = cfg.showFpsOverlay ?? false;
-      judgmentStyle.value = cfg.judgmentStyle;
-      showOffset.value = cfg.showOffset;
-      lifeType.value = cfg.lifeType;
-      autoPlay.value = cfg.autoPlay ?? false;
-      playbackRate.value = cfg.playbackRate ?? 1.0;
-      uiScale.value = cfg.uiScale ?? 1.0;
-      doublePanelGapPx.value = clampDoublePanelGapPx(cfg.doublePanelGapPx ?? DOUBLE_PANEL_GAP_DEFAULT_PX);
-      songSelectPanelWidthPx.value = clampSongSelectPanelWidthPx(cfg.songSelectPanelWidthPx);
-      batteryLives.value = cfg.batteryLives ?? 3;
-      showParticles.value = cfg.showParticles ?? true;
+      windowWidth.value = Number.isFinite(normalizedCfg.windowWidth) ? Math.round(normalizedCfg.windowWidth as number) : null;
+      windowHeight.value = Number.isFinite(normalizedCfg.windowHeight) ? Math.round(normalizedCfg.windowHeight as number) : null;
+      vsync.value = normalizedCfg.vsync;
+      targetFps.value = normalizedCfg.targetFps;
+      showFpsOverlay.value = normalizedCfg.showFpsOverlay ?? false;
+      judgmentStyle.value = normalizedCfg.judgmentStyle;
+      showOffset.value = normalizedCfg.showOffset;
+      lifeType.value = normalizedCfg.lifeType;
+      autoPlay.value = normalizedCfg.autoPlay ?? false;
+      playbackRate.value = normalizedCfg.playbackRate ?? 1.0;
+      uiScale.value = normalizedCfg.uiScale ?? 1.0;
+      doublePanelGapPx.value = clampDoublePanelGapPx(normalizedCfg.doublePanelGapPx ?? DOUBLE_PANEL_GAP_DEFAULT_PX);
+      songSelectPanelWidthPx.value = clampSongSelectPanelWidthPx(normalizedCfg.songSelectPanelWidthPx);
+      batteryLives.value = normalizedCfg.batteryLives ?? 3;
+      showParticles.value = normalizedCfg.showParticles ?? true;
       // Always use custom cursor skin (UI toggle removed).
       cursorEnabled.value = true;
-      cursorStylePreset.value = normalizeCursorStylePreset(cfg.cursorStylePreset);
-      cursorScale.value = clampRange(cfg.cursorScale ?? 1, 0.7, 1.6, 1);
-      cursorOpacity.value = clamp01(cfg.cursorOpacity ?? 0.9, 0.9);
-      cursorGlow.value = clamp01(cfg.cursorGlow ?? 0.35, 0.35);
-      cursorTrailsEnabled.value = cfg.cursorTrailsEnabled ?? true;
-      cursorRippleEnabled.value = cfg.cursorRippleEnabled ?? true;
-      cursorRippleDurationMs.value = Math.round(clampRange(cfg.cursorRippleDurationMs ?? 480, 180, 1200, 480));
-      cursorRippleMinScale.value = clampRange(cfg.cursorRippleMinScale ?? 0.65, 0.2, 2.4, 0.65);
-      cursorRippleMaxScale.value = clampRange(cfg.cursorRippleMaxScale ?? 6.2, 1.2, 12, 6.2);
-      cursorRippleOpacity.value = clamp01(cfg.cursorRippleOpacity ?? 0.7, 0.7);
-      cursorRippleLineWidth.value = clampRange(cfg.cursorRippleLineWidth ?? 1, 0.5, 3, 1);
-      cursorRippleGlow.value = clamp01(cfg.cursorRippleGlow ?? 0.26, 0.26);
-      songDirectories.value = cfg.songDirectories;
-      const [p1, p2] = cfg.playerConfigs;
+      cursorStylePreset.value = normalizeCursorStylePreset(normalizedCfg.cursorStylePreset);
+      cursorScale.value = clampRange(normalizedCfg.cursorScale ?? 1, 0.7, 1.6, 1);
+      cursorOpacity.value = clamp01(normalizedCfg.cursorOpacity ?? 0.9, 0.9);
+      cursorGlow.value = clamp01(normalizedCfg.cursorGlow ?? 0.35, 0.35);
+      cursorTrailsEnabled.value = normalizedCfg.cursorTrailsEnabled ?? true;
+      cursorRippleEnabled.value = normalizedCfg.cursorRippleEnabled ?? true;
+      cursorRippleDurationMs.value = Math.round(clampRange(normalizedCfg.cursorRippleDurationMs ?? 480, 180, 1200, 480));
+      cursorRippleMinScale.value = clampRange(normalizedCfg.cursorRippleMinScale ?? 0.65, 0.2, 2.4, 0.65);
+      cursorRippleMaxScale.value = clampRange(normalizedCfg.cursorRippleMaxScale ?? 6.2, 1.2, 12, 6.2);
+      cursorRippleOpacity.value = clamp01(normalizedCfg.cursorRippleOpacity ?? 0.7, 0.7);
+      cursorRippleLineWidth.value = clampRange(normalizedCfg.cursorRippleLineWidth ?? 1, 0.5, 3, 1);
+      cursorRippleGlow.value = clamp01(normalizedCfg.cursorRippleGlow ?? 0.26, 0.26);
+      songDirectories.value = normalizedCfg.songDirectories;
+      const [p1, p2] = normalizedCfg.playerConfigs;
       player1Config.value = {
         speedMod: p1.speedMod ?? "C500",
         reverse: p1.reverse ?? false,
@@ -253,7 +260,7 @@ export const useSettingsStore = defineStore("settings", () => {
         audioOffset: p2.audioOffset ?? 0,
         noteScale: p2.noteScale ?? 1,
       };
-      const kb = cfg.keyBindings;
+      const kb = normalizedCfg.keyBindings;
       const lanes = kb?.gameplayPumpDoubleLanes;
       if (Array.isArray(lanes) && lanes.length === 10) {
         gameplayPumpDoubleLanes.value = [...lanes];
@@ -388,6 +395,7 @@ export const useSettingsStore = defineStore("settings", () => {
       cursorRippleLineWidth: clampRange(cursorRippleLineWidth.value, 0.5, 3, 1),
       cursorRippleGlow: clamp01(cursorRippleGlow.value, 0.26),
       chartCacheSize: 8,
+      configVersion: LATEST_CONFIG_VERSION,
       songDirectories: songDirectories.value,
       keyBindings: keyBindingsPayload,
     };

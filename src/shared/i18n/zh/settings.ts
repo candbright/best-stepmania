@@ -38,8 +38,6 @@ export default {
   "settings.rhythmSfxStyleOption.bright": "明亮",
   "settings.rhythmSfxStyleOption.crisp": "清脆",
   "settings.uiSfxEnabled": "点击音效",
-  "settings.uiSfxToggleOn": "开启点击音效",
-  "settings.uiSfxToggleOff": "关闭点击音效",
   "settings.uiSfxVolume": "点击音效相对音量",
   "settings.uiSfxStyle": "点击音效",
   "settings.uiSfxStyleOption.classic": "经典",

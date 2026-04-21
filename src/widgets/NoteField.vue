@@ -44,6 +44,7 @@ const lastNoteVisibilityLogMsByPlayer: [number, number] = [0, 0];
 const NOTE_VISIBILITY_LOG_INTERVAL_MS = 450;
 const NOTE_Y_CLIP_PAD = 50;
 const PERF_LOG_INTERVAL_MS = 1500;
+const HOLD_PARTICLE_EMIT_INTERVAL_MS = 60;
 
 const props = defineProps<{
   engine: GameEngine;
@@ -75,6 +76,7 @@ let perfWindowStartMs = 0;
 let perfFrameCount = 0;
 let perfFrameTotalMs = 0;
 let perfDrawPanelTotalMs = 0;
+const holdParticleLastEmitMs = new Map<string, number>();
 
 const NOTE_HEIGHT = 24;
 
@@ -270,12 +272,41 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
   c.stroke();
 
   const blankLead = engine.isChartLeadInBlankPhase();
+  const activeHoldParticleKeys = new Set<string>();
 
   if (!blankLead && engine.judgment) {
     for (const hold of engine.judgment.holds) {
       if (hold.track >= panel.startTrack && hold.track < panel.startTrack + numTracks) {
-        drawHoldDrawer(c, engine, hold, px, receptorY, h, colW, panel, deps);
+        drawHoldDrawer(c, engine, hold, px, receptorY, h, colW, recSize, panel, deps);
+        const keyStillDown = engine.keysDown[hold.track] ?? false;
+        const shouldEmitHoldParticles = hold.isRoll
+          ? hold.active && hold.held && !hold.finished
+          : hold.active && !hold.finished && (props.engine.config.autoPlay || keyStillDown);
+        if (shouldEmitHoldParticles && (props.engine.config.showParticles ?? true)) {
+          const key = `${panel.player}:${hold.track}:${hold.startRow}`;
+          activeHoldParticleKeys.add(key);
+          const lastEmit = holdParticleLastEmitMs.get(key) ?? -Infinity;
+          if (time - lastEmit >= HOLD_PARTICLE_EMIT_INTERVAL_MS) {
+            holdParticleLastEmitMs.set(key, time);
+            const localTrack = hold.track - panel.startTrack;
+            const pxCenter = px + localTrack * colW + colW / 2;
+            particleSystem.spawnHitEffect(
+              pxCenter,
+              receptorY,
+              getTrackColor(hold.track, panel),
+              "W3",
+              quality.level,
+              true,
+            );
+          }
+        }
       }
+    }
+  }
+
+  for (const key of holdParticleLastEmitMs.keys()) {
+    if (key.startsWith(`${panel.player}:`) && !activeHoldParticleKeys.has(key)) {
+      holdParticleLastEmitMs.delete(key);
     }
   }
 
@@ -561,9 +592,10 @@ function showJudgment(judgment: string, color: string, track?: number) {
       const localTrack = track - panel.startTrack;
       const px = panel.x + localTrack * colW + colW / 2;
       const receptorY = panel.receptorY;
+      const particleColor = getTrackColor(track, panel);
       if (judgment !== "Miss" && judgment !== "Way Off" && judgment !== "Boo") {
         particleSystem.spawnHitEffect(
-          px, receptorY, color,
+          px, receptorY, particleColor,
           judgment === "Marvelous" || judgment === "Fantastic" ? "W1"
             : judgment === "Perfect" || judgment === "Excellent" ? "W2"
             : judgment === "Great" ? "W3" : "W4",

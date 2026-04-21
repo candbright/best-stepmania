@@ -32,6 +32,7 @@ export type RhythmSfxStyle = "warm" | "bright" | "crisp";
 export type CursorStylePreset = "a" | "b";
 
 export interface AppConfig {
+  configVersion?: number;
   language: string;
   theme: string;
   defaultProfile: string;

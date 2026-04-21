@@ -8,6 +8,8 @@
     "clean": "rimraf dist && cargo clean --profile release",
     "build": "vue-tsc --noEmit && vite build",
     "test": "vitest run",
+    "test:reliability": "vitest run src/shared/lib/config/migrations.test.ts src/shared/api/__contract_tests__/ipcContracts.test.ts src/test/e2e/criticalPath.test.ts",
+    "test:rust:reliability": "cargo test -p best-stepmania config::tests::migrate_legacy_config_clamps_and_stamps_version",
     "check:redundancy": "node scripts/check-redundancy.mjs",
     "check:fsd-boundaries": "node scripts/check-fsd-boundaries.mjs",
     "build:clean": "npm run clean && npm run build",

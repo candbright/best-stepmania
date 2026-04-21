@@ -120,20 +120,40 @@ fn backup_corrupt_profile_db(db_path: &std::path::Path) {
     }
 }
 
+fn append_profile_recovery_record(db_path: &std::path::Path, detail: &str) {
+    let ts = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
+    let log_path = db_path
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."))
+        .join("profile-recovery.log");
+    let line = format!("{ts}\t{}\t{detail}\n", db_path.display());
+    let _ = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)
+        .and_then(|mut f| std::io::Write::write_all(&mut f, line.as_bytes()));
+}
+
 /// Opens the profile database; on failure backs up the corrupt file and recreates, then falls back to in-memory.
 fn open_profile_db_or_recover(db_path: &std::path::Path) -> ProfileDb {
     match ProfileDb::open(db_path) {
         Ok(db) => db,
         Err(e) => {
+            append_profile_recovery_record(db_path, &format!("open_failed: {e}"));
             eprintln!(
                 "Failed to open profile database at {}: {}",
                 db_path.display(),
                 e
             );
             backup_corrupt_profile_db(db_path);
+            append_profile_recovery_record(db_path, "backup_corrupt_profile_db_done");
             match ProfileDb::open(db_path) {
-                Ok(db) => db,
+                Ok(db) => {
+                    append_profile_recovery_record(db_path, "recreate_on_disk_ok");
+                    db
+                }
                 Err(e2) => {
+                    append_profile_recovery_record(db_path, &format!("recreate_on_disk_failed: {e2}"));
                     eprintln!("Failed to recreate profile database on disk: {e2}");
                     ProfileDb::open_in_memory()
                         .expect("SQLite in-memory profile database must open")
