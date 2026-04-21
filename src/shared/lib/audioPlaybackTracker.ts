@@ -1,6 +1,7 @@
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import * as api from "@/shared/api";
 import { listenAudioPlayback } from "@/shared/services/tauri/audioEvents";
+import { logDebug } from "@/shared/lib/devLog";
 
 export interface AudioPlaybackEventPayload {
   event: string;
@@ -33,12 +34,16 @@ interface EventTrackingState {
 }
 
 interface EnginePollState {
-  timer: ReturnType<typeof setInterval> | null;
+  timer: ReturnType<typeof setTimeout> | null;
+  currentDelayMs: number;
+  qpsWindowStartMs: number;
+  qpsCalls: number;
 }
 
 const DEFAULT_DEVICE_CHECK_INTERVAL_MS = 5000;
 /** 用引擎时间重锚 RAF 外推，避免纯墙钟漂移；EOF 仅由引擎快照判定 */
-const ENGINE_POLL_MS = 300;
+const ENGINE_POLL_ACTIVE_MS = 300;
+const ENGINE_POLL_IDLE_MS = 900;
 
 /**
  * 自然结束容差（秒）：`time`/`duration` 同源但 mixer 以源采样步进、轨末停播时
@@ -69,6 +74,9 @@ export function createAudioPlaybackTracker(options: AudioPlaybackTrackerOptions)
 
   const enginePoll: EnginePollState = {
     timer: null,
+    currentDelayMs: ENGINE_POLL_ACTIVE_MS,
+    qpsWindowStartMs: 0,
+    qpsCalls: 0,
   };
 
   async function setupEventListener() {
@@ -114,20 +122,47 @@ export function createAudioPlaybackTracker(options: AudioPlaybackTrackerOptions)
 
   function stopEnginePoll() {
     if (enginePoll.timer !== null) {
-      clearInterval(enginePoll.timer);
+      clearTimeout(enginePoll.timer);
       enginePoll.timer = null;
     }
+    enginePoll.currentDelayMs = ENGINE_POLL_ACTIVE_MS;
+  }
+
+  function scheduleEnginePoll() {
+    if (enginePoll.timer !== null) return;
+    enginePoll.timer = setTimeout(() => {
+      enginePoll.timer = null;
+      void tickEngineFromBackend();
+    }, enginePoll.currentDelayMs);
   }
 
   function startEnginePoll() {
     stopEnginePoll();
-    enginePoll.timer = setInterval(() => {
-      void tickEngineFromBackend();
-    }, ENGINE_POLL_MS);
+    scheduleEnginePoll();
+  }
+
+  function recordAudioStateQps(nowMs: number) {
+    if (!import.meta.env.DEV) return;
+    if (enginePoll.qpsWindowStartMs <= 0) {
+      enginePoll.qpsWindowStartMs = nowMs;
+    }
+    enginePoll.qpsCalls++;
+    const elapsedMs = nowMs - enginePoll.qpsWindowStartMs;
+    if (elapsedMs >= 5000) {
+      const qps = enginePoll.qpsCalls / (elapsedMs / 1000);
+      logDebug("AudioPlaybackPerf", `ipc.audioState.qps=${qps.toFixed(2)}`);
+      enginePoll.qpsWindowStartMs = nowMs;
+      enginePoll.qpsCalls = 0;
+    }
   }
 
   async function tickEngineFromBackend() {
-    if (!options.getIsActive()) return;
+    if (!options.getIsActive()) {
+      enginePoll.currentDelayMs = ENGINE_POLL_IDLE_MS;
+      scheduleEnginePoll();
+      return;
+    }
+    recordAudioStateQps(performance.now());
     try {
       const state = await api.audioGetPlaybackState();
       const engineDuration =
@@ -144,8 +179,12 @@ export function createAudioPlaybackTracker(options: AudioPlaybackTrackerOptions)
       ) {
         options.onTrackEnd();
       }
+      enginePoll.currentDelayMs = state.isPlaying ? ENGINE_POLL_ACTIVE_MS : ENGINE_POLL_IDLE_MS;
     } catch {
       // Transient IPC failures during teardown / stream rebuild.
+      enginePoll.currentDelayMs = ENGINE_POLL_IDLE_MS;
+    } finally {
+      scheduleEnginePoll();
     }
   }
 

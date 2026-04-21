@@ -16,7 +16,7 @@ import { applyWindowPreset, closeTauriMainWindow, tryCloseWebTab } from "@/share
 import { applyPlayModeSelection } from "@/shared/lib/applyPlayModeSelection";
 import { PlayModeStrip } from "@/entities";
 import type { SessionPlayMode } from "@/shared/lib/chartPlayMode";
-import { logError } from "@/shared/lib/devLog";
+import { logDebug, logError } from "@/shared/lib/devLog";
 
 const router = useRouter();
 const route = useRoute();
@@ -197,10 +197,41 @@ function applyPlayModeSelectReturnIntent() {
   }
 }
 
-let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollTimer: ReturnType<typeof setTimeout> | null = null;
+let pollDelayMs = 300;
+const POLL_DELAY_MIN_MS = 300;
+const POLL_DELAY_MAX_MS = 1000;
+let pollQpsWindowStartMs = 0;
+let pollQpsCalls = 0;
+
+function recordScanPollMetric(nowMs: number) {
+  if (!import.meta.env.DEV) return;
+  if (pollQpsWindowStartMs <= 0) {
+    pollQpsWindowStartMs = nowMs;
+  }
+  pollQpsCalls++;
+  const elapsedMs = nowMs - pollQpsWindowStartMs;
+  if (elapsedMs >= 5000) {
+    const qps = pollQpsCalls / (elapsedMs / 1000);
+    logDebug("TitleScreenPerf", `ipc.scanStatus.qps=${qps.toFixed(2)}`);
+    pollQpsWindowStartMs = nowMs;
+    pollQpsCalls = 0;
+  }
+}
+
+function scheduleNextPoll(immediate = false) {
+  if (pollTimer !== null) return;
+  const delay = immediate ? 0 : pollDelayMs;
+  pollTimer = setTimeout(() => {
+    pollTimer = null;
+    void pollScanStatus();
+  }, delay);
+}
 
 async function pollScanStatus() {
+  const started = performance.now();
   try {
+    recordScanPollMetric(started);
     const status = await api.getScanStatus();
     scanning.value = status.scanning;
     scanCount.value = status.totalFound;
@@ -214,6 +245,7 @@ async function pollScanStatus() {
 
       scanDone.value = true;
       stopPolling();
+      pollDelayMs = POLL_DELAY_MIN_MS;
 
       // 首次进入游戏：确保歌曲列表已加载到 store。
       // 之后页面切换不重复加载，只有曲库变更操作才刷新。
@@ -228,19 +260,28 @@ async function pollScanStatus() {
         const startIdx = Math.floor(Math.random() * library.songs.length);
         player.setQueue(library.songs, startIdx);
       }
+      return;
     }
+    pollDelayMs = Math.min(POLL_DELAY_MAX_MS, Math.round(pollDelayMs * 1.8));
+    scheduleNextPoll();
   } catch (error: unknown) {
     stopPolling();
     scanning.value = false;
     throw error;
+  } finally {
+    if (import.meta.env.DEV) {
+      const cost = performance.now() - started;
+      logDebug("TitleScreenPerf", `scanStatus.poll.ms=${cost.toFixed(2)}`);
+    }
   }
 }
 
 function stopPolling() {
   if (pollTimer !== null) {
-    clearInterval(pollTimer);
+    clearTimeout(pollTimer);
     pollTimer = null;
   }
+  pollDelayMs = POLL_DELAY_MIN_MS;
 }
 
 async function dismissStartupSplashIfTauri(): Promise<void> {
@@ -288,7 +329,7 @@ async function runTitleBootstrap(): Promise<void> {
     await pollScanStatus();
     blockingOverlay.setProgress(scanDone.value ? 100 : 88);
     if (!scanDone.value) {
-      pollTimer = setInterval(pollScanStatus, 300);
+      scheduleNextPoll();
     }
   }
 }
@@ -345,7 +386,8 @@ onMounted(() => {
     void dismissStartupSplashIfTauri();
     // Returning to title: re-check scan status in case it was left in a scanning state
     if (!scanDone.value) {
-      void pollScanStatus();
+      pollDelayMs = POLL_DELAY_MIN_MS;
+      scheduleNextPoll(true);
     }
   }
   applyPlayModeSelectReturnIntent();
