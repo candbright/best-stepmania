@@ -2,6 +2,7 @@ import {
   SONG_SELECT_PANEL_MIN_DETAIL_PX,
   SONG_SELECT_PANEL_WIDTH_DEFAULT_PX,
 } from "@/shared/constants/songSelectPanel";
+import { setAppCursorResizeColActive } from "@/shared/lib/appCursorOverride";
 import { onUnmounted, ref } from "vue";
 
 export {
@@ -29,6 +30,8 @@ export interface UsePanelResizeReturn {
   startDrag: (e: MouseEvent) => void;
   onDrag: (e: MouseEvent) => void;
   stopDrag: () => void;
+  onResizeHandleMouseEnter: () => void;
+  onResizeHandleMouseLeave: () => void;
 }
 
 const DEFAULT_MIN_DETAIL_PANEL_WIDTH = SONG_SELECT_PANEL_MIN_DETAIL_PX;
@@ -51,6 +54,7 @@ export function usePanelResize(options: PanelResizeOptions = {}): UsePanelResize
 
   const startDrag = (_e: MouseEvent) => {
     isDragging.value = true;
+    setAppCursorResizeColActive("panelColResizeDrag", true);
     document.addEventListener("mousemove", onDrag);
     document.addEventListener("mouseup", stopDrag);
     document.body.style.userSelect = "none";
@@ -73,6 +77,7 @@ export function usePanelResize(options: PanelResizeOptions = {}): UsePanelResize
       return;
     }
     isDragging.value = false;
+    setAppCursorResizeColActive("panelColResizeDrag", false);
     document.removeEventListener("mousemove", onDrag);
     document.removeEventListener("mouseup", stopDrag);
     document.body.style.userSelect = "";
@@ -84,7 +89,18 @@ export function usePanelResize(options: PanelResizeOptions = {}): UsePanelResize
     document.removeEventListener("mouseup", stopDrag);
     document.body.style.userSelect = "";
     isDragging.value = false;
+    setAppCursorResizeColActive("panelColResizeDrag", false);
+    setAppCursorResizeColActive("panelColResizeHover", false);
   });
+
+  const onResizeHandleMouseEnter = () => {
+    setAppCursorResizeColActive("panelColResizeHover", true);
+  };
+
+  /** Always clear hover on leave; drag uses `panelColResizeDrag` so cursor stays correct while dragging off the strip. */
+  const onResizeHandleMouseLeave = () => {
+    setAppCursorResizeColActive("panelColResizeHover", false);
+  };
 
   return {
     songPanelWidth,
@@ -93,5 +109,7 @@ export function usePanelResize(options: PanelResizeOptions = {}): UsePanelResize
     startDrag,
     onDrag,
     stopDrag,
+    onResizeHandleMouseEnter,
+    onResizeHandleMouseLeave,
   };
 }

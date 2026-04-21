@@ -24,6 +24,19 @@ export type CursorRipple = {
   y: number;
 };
 
+function readDatasetCursorOverride(): CursorVisualState | null {
+  const v = document.documentElement.dataset.appCursorOverride;
+  if (
+    v === "resize-x" ||
+    v === "resize-y" ||
+    v === "resize-nesw" ||
+    v === "resize-nwse"
+  ) {
+    return v;
+  }
+  return null;
+}
+
 function mapCssCursorToVisualState(raw: string): CursorVisualState {
   const value = (raw || "").toLowerCase();
 
@@ -109,6 +122,17 @@ export function useCursorLayer() {
 
   function handleGlobalPointerMove(e: PointerEvent) {
     if (e.pointerType !== "mouse") return;
+
+    const forced = readDatasetCursorOverride();
+    if (forced) {
+      cursorVisualState.value = forced;
+      cursor.value = {
+        x: e.clientX,
+        y: e.clientY,
+        visible: true,
+      };
+      return;
+    }
 
     const target = e.target as HTMLElement | null;
     let state: CursorVisualState = "default";

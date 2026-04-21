@@ -1,5 +1,6 @@
 import { nextTick, onActivated, onDeactivated, onMounted, onUnmounted, type Ref } from "vue";
 import * as api from "@/shared/api";
+import { setAppCursorResizeColActive } from "@/shared/lib/appCursorOverride";
 import { logDebug } from "@/shared/lib/devLog";
 import type { EditorState } from "./useEditorState";
 import type { EditorCanvas } from "./useEditorCanvas";
@@ -91,6 +92,7 @@ export function useEditorScreenLifecycle(opts: UseEditorScreenLifecycleOptions) 
 
   onDeactivated(() => {
     uninstallEditorBackGuard();
+    setAppCursorResizeColActive("editorWaveformColResize", false);
     s.playing.value = false;
     detachWindowListeners();
     canvas.destroyCanvas();
@@ -101,6 +103,7 @@ export function useEditorScreenLifecycle(opts: UseEditorScreenLifecycleOptions) 
   onUnmounted(() => {
     s.afterChartNotesLoaded.value = null;
     uninstallEditorBackGuard();
+    setAppCursorResizeColActive("editorWaveformColResize", false);
     disposeDraftGuard();
     editorHorizontalWheelCleanups.forEach((off) => off());
     editorHorizontalWheelCleanups = [];

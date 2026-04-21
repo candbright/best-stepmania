@@ -2,6 +2,7 @@
 
 import type { EditorState } from "../useEditorState";
 import type { EditorCanvas } from "../useEditorCanvas";
+import { setAppCursorResizeColActive } from "@/shared/lib/appCursorOverride";
 import { COLUMN_WIDTH, HEADER_HEIGHT } from "../constants";
 
 export interface EditorCanvasPointerDeps {
@@ -41,6 +42,18 @@ export function createEditorCanvasPointer(deps: EditorCanvasPointerDeps) {
   } = deps;
 
   let suppressNextClick = false;
+
+  function updateWaveformCursorFromEvent(e: MouseEvent) {
+    if (!s.canvasRef.value || s.playing.value) {
+      setAppCursorResizeColActive("editorWaveformColResize", false);
+      return;
+    }
+    const { x, y } = pointerToCanvasCss(e.clientX, e.clientY);
+    const fieldX = canvas.getCanvasFieldX();
+    const h = s.canvasRef.value.clientHeight;
+    const inWave = canvas.isInWaveformPanel(x, y, fieldX, h);
+    setAppCursorResizeColActive("editorWaveformColResize", inWave);
+  }
 
   function handleCanvasClick(e: MouseEvent) {
     if (!s.canvasRef.value || s.playing.value) return;
@@ -164,23 +177,32 @@ export function createEditorCanvasPointer(deps: EditorCanvasPointerDeps) {
   }
 
   function handleMouseMove(e: MouseEvent) {
-    if (!s.canvasRef.value || s.allCharts.value.length === 0) return;
+    if (!s.canvasRef.value || s.allCharts.value.length === 0) {
+      setAppCursorResizeColActive("editorWaveformColResize", false);
+      return;
+    }
 
     if (s.waveformPanelDragState.value === "dragging") {
       const { x } = pointerToCanvasCss(e.clientX, e.clientY);
       const deltaX = x - s.waveformPanelDragStartX.value;
       s.waveformPanelOffsetX.value = clampWaveformPanelOffset(s.waveformPanelDragStartOffset.value + deltaX);
+      setAppCursorResizeColActive("editorWaveformColResize", true);
       return;
     }
 
     if (s.isHoldDragging.value && s.holdStartRow.value) {
+      setAppCursorResizeColActive("editorWaveformColResize", false);
       const { y } = pointerToCanvasCss(e.clientX, e.clientY);
       const clampedY = Math.max(y, HEADER_HEIGHT);
       const beat = canvas.snapBeat(canvas.yToBeat(clampedY));
       s.holdDragCurrentRow.value = canvas.beatToRow(beat);
       return;
     }
-    if (!s.isDragging.value || !s.selectionRubberBand.value) return;
+    if (!s.isDragging.value || !s.selectionRubberBand.value) {
+      updateWaveformCursorFromEvent(e);
+      return;
+    }
+    setAppCursorResizeColActive("editorWaveformColResize", false);
     marquee.continueSelectionMarquee(e.clientX, e.clientY);
   }
 

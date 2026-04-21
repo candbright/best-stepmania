@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from "vue";
-import { useCursorLayer } from "@/shared/composables/useCursorLayer";
+import { computed, onMounted, onUnmounted } from "vue";
+import { useCursorLayer, type CursorVisualState } from "@/shared/composables/useCursorLayer";
 
 const {
   settings,
@@ -13,6 +13,24 @@ const {
   mountGlobalCursorListeners,
   disposeCursorLayer,
 } = useCursorLayer();
+
+function isResizeCursorState(state: CursorVisualState): boolean {
+  return (
+    state === "resize-x" ||
+    state === "resize-y" ||
+    state === "resize-nesw" ||
+    state === "resize-nwse"
+  );
+}
+
+/** Arrow uses top-left hotspot; resize glyphs are centered on the splitter (mouse position). */
+const cursorTransform = computed(() => {
+  const s = settings.cursorScale;
+  if (isResizeCursorState(cursorVisualState.value)) {
+    return `translate(-50%, -50%) scale(${s})`;
+  }
+  return `translate(-2px, -2px) scale(${s})`;
+});
 
 onMounted(() => {
   mountGlobalCursorListeners();
@@ -34,7 +52,7 @@ onUnmounted(() => {
           left: `${cursor.x}px`,
           top: `${cursor.y}px`,
           opacity: String(settings.cursorOpacity),
-          transform: `translate(-2px, -2px) scale(${settings.cursorScale})`,
+          transform: cursorTransform,
           filter: `drop-shadow(0 0 ${4 + 10 * settings.cursorGlow}px color-mix(in srgb, var(--primary-color) ${Math.round(20 + settings.cursorGlow * 56)}%, transparent))`,
         }"
       >
@@ -94,7 +112,7 @@ onUnmounted(() => {
             cursorVisualState === 'resize-nwse' ? 'glyph-rot-135' : '',
           ]"
         >
-          <path d="M3 12L7 8V10.7H17V8L21 12L17 16V13.3H7V16L3 12Z" />
+          <path d="M2 12L6.5 8V10.65H17.5V8L22 12L17.5 16V13.35H6.5V16L2 12Z" />
         </svg>
         <svg v-else viewBox="0 0 24 24" class="cursor-icon">
           <path d="M4 2L4 21L9.3 15.8L12.7 22L15 20.9L11.6 14.7H19.5L4 2Z" />
@@ -156,16 +174,20 @@ onUnmounted(() => {
   transform-origin: 2px 2px;
 }
 
+.custom-cursor.state-resize-x,
+.custom-cursor.state-resize-y,
+.custom-cursor.state-resize-nesw,
+.custom-cursor.state-resize-nwse {
+  transform-origin: center center;
+}
+
+/* Secondary glyphs stay slightly smaller; resize matches the 26×26 default arrow so splitters don’t shrink the cursor. */
 .custom-cursor.state-text,
 .custom-cursor.state-crosshair,
 .custom-cursor.state-move,
 .custom-cursor.state-help,
 .custom-cursor.state-wait,
 .custom-cursor.state-progress,
-.custom-cursor.state-resize-x,
-.custom-cursor.state-resize-y,
-.custom-cursor.state-resize-nesw,
-.custom-cursor.state-resize-nwse,
 .custom-cursor.state-not-allowed {
   width: 24px;
   height: 24px;

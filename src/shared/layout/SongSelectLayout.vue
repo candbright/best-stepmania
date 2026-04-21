@@ -24,7 +24,13 @@ const emit = defineEmits<Emits>();
 
 const settings = useSettingsStore();
 
-const { songPanelWidth, isDragging, startDrag } = usePanelResize({
+const {
+  songPanelWidth,
+  isDragging,
+  startDrag,
+  onResizeHandleMouseEnter,
+  onResizeHandleMouseLeave,
+} = usePanelResize({
   initialWidth: settings.songSelectPanelWidthPx ?? SONG_SELECT_PANEL_WIDTH_DEFAULT_PX,
   onResizeCommit(w) {
     const rounded = Math.round(w);
@@ -96,7 +102,13 @@ onUnmounted(() => {
         </CustomScrollArea>
       </div>
 
-      <div class="resize-handle" :class="{ dragging: isDragging }" @mousedown="startDrag" />
+      <div
+        class="resize-handle"
+        :class="{ dragging: isDragging }"
+        @mousedown="startDrag"
+        @mouseenter="onResizeHandleMouseEnter"
+        @mouseleave="onResizeHandleMouseLeave"
+      />
 
       <div class="detail-panel">
         <slot name="detail-panel" />
