@@ -8,7 +8,7 @@ import { mergeShortcutBindings, eventMatchesBinding, type ShortcutId } from "@/s
 import { usePlayerStore } from "@/shared/stores/player";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { onBeforeMount, onMounted, onUnmounted, ref, watch, nextTick, computed } from "vue";
-import { applyGameplayRhythmSfxSettings, playMenuMove, playMenuConfirm, playMenuBack, setUiSfxVolume } from "@/shared/lib/sfx";
+import { playMenuMove, playMenuConfirm, playMenuBack } from "@/shared/lib/sfx";
 import * as api from "@/shared/api";
 import { initScoringConfig } from "@/shared/lib/engine/types";
 import { isTauri } from "@/shared/lib/platform";
@@ -243,21 +243,21 @@ function stopPolling() {
   }
 }
 
+async function dismissStartupSplashIfTauri(): Promise<void> {
+  if (!isTauri()) return;
+  try {
+    await api.completeStartupSplash();
+  } catch (splashErr: unknown) {
+    logError("TitleScreen", "completeStartupSplash failed:", splashErr);
+  }
+}
+
 /** Core startup work (config, profile, first library poll). Throws on failure. */
 async function runTitleBootstrap(): Promise<void> {
   blockingOverlay.updateMessage(t("loadingPhase.appConfig"));
   blockingOverlay.setProgress(10);
   await settings.loadAppConfig();
-  applyGameplayRhythmSfxSettings({
-    effectVolume: settings.effectVolume ?? 90,
-    metronomeSfxEnabled: settings.metronomeSfxEnabled ?? true,
-    metronomeSfxVolume: settings.metronomeSfxVolume ?? 100,
-    metronomeSfxStyle: settings.metronomeSfxStyle ?? "bright",
-    rhythmSfxEnabled: settings.rhythmSfxEnabled ?? true,
-    rhythmSfxVolume: settings.rhythmSfxVolume ?? 100,
-    rhythmSfxStyle: settings.rhythmSfxStyle ?? "bright",
-  });
-  // normal：须传入持久化宽高才会 setSize（与 useAppSettingsSync 一致）
+  // Rust `apply_startup_window_from_config` 已处理「已有 config.toml」的首次几何；此处仍调用以覆盖首次安装（磁盘上尚无 toml）及前端专属逻辑。
   await applyWindowPreset(
     settings.windowDisplayPreset,
     settings.windowDisplayPreset === "normal" && settings.windowWidth != null && settings.windowHeight != null
@@ -268,11 +268,6 @@ async function runTitleBootstrap(): Promise<void> {
   blockingOverlay.setProgress(22);
   // 首次进入时立即把配置里的音量同步到音频后端，避免“设置值”与“实际音量”不一致。
   await api.audioSetVolume((settings.musicVolume ?? 70) / 100, (settings.masterVolume ?? 80) / 100);
-  setUiSfxVolume((settings.uiSfxVolume ?? 70) / 100);
-  // Apply saved theme
-  document.body.setAttribute("data-theme", settings.theme || "default");
-  // Apply saved UI scale
-  document.documentElement.style.fontSize = `${(settings.uiScale ?? 1) * 16}px`;
   blockingOverlay.updateMessage(t("loadingPhase.appScoring"));
   blockingOverlay.setProgress(38);
   // Load scoring constants from Rust backend (single source of truth)
@@ -322,6 +317,8 @@ async function bootstrapTitleScreen(): Promise<void> {
         blockingOverlay.hide();
       },
     });
+  } finally {
+    await dismissStartupSplashIfTauri();
   }
 }
 
@@ -345,6 +342,7 @@ onMounted(() => {
   } else {
     // Ensure overlay is not left open from another screen.
     blockingOverlay.hide();
+    void dismissStartupSplashIfTauri();
     // Returning to title: re-check scan status in case it was left in a scanning state
     if (!scanDone.value) {
       void pollScanStatus();
