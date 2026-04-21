@@ -56,7 +56,10 @@ describe("IPC contracts", () => {
     await audioPlay(7);
     await getProfiles();
     await saveScore({ profileId: "p", songPath: "s", stepsType: "pump-single", difficulty: "HARD", meter: 10, grade: "A", dpPercent: 98, score: 9999, maxCombo: 300, w1: 1, w2: 2, w3: 3, w4: 0, w5: 0, miss: 0, held: 0, letGo: 0, minesHit: 0, modifiers: "" });
-    expect(invokeMock.mock.calls.map((x) => x[0])).toEqual([
+    const commandNames = invokeMock.mock.calls
+      .map((x) => (x as unknown[])[0])
+      .filter((x): x is string => typeof x === "string");
+    expect(commandNames).toEqual([
       "get_song_list",
       "get_scan_status",
       "audio_load",
