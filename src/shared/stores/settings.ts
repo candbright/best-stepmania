@@ -17,6 +17,12 @@ import { syncWindowBorderlessDom } from "@/shared/services/tauri/applyWindowDisp
 import type { CursorStylePreset, RhythmSfxStyle, UiSfxStyle } from "@/shared/api/config";
 import * as api from "@/shared/api";
 import { logError } from "@/shared/lib/devLog";
+import {
+  applyGameplayRhythmSfxSettings,
+  setUiSfxEnabled,
+  setUiSfxStyle,
+  setUiSfxVolume,
+} from "@/shared/lib/sfx";
 
 const clamp01 = (value: number, fallback: number): number => {
   if (!Number.isFinite(value)) return fallback;
@@ -135,6 +141,25 @@ export const useSettingsStore = defineStore("settings", () => {
 
   function normalizeShortcutId(k: string): k is ShortcutId {
     return Object.prototype.hasOwnProperty.call(SHORTCUT_DEFAULTS, k);
+  }
+
+  /** After refs are filled from disk, sync root font size and WebAudio SFX globals (single place for Title + any `loadAppConfig` caller). */
+  function syncDomAndSfxFromLoadedRefs() {
+    if (typeof document !== "undefined") {
+      document.documentElement.style.fontSize = `${(uiScale.value ?? 1) * 16}px`;
+    }
+    applyGameplayRhythmSfxSettings({
+      effectVolume: effectVolume.value ?? 90,
+      metronomeSfxEnabled: metronomeSfxEnabled.value ?? true,
+      metronomeSfxVolume: metronomeSfxVolume.value ?? 100,
+      metronomeSfxStyle: metronomeSfxStyle.value ?? "bright",
+      rhythmSfxEnabled: rhythmSfxEnabled.value ?? true,
+      rhythmSfxVolume: rhythmSfxVolume.value ?? 100,
+      rhythmSfxStyle: rhythmSfxStyle.value ?? "bright",
+    });
+    setUiSfxVolume((uiSfxVolume.value ?? 70) / 100);
+    setUiSfxEnabled(uiSfxEnabled.value ?? true);
+    setUiSfxStyle(uiSfxStyle.value ?? "classic");
   }
 
   async function loadAppConfig(opts?: { force?: boolean }) {
@@ -266,6 +291,7 @@ export const useSettingsStore = defineStore("settings", () => {
         }
       }
       shortcutOverrides.value = nextOverrides;
+      syncDomAndSfxFromLoadedRefs();
       configLoaded.value = true;
     } catch {
       configLoaded.value = true;
