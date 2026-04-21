@@ -43,6 +43,7 @@ import { logDebug, isDebugLogLevelEnabled } from "@/shared/lib/devLog";
 const lastNoteVisibilityLogMsByPlayer: [number, number] = [0, 0];
 const NOTE_VISIBILITY_LOG_INTERVAL_MS = 450;
 const NOTE_Y_CLIP_PAD = 50;
+const PERF_LOG_INTERVAL_MS = 1500;
 
 const props = defineProps<{
   engine: GameEngine;
@@ -70,6 +71,10 @@ let lastFrameTime = 0;
 let lastFrameMs = 16;
 let nextFrameAtMs = 0;
 let resizeObserver: ResizeObserver | null = null;
+let perfWindowStartMs = 0;
+let perfFrameCount = 0;
+let perfFrameTotalMs = 0;
+let perfDrawPanelTotalMs = 0;
 
 const NOTE_HEIGHT = 24;
 
@@ -152,6 +157,7 @@ function isCenterColumn(col: number): boolean {
 
 let cachedPanels: PanelConfig[] = [];
 let panelsLayoutKey = "";
+let panelGradientCache = new Map<string, CanvasGradient>();
 
 function computePanels(w: number, h: number): PanelConfig[] {
   const engine = props.engine;
@@ -175,6 +181,7 @@ function computePanels(w: number, h: number): PanelConfig[] {
     return cachedPanels;
   }
   panelsLayoutKey = key;
+  panelGradientCache = new Map<string, CanvasGradient>();
   cachedPanels = buildPanels({
     width: w,
     height: h,
@@ -204,7 +211,27 @@ function getRenderDrawerDeps(): RenderDrawerDeps {
   };
 }
 
+function getPanelLineGradient(c: CanvasRenderingContext2D, panel: PanelConfig): CanvasGradient {
+  const gradientKey = [
+    panel.player,
+    panel.receptorY,
+    panel.width,
+    getThemePrimaryRgba(0.12),
+  ].join("\0");
+  const cached = panelGradientCache.get(gradientKey);
+  if (cached) {
+    return cached;
+  }
+  const grad = c.createLinearGradient(panel.x, panel.receptorY - 12, panel.x, panel.receptorY + 12);
+  grad.addColorStop(0, getThemePrimaryRgba(0));
+  grad.addColorStop(0.5, getThemePrimaryRgba(0.12));
+  grad.addColorStop(1, getThemePrimaryRgba(0));
+  panelGradientCache.set(gradientKey, grad);
+  return grad;
+}
+
 function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, time: number, _dt: number) {
+  const panelStarted = performance.now();
   const engine = props.engine;
   const deps = getRenderDrawerDeps();
   const colW = getColumnWidth(panel.numTracks) * props.uiScale;
@@ -233,11 +260,7 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
     drawBeatLines(c, engine, px, pWidth, receptorY, h, panel.speedMod, panel.reverse);
   }
 
-  const jlGrad = c.createLinearGradient(px, receptorY - 12, px, receptorY + 12);
-  jlGrad.addColorStop(0, getThemePrimaryRgba(0));
-  jlGrad.addColorStop(0.5, getThemePrimaryRgba(0.12));
-  jlGrad.addColorStop(1, getThemePrimaryRgba(0));
-  c.fillStyle = jlGrad;
+  c.fillStyle = getPanelLineGradient(c, panel);
   c.fillRect(px, receptorY - 12, pWidth, 24);
   c.strokeStyle = "rgba(255, 255, 255, 0.18)";
   c.lineWidth = 1.5;
@@ -286,6 +309,7 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
         }
       | undefined;
 
+    const effectCache = new Map<number, { sudden: boolean; hidden: boolean; rotate: boolean }>();
     for (let i = visibleStart; i < visibleEnd; i++) {
       const note = engine.notes[i]!;
       if (note.track < panel.startTrack || note.track >= panel.startTrack + numTracks) {
@@ -328,7 +352,11 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
       }
 
       const nx = px + localTrack * colW;
-      const fx = getEffectsForTrack(note.track);
+      let fx = effectCache.get(note.track);
+      if (!fx) {
+        fx = getEffectsForTrack(note.track);
+        effectCache.set(note.track, fx);
+      }
 
       let noteAlpha = 1.0;
       if (fx.sudden || fx.hidden) {
@@ -416,11 +444,14 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
     }
   }
 
+  const trackColorCache = new Map<number, string>();
   for (let col = 0; col < numTracks; col++) {
     const lx = px + col * colW;
     const trackIdx = panel.startTrack + col;
     const pressed = engine.keysDown[trackIdx] ?? false;
-    const color = getTrackColor(trackIdx, panel);
+    const cachedColor = trackColorCache.get(trackIdx);
+    const color = cachedColor ?? getTrackColor(trackIdx, panel);
+    if (!cachedColor) trackColorCache.set(trackIdx, color);
 
     if (pressed) {
       const gradient = c.createRadialGradient(lx + colW / 2, receptorY, 0, lx + colW / 2, receptorY, colW);
@@ -434,9 +465,11 @@ function drawPanel(c: CanvasRenderingContext2D, panel: PanelConfig, h: number, t
   }
 
   c.restore();
+  perfDrawPanelTotalMs += performance.now() - panelStarted;
 }
 
 function drawFrame(time: number) {
+  const frameStarted = performance.now();
   if (!ctx || !canvasRef.value) return;
 
   const rawFps = props.targetFps;
@@ -482,6 +515,30 @@ function drawFrame(time: number) {
   if (hudP2) {
     drawJudgmentFlashHud(ctx, time, h, hudP2, quality.level, judgmentFlashP2);
     drawComboHud(ctx, time, h, hudP2, quality.level, comboFlashP2.time, engine.judgment?.player2Score.combo ?? 0);
+  }
+
+  const frameCost = performance.now() - frameStarted;
+  perfFrameCount++;
+  perfFrameTotalMs += frameCost;
+  if (import.meta.env.DEV) {
+    if (perfWindowStartMs <= 0) {
+      perfWindowStartMs = frameStarted;
+    }
+    const elapsed = frameStarted - perfWindowStartMs;
+    if (elapsed >= PERF_LOG_INTERVAL_MS && perfFrameCount > 0) {
+      const avgFrame = perfFrameTotalMs / perfFrameCount;
+      const avgPanel = perfDrawPanelTotalMs / perfFrameCount;
+      logDebug("NoteFieldPerf", {
+        metric: "notefield.frame.ms",
+        avgFrameMs: Number(avgFrame.toFixed(2)),
+        avgDrawPanelMs: Number(avgPanel.toFixed(2)),
+        frames: perfFrameCount,
+      });
+      perfWindowStartMs = frameStarted;
+      perfFrameCount = 0;
+      perfFrameTotalMs = 0;
+      perfDrawPanelTotalMs = 0;
+    }
   }
 }
 

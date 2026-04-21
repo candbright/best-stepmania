@@ -44,6 +44,7 @@ const SIMULATION_DT = 1 / SIMULATION_HZ;
 /** Bounds worst-case work per `update()` when catching up after long rAF gaps; tail may still coalesce one step. */
 const MAX_CATCHUP_SIM_STEPS_PER_UPDATE = 16384;
 const AUDIO_SYNC_INTERVAL_MS = 250;
+const PERF_LOG_INTERVAL_MS = 1500;
 
 /** Empty beats to scroll (no note sprites) before chart playhead 0 / audio — gameplay only; editor preview uses real chart time. */
 const CHART_LEAD_MIN_EMPTY_BEATS = 8;
@@ -129,6 +130,12 @@ export class GameEngine {
   private lastBeatLineSfxBeat = -1;
   /** Previous-frame chart beat for per-lane rhythm SFX (fractional; null = establish baseline). */
   private lastRhythmLaneSfxBeat: number | null = null;
+  /** Beat floor -> unique tracks on this beat (excluding Fake notes). */
+  private rhythmTracksByBeat = new Map<number, number[]>();
+  private perfWindowStartMs = 0;
+  private perfUpdateCount = 0;
+  private perfUpdateTotalMs = 0;
+  private perfRhythmScanTotalMs = 0;
 
   /** Editor preview: delayed `play()` when chart time is still before file t=0 (positive #OFFSET). */
   private previewPlayDelayHandle: ReturnType<typeof setTimeout> | null = null;
@@ -270,6 +277,7 @@ export class GameEngine {
     }
 
     this.notes.sort((a, b) => a.second - b.second || a.track - b.track);
+    this.rebuildRhythmBeatIndex();
     this.lastNoteSecond =
       this.notes.length > 0
         ? this.notes.reduce((max, n) => Math.max(max, n.holdEndSecond ?? n.second), 0)
@@ -292,6 +300,22 @@ export class GameEngine {
       songDuration: this.songDuration,
       lastNoteSecond: this.lastNoteSecond,
     });
+  }
+
+  private rebuildRhythmBeatIndex(): void {
+    this.rhythmTracksByBeat = new Map();
+    for (const n of this.notes) {
+      if (n.noteType === "Fake") continue;
+      const beatFloor = Math.floor(n.beat + 1e-6);
+      let tracks = this.rhythmTracksByBeat.get(beatFloor);
+      if (!tracks) {
+        tracks = [];
+        this.rhythmTracksByBeat.set(beatFloor, tracks);
+      }
+      if (!tracks.includes(n.track)) {
+        tracks.push(n.track);
+      }
+    }
   }
 
   async loadAudio(musicPath: string): Promise<boolean> {
@@ -687,6 +711,7 @@ export class GameEngine {
   }
 
   update(now: number) {
+    const updateStarted = performance.now();
     if (this.state !== "playing") return;
 
     let targetSecond: number;
@@ -836,6 +861,28 @@ export class GameEngine {
       }
       this.cleanup();
       this.callbacks.onFinish?.(this.judgment.score);
+    }
+    if (import.meta.env.DEV) {
+      this.perfUpdateCount++;
+      this.perfUpdateTotalMs += performance.now() - updateStarted;
+      if (this.perfWindowStartMs <= 0) {
+        this.perfWindowStartMs = updateStarted;
+      }
+      const elapsed = updateStarted - this.perfWindowStartMs;
+      if (elapsed >= PERF_LOG_INTERVAL_MS && this.perfUpdateCount > 0) {
+        const avgUpdate = this.perfUpdateTotalMs / this.perfUpdateCount;
+        const avgRhythm = this.perfRhythmScanTotalMs / this.perfUpdateCount;
+        logDebug("GameEnginePerf", {
+          metric: "engine.update.ms",
+          avgUpdateMs: Number(avgUpdate.toFixed(2)),
+          rhythmScanMs: Number(avgRhythm.toFixed(2)),
+          samples: this.perfUpdateCount,
+        });
+        this.perfWindowStartMs = updateStarted;
+        this.perfUpdateCount = 0;
+        this.perfUpdateTotalMs = 0;
+        this.perfRhythmScanTotalMs = 0;
+      }
     }
   }
 
@@ -1002,6 +1049,7 @@ export class GameEngine {
    * Per-lane rhythm SFX when the chart beat advances across rows (matches editor canvas playback).
    */
   private checkRhythmLaneSfx() {
+    const scanStarted = performance.now();
     const cb = this.callbacks.onRhythmLanesApproach;
     if (!cb || this.notes.length === 0) return;
 
@@ -1021,17 +1069,21 @@ export class GameEngine {
     const low = prevBeat - eps;
     const high = currBeat + eps;
     const tracksCrossed = new Set<number>();
-    for (const n of this.notes) {
-      if (n.noteType === "Fake") continue;
-      const nb = n.beat;
-      if (nb <= low || nb > high) continue;
-      tracksCrossed.add(n.track);
+    const startBeat = Math.floor(low) + 1;
+    const endBeat = Math.floor(high);
+    for (let beat = startBeat; beat <= endBeat; beat++) {
+      const tracks = this.rhythmTracksByBeat.get(beat);
+      if (!tracks) continue;
+      for (const track of tracks) {
+        tracksCrossed.add(track);
+      }
     }
     if (tracksCrossed.size > 0) {
       const scale = 1 / Math.sqrt(tracksCrossed.size);
       cb([...tracksCrossed], scale);
     }
     this.lastRhythmLaneSfxBeat = currBeat;
+    this.perfRhythmScanTotalMs += performance.now() - scanStarted;
   }
 
   /**

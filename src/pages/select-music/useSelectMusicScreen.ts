@@ -14,7 +14,7 @@ import { displayPercentFromDpRatio } from "@/shared/lib/engine/types";
 import { gradeTextGradientStyle } from "@/shared/constants/gradeColors";
 import { chartFitsPlayMode } from "@/shared/lib/chartPlayMode";
 import { PHYSICAL_ROOT_PACK } from "@/shared/constants/songLibrary";
-import { logError } from "@/shared/lib/devLog";
+import { logDebug, logError } from "@/shared/lib/devLog";
 
 export function useSelectMusicScreen() {
   const router = useRouter();
@@ -25,6 +25,12 @@ export function useSelectMusicScreen() {
   const blockingOverlay = useBlockingOverlayStore();
   const { t } = useI18n();
   const bannerCache = ref<Record<string, string>>({});
+  const bannerLoadQueue: number[] = [];
+  const queuedBannerIndices = new Set<number>();
+  const bannerTouchOrder: string[] = [];
+  let bannerLoadsInFlight = 0;
+  const BANNER_CONCURRENCY = 3;
+  const BANNER_CACHE_LIMIT = 80;
   const showFilterModal = ref(false);
   const showClearTopScoresModal = ref(false);
   const clearingTopScores = ref(false);
@@ -32,6 +38,12 @@ export function useSelectMusicScreen() {
   const refreshing = ref(false);
   const songScrollRef = ref<HTMLElement | null>(null);
   let loadAbortCtrl: AbortController | null = null;
+
+  function markPerf(name: string, started: number) {
+    if (!import.meta.env.DEV) return;
+    const ms = performance.now() - started;
+    logDebug("SelectMusicPerf", `${name}=${ms.toFixed(2)}ms`);
+  }
 
   function formatPlayedAt(iso: string): string {
     const d = new Date(iso);
@@ -98,7 +110,8 @@ export function useSelectMusicScreen() {
   });
 
   const filteredSongs = computed(() => {
-    return library.songs.filter((s) => {
+    const started = performance.now();
+    const result = library.songs.filter((s) => {
       if (library.showFavoritesOnly && !library.favorites.has(s.path)) return false;
       if (filterSearch.value) {
         const q = filterSearch.value.toLowerCase();
@@ -121,6 +134,8 @@ export function useSelectMusicScreen() {
 
       return hasMatchingChart;
     });
+    markPerf("select.filter.ms", started);
+    return result;
   });
 
   const filteredCharts = computed(() => {
@@ -144,6 +159,7 @@ export function useSelectMusicScreen() {
   const ROOT_PACK_KEY = "__ROOT__";
 
   const groupedSongs = computed(() => {
+    const started = performance.now();
     const indexByPath = new Map<string, number>();
     library.songs.forEach((s, i) => indexByPath.set(s.path, i));
     const groups: {
@@ -178,6 +194,7 @@ export function useSelectMusicScreen() {
         songs: [] as (typeof groups)[0]["songs"],
       });
     }
+    markPerf("select.group.ms", started);
     return groups;
   });
 
@@ -204,19 +221,51 @@ export function useSelectMusicScreen() {
     });
   }
 
+  function touchBanner(path: string) {
+    const pos = bannerTouchOrder.indexOf(path);
+    if (pos >= 0) {
+      bannerTouchOrder.splice(pos, 1);
+    }
+    bannerTouchOrder.push(path);
+    while (bannerTouchOrder.length > BANNER_CACHE_LIMIT) {
+      const evictPath = bannerTouchOrder.shift();
+      if (!evictPath) break;
+      if (evictPath in bannerCache.value) {
+        const next = { ...bannerCache.value };
+        delete next[evictPath];
+        bannerCache.value = next;
+      }
+    }
+  }
+
+  async function runBannerQueue() {
+    while (bannerLoadsInFlight < BANNER_CONCURRENCY && bannerLoadQueue.length > 0) {
+      const idx = bannerLoadQueue.shift();
+      if (idx == null) break;
+      queuedBannerIndices.delete(idx);
+      const song = library.songs[idx];
+      if (!song || bannerCache.value[song.path]) continue;
+      bannerLoadsInFlight++;
+      try {
+        const assetPath = await api.getSongAssetPath(song.path, "banner");
+        const encoded = await api.readFileBase64(assetPath);
+        bannerCache.value[song.path] = encoded;
+        touchBanner(song.path);
+      } catch {
+        /* no banner */
+      } finally {
+        bannerLoadsInFlight--;
+      }
+    }
+  }
+
   function loadBannerLazy(idx: number) {
     const song = library.songs[idx];
     if (!song || bannerCache.value[song.path]) return;
-    const load = async () => {
-      try {
-        const assetPath = await api.getSongAssetPath(song.path, "banner");
-        bannerCache.value[song.path] = await api.readFileBase64(assetPath);
-      } catch {
-        /* no banner */
-      }
-    };
-    if (typeof requestIdleCallback !== "undefined") requestIdleCallback(() => load(), { timeout: 2000 });
-    else setTimeout(load, 100);
+    if (queuedBannerIndices.has(idx)) return;
+    queuedBannerIndices.add(idx);
+    bannerLoadQueue.push(idx);
+    void runBannerQueue();
   }
 
   function selectSong(idx: number) {
@@ -392,18 +441,21 @@ export function useSelectMusicScreen() {
   }
 
   function preloadAllBanners() {
-    const batchSize = 5;
-    let i = 0;
-    function nextBatch() {
-      const end = Math.min(i + batchSize, library.songs.length);
-      for (; i < end; i++) {
-        loadBannerLazy(i);
+    const center = Math.max(0, session.currentSongIndex);
+    const maxPreload = Math.min(library.songs.length, 80);
+    for (let step = 0; step < maxPreload; step++) {
+      const right = center + step;
+      const left = center - step;
+      if (right < library.songs.length) {
+        loadBannerLazy(right);
       }
-      if (i < library.songs.length) {
-        setTimeout(nextBatch, 50);
+      if (left >= 0) {
+        loadBannerLazy(left);
+      }
+      if (bannerLoadQueue.length >= maxPreload) {
+        break;
       }
     }
-    nextBatch();
   }
 
   const sortLabel = computed(() => {
@@ -495,7 +547,16 @@ export function useSelectMusicScreen() {
   watch(() => session.currentSongIndex, () => ensureCurrentSongVisible());
 
   watch(
-    () => filteredSongs.value.map((s) => s.path).join("\0"),
+    () => [
+      filteredSongs.value.length,
+      filterSearch.value,
+      filterPack.value,
+      diffMin.value,
+      diffMax.value,
+      library.showFavoritesOnly,
+      session.playMode,
+      library.songs.length,
+    ] as const,
     () => {
       void syncSelectionToFilteredSongs(filteredSongs.value, loadBannerLazy);
     },
