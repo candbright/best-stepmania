@@ -531,11 +531,10 @@ pub fn apply_startup_window_from_config(app: &AppHandle, data_dir: &Path) {
             return;
         }
     };
-    let windows = app.webview_windows();
-    let Some(window) = windows.values().next() else {
+    let Some(window) = app.get_webview_window("main") else {
         return;
     };
-    if let Err(e) = apply_window_geometry_for_config(window, &config) {
+    if let Err(e) = apply_window_geometry_for_config(&window, &config) {
         eprintln!("apply_startup_window_from_config: {e}");
     }
 }

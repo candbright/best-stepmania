@@ -12,12 +12,26 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "BestStepMania",
         "width": 1280,
         "height": 720,
         "resizable": true,
         "fullscreen": false,
+        "visible": false,
         "backgroundColor": "#08080f"
+      },
+      {
+        "label": "splashscreen",
+        "title": "BestStepMania",
+        "width": 420,
+        "height": 220,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": true,
+        "visible": true,
+        "backgroundColor": "#08080f",
+        "url": "splashscreen.html"
       }
     ],
     "security": {

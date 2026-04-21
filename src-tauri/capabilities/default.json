@@ -1,7 +1,7 @@
 {
   "identifier": "default",
   "description": "Default capabilities for BestStepMania",
-  "windows": ["main"],
+  "windows": ["main", "splashscreen"],
   "permissions": [
     "core:default",
     "core:window:allow-close",

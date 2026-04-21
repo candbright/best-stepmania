@@ -150,8 +150,8 @@ fn restore_window(window: &WebviewWindow) {
 }
 
 fn restore_any_window(app: &tauri::AppHandle) {
-    if let Some(window) = app.webview_windows().values().next() {
-        restore_window(window);
+    if let Some(window) = app.get_webview_window("main") {
+        restore_window(&window);
     }
 }
 
@@ -193,10 +193,9 @@ pub fn run() {
                 }
             }
 
-            // 隐藏系统原生鼠标，使用前端自绘光标
-            // 不依赖窗口 label，避免 label 不是 "main" 时失效
-            for window in app.webview_windows().values() {
-                let _ = window.set_cursor_visible(false);
+            // 隐藏系统原生鼠标，使用前端自绘光标（仅主窗；闪屏为静态页，保留系统光标）
+            if let Some(main) = app.get_webview_window("main") {
+                let _ = main.set_cursor_visible(false);
             }
 
             let db_path = data_dir.join("profiles.db");
@@ -218,10 +217,7 @@ pub fn run() {
             };
             app.manage(state);
 
-            // 启动时确保至少有一个窗口可见且可聚焦，避免“进程在但窗口丢失”。
-            if let Some(window) = app.webview_windows().values().next() {
-                restore_window(window);
-            }
+            // 闪屏窗默认可见；主窗 visible:false，待前端 bootstrap 完成后 complete_startup_splash 再显示。
 
             // 系统托盘：提供恢复窗口与退出入口。
             let show_item = MenuItemBuilder::with_id("show_window", "显示主窗口").build(app)?;
@@ -396,6 +392,7 @@ pub fn run() {
             diagnostics::open_path,
             logging::append_frontend_log_lines,
             window::get_cursor_position,
+            window::complete_startup_splash,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
