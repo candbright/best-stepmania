@@ -41,7 +41,7 @@ const {
   close: closeConfirmDialog,
   accept: confirmDialogAccept,
 } = useConfirmDialog();
-const { schedule, flush } = useSettingsSaveQueue(() => settings.saveAppConfig(session.profileName), 800);
+const { schedule, flushAwait } = useSettingsSaveQueue(() => settings.saveAppConfig(session.profileName), 800);
 const { stopAll: stopAppSettingsSync } = useAppSettingsSync(settings, schedule);
 const sfxGate = useSfxPreviewGate();
 
@@ -89,7 +89,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopAppSettingsSync();
-  flush();
+  void flushAwait();
 });
 
 function goBack() {

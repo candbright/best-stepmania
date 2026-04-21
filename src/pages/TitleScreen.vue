@@ -257,7 +257,7 @@ async function runTitleBootstrap(): Promise<void> {
   blockingOverlay.updateMessage(t("loadingPhase.appConfig"));
   blockingOverlay.setProgress(10);
   await settings.loadAppConfig();
-  // Rust `apply_startup_window_from_config` 已处理「已有 config.toml」的首次几何；此处仍调用以覆盖首次安装（磁盘上尚无 toml）及前端专属逻辑。
+  // 无 config 的首次启动 Rust 不会调几何；此处统一应用一次（与 `syncWindowBorderlessDom` 等前端状态一致）。
   await applyWindowPreset(
     settings.windowDisplayPreset,
     settings.windowDisplayPreset === "normal" && settings.windowWidth != null && settings.windowHeight != null

@@ -42,7 +42,15 @@ export async function applyWindowDisplayPreset(
       const width = customSize?.width;
       const height = customSize?.height;
       if (width && height && width > 0 && height > 0 && !(await win.isMaximized())) {
-        await win.setSize(new LogicalSize(width, height));
+        // `setSize` 为 inner size；与当前 inner 已一致时跳过，避免与 resize 反馈、DPI 取整拉扯。
+        const scale = await win.scaleFactor();
+        const innerPhy = await win.innerSize();
+        const curW = innerPhy.width / scale;
+        const curH = innerPhy.height / scale;
+        const closeEnough = Math.abs(curW - width) <= 2 && Math.abs(curH - height) <= 2;
+        if (!closeEnough) {
+          await win.setSize(new LogicalSize(width, height));
+        }
       }
       return;
     }

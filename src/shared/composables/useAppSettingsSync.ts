@@ -15,7 +15,6 @@ import { useSettingsStore } from "@/shared/stores/settings";
 type SettingsStore = ReturnType<typeof useSettingsStore>;
 
 export interface AppSettingsSyncHandles {
-  syncCustomWindowSize: () => void;
   stopAll: () => void;
 }
 
@@ -25,12 +24,6 @@ export interface AppSettingsSyncHandles {
  */
 export function useAppSettingsSync(settings: SettingsStore, scheduleSave: () => void): AppSettingsSyncHandles {
   const stops: WatchStopHandle[] = [];
-
-  function syncCustomWindowSize() {
-    if (settings.windowDisplayPreset !== "normal" || typeof window === "undefined") return;
-    settings.windowWidth = Math.max(0, Math.round(window.innerWidth));
-    settings.windowHeight = Math.max(0, Math.round(window.innerHeight));
-  }
 
   stops.push(
     watchEffect(() => {
@@ -48,8 +41,6 @@ export function useAppSettingsSync(settings: SettingsStore, scheduleSave: () => 
       settings.uiSfxStyle;
       settings.audioOffsetMs;
       settings.windowDisplayPreset;
-      settings.windowWidth;
-      settings.windowHeight;
       settings.vsync;
       settings.targetFps;
       settings.showFpsOverlay;
@@ -121,23 +112,29 @@ export function useAppSettingsSync(settings: SettingsStore, scheduleSave: () => 
       },
       { immediate: true },
     ),
+    // 仅随「显示模式」应用几何；不要在 normal 下随宽高变化反复 setSize，否则会与拖动调整互相拉扯导致抖动。
     watch(
-      () => [settings.windowDisplayPreset, settings.windowWidth, settings.windowHeight] as const,
-      ([preset, width, height]) => {
+      () => settings.windowDisplayPreset,
+      (preset) => {
         void applyWindowPreset(
           preset,
-          preset === "normal" && width != null && height != null ? { width, height } : null,
-        ).catch((e) => logDebug("Optional", "useAppSettingsSync.applyWindowPreset", e));
+          preset === "normal" && settings.windowWidth != null && settings.windowHeight != null
+            ? { width: settings.windowWidth, height: settings.windowHeight }
+            : null,
+        )
+          .then(() => {
+            if (settings.windowDisplayPreset === "normal" && typeof window !== "undefined") {
+              settings.windowWidth = Math.max(0, Math.round(window.innerWidth));
+              settings.windowHeight = Math.max(0, Math.round(window.innerHeight));
+            }
+            scheduleSave();
+          })
+          .catch((e) => {
+            logDebug("Optional", "useAppSettingsSync.applyWindowPreset", e);
+            scheduleSave();
+          });
       },
       { immediate: true },
-    ),
-    watch(
-      () => [settings.windowDisplayPreset, settings.windowWidth, settings.windowHeight] as const,
-      () => {
-        syncCustomWindowSize();
-        scheduleSave();
-      },
-      { flush: "post" },
     ),
     watch(
       () => [settings.language, settings.theme] as const,
@@ -171,5 +168,5 @@ export function useAppSettingsSync(settings: SettingsStore, scheduleSave: () => 
     stops.length = 0;
   }
 
-  return { syncCustomWindowSize, stopAll };
+  return { stopAll };
 }

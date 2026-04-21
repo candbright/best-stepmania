@@ -8,6 +8,7 @@ import { useSettingsStore } from "@/shared/stores/settings";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { useGlobalSfxBridge } from "@/shared/composables/useGlobalSfxBridge";
 import { useGlobalHotkeys } from "@/shared/composables/useGlobalHotkeys";
+import { usePersistedWindowGeometry } from "@/shared/composables/usePersistedWindowGeometry";
 
 const router = useRouter();
 const route = useRoute();
@@ -18,6 +19,7 @@ const loadingWindowDragStripEnabled = computed(() => settings.windowDisplayPrese
 
 const stopSfxBridge = useGlobalSfxBridge(settings);
 const handleGlobalEsc = useGlobalHotkeys(router, route);
+usePersistedWindowGeometry();
 
 onMounted(() => {
   window.addEventListener("keydown", handleGlobalEsc);
