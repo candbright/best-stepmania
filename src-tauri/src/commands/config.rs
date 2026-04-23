@@ -208,6 +208,8 @@ pub struct AppConfig {
     pub life_type: String,
     #[serde(default)]
     pub auto_play: bool,
+    #[serde(default = "default_false")]
+    pub expert_mode_enabled: bool,
     #[serde(default = "default_player_configs")]
     pub player_configs: [PerPlayerConfig; 2],
     #[serde(default = "default_playback_rate")]
@@ -400,6 +402,7 @@ impl Default for AppConfig {
             show_offset: true,
             life_type: default_life_type(),
             auto_play: false,
+            expert_mode_enabled: false,
             player_configs: default_player_configs(),
             playback_rate: default_playback_rate(),
             ui_scale: default_ui_scale(),
@@ -476,7 +479,10 @@ fn fixed_logical_size_for_preset(preset: &str) -> Option<(u32, u32)> {
 }
 
 /// Applies persisted window mode/size before the webview loads (matches frontend `applyWindowDisplayPreset`).
-fn apply_window_geometry_for_config(window: &WebviewWindow, config: &AppConfig) -> Result<(), String> {
+fn apply_window_geometry_for_config(
+    window: &WebviewWindow,
+    config: &AppConfig,
+) -> Result<(), String> {
     let preset = config.window_display_preset.as_str();
 
     if preset == "normal" {
@@ -517,7 +523,9 @@ fn apply_window_geometry_for_config(window: &WebviewWindow, config: &AppConfig) 
         window.set_decorations(false).map_err(|e| e.to_string())?;
         window.set_resizable(false).map_err(|e| e.to_string())?;
         window.set_maximizable(false).map_err(|e| e.to_string())?;
-        window.set_position(wa.position).map_err(|e| e.to_string())?;
+        window
+            .set_position(wa.position)
+            .map_err(|e| e.to_string())?;
         window.set_size(wa.size).map_err(|e| e.to_string())?;
         return Ok(());
     }

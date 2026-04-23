@@ -2,7 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { loadConfig, saveConfig } from "@/shared/api/config";
 import { getSongList, getScanStatus } from "@/shared/api/song";
 import { audioLoad, audioPlay } from "@/shared/api/audio";
-import { getProfiles, saveScore } from "@/shared/api/profile";
+import {
+  getProfiles,
+  saveScore,
+} from "@/shared/api/profile";
+import { getReplayByScoreId, saveScoreWithReplay } from "@/shared/api/replay";
 
 const { invokeMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(async () => ({})),
@@ -56,6 +60,21 @@ describe("IPC contracts", () => {
     await audioPlay(7);
     await getProfiles();
     await saveScore({ profileId: "p", songPath: "s", stepsType: "pump-single", difficulty: "HARD", meter: 10, grade: "A", dpPercent: 98, score: 9999, maxCombo: 300, w1: 1, w2: 2, w3: 3, w4: 0, w5: 0, miss: 0, held: 0, letGo: 0, minesHit: 0, modifiers: "" });
+    await saveScoreWithReplay({
+      score: { profileId: "p", songPath: "s", stepsType: "pump-single", difficulty: "HARD", meter: 10, grade: "A", dpPercent: 98, score: 9999, maxCombo: 300, w1: 1, w2: 2, w3: 3, w4: 0, w5: 0, miss: 0, held: 0, letGo: 0, minesHit: 0, modifiers: "" },
+      replay: {
+        replayVersion: 1,
+        engineVersion: "1.0.0",
+        chartFingerprint: "s::pump-single::HARD::10",
+        startedAtChartSecond: 0,
+        playbackRate: 1,
+        modifiers: "",
+        seed: null,
+        events: [{ deltaMs: 0, track: 0, action: 3, keyMask: 0 }],
+        durationMs: 1,
+      },
+    });
+    await getReplayByScoreId("sid");
     const commandNames = invokeMock.mock.calls
       .map((x) => (x as unknown[])[0])
       .filter((x): x is string => typeof x === "string");
@@ -66,6 +85,8 @@ describe("IPC contracts", () => {
       "audio_play",
       "get_profiles",
       "save_score",
+      "save_score_with_replay",
+      "get_replay_by_score_id",
     ]);
   });
 });

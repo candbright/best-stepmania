@@ -1,5 +1,6 @@
 use crate::high_score::HighScore;
 use crate::profile::Profile;
+use crate::replay::ReplayRecord;
 use chrono::Utc;
 use rusqlite::{params, Connection};
 use std::path::Path;
@@ -68,6 +69,25 @@ impl ProfileDb {
 
             CREATE INDEX IF NOT EXISTS idx_hs_profile ON high_scores(profile_id);
             CREATE INDEX IF NOT EXISTS idx_hs_song ON high_scores(song_path, steps_type, difficulty);
+
+            CREATE TABLE IF NOT EXISTS replays (
+                id TEXT PRIMARY KEY,
+                score_id TEXT NOT NULL UNIQUE REFERENCES high_scores(id) ON DELETE CASCADE,
+                replay_version INTEGER NOT NULL,
+                engine_version TEXT NOT NULL,
+                chart_fingerprint TEXT NOT NULL,
+                started_at_chart_second REAL NOT NULL DEFAULT 0,
+                playback_rate REAL NOT NULL DEFAULT 1.0,
+                modifiers TEXT NOT NULL DEFAULT '',
+                seed TEXT NULL,
+                events_blob BLOB NOT NULL,
+                event_count INTEGER NOT NULL DEFAULT 0,
+                duration_ms INTEGER NOT NULL DEFAULT 0,
+                checksum TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_replays_score_id ON replays(score_id);
+            CREATE INDEX IF NOT EXISTS idx_replays_chart_fingerprint ON replays(chart_fingerprint);
 
             CREATE TABLE IF NOT EXISTS favorites (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -177,6 +197,69 @@ impl ProfileDb {
         Ok(())
     }
 
+    pub fn save_high_score_with_replay(
+        &mut self,
+        hs: &HighScore,
+        replay: Option<&ReplayRecord>,
+    ) -> Result<(), rusqlite::Error> {
+        let tx = self.conn.transaction()?;
+        tx.execute(
+            "INSERT INTO high_scores (id, profile_id, song_path, steps_type, difficulty, meter, grade, dp_percent, score, max_combo, w1, w2, w3, w4, w5, miss, held, let_go, mines_hit, modifiers, played_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
+            params![
+                hs.id.to_string(), hs.profile_id.to_string(),
+                hs.song_path, hs.steps_type, hs.difficulty, hs.meter,
+                hs.grade, hs.dp_percent, hs.score, hs.max_combo,
+                hs.w1, hs.w2, hs.w3, hs.w4, hs.w5, hs.miss,
+                hs.held, hs.let_go, hs.mines_hit, hs.modifiers,
+                hs.played_at.to_rfc3339(),
+            ],
+        )?;
+        if let Some(r) = replay {
+            tx.execute(
+                "INSERT INTO replays (id, score_id, replay_version, engine_version, chart_fingerprint, started_at_chart_second, playback_rate, modifiers, seed, events_blob, event_count, duration_ms, checksum, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                params![
+                    r.id.to_string(),
+                    r.score_id.to_string(),
+                    r.replay_version as i64,
+                    r.engine_version,
+                    r.chart_fingerprint,
+                    r.started_at_chart_second,
+                    r.playback_rate as f64,
+                    r.modifiers,
+                    r.seed.map(|v| v.to_string()),
+                    r.events_blob,
+                    r.event_count as i64,
+                    r.duration_ms as i64,
+                    r.checksum,
+                    r.created_at.to_rfc3339(),
+                ],
+            )?;
+        }
+        tx.execute(
+            "DELETE FROM high_scores WHERE id IN (
+                SELECT id FROM (
+                    SELECT id,
+                           ROW_NUMBER() OVER (
+                               ORDER BY dp_percent DESC, played_at DESC, id DESC
+                           ) AS rn
+                    FROM high_scores
+                    WHERE profile_id = ?1 AND song_path = ?2 AND steps_type = ?3 AND difficulty = ?4
+                ) WHERE rn > ?5
+            )",
+            params![
+                hs.profile_id.to_string(),
+                &hs.song_path,
+                &hs.steps_type,
+                &hs.difficulty,
+                TOP_SCORES_CAP as i64,
+            ],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
     pub fn get_top_scores(
         &self,
         profile_id: &Uuid,
@@ -240,6 +323,55 @@ impl ProfileDb {
             row_to_high_score(row)
         })?;
         rows.collect()
+    }
+
+    pub fn has_replay_for_score(&self, score_id: &Uuid) -> Result<bool, rusqlite::Error> {
+        let exists: bool = self
+            .conn
+            .query_row(
+                "SELECT 1 FROM replays WHERE score_id = ?1 LIMIT 1",
+                params![score_id.to_string()],
+                |_row| Ok(true),
+            )
+            .unwrap_or(false);
+        Ok(exists)
+    }
+
+    pub fn get_replay_by_score_id(
+        &self,
+        score_id: &Uuid,
+    ) -> Result<Option<ReplayRecord>, rusqlite::Error> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, score_id, replay_version, engine_version, chart_fingerprint, started_at_chart_second, playback_rate, modifiers, seed, events_blob, event_count, duration_ms, checksum, created_at
+             FROM replays
+             WHERE score_id = ?1
+             LIMIT 1",
+        )?;
+        let mut rows = stmt.query(params![score_id.to_string()])?;
+        if let Some(row) = rows.next()? {
+            let seed_text: Option<String> = row.get(8)?;
+            let seed = seed_text.and_then(|v| v.parse::<u64>().ok());
+            return Ok(Some(ReplayRecord {
+                id: row.get::<_, String>(0)?.parse().unwrap_or_default(),
+                score_id: row.get::<_, String>(1)?.parse().unwrap_or_default(),
+                replay_version: row.get::<_, i64>(2)? as u16,
+                engine_version: row.get(3)?,
+                chart_fingerprint: row.get(4)?,
+                started_at_chart_second: row.get(5)?,
+                playback_rate: row.get::<_, f64>(6)? as f32,
+                modifiers: row.get(7)?,
+                seed,
+                events_blob: row.get(9)?,
+                event_count: row.get::<_, i64>(10)? as u32,
+                duration_ms: row.get::<_, i64>(11)? as u32,
+                checksum: row.get(12)?,
+                created_at: row
+                    .get::<_, String>(13)?
+                    .parse()
+                    .unwrap_or_else(|_| Utc::now()),
+            }));
+        }
+        Ok(None)
     }
 
     // --- Favorites ---
@@ -507,5 +639,59 @@ mod tests {
         assert_eq!(top.len(), TOP_SCORES_CAP);
         assert!((top[0].dp_percent - 0.64).abs() < 0.001);
         assert!((top[9].dp_percent - 0.55).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_save_and_get_replay() {
+        let mut db = ProfileDb::open_in_memory().unwrap();
+        let p = Profile::new("ReplayP");
+        db.create_profile(&p).unwrap();
+
+        let score_id = Uuid::new_v4();
+        let hs = HighScore {
+            id: score_id,
+            profile_id: p.id,
+            song_path: "Songs/R".to_string(),
+            steps_type: "pump-single".to_string(),
+            difficulty: "Hard".to_string(),
+            meter: 8,
+            grade: "A".to_string(),
+            dp_percent: 0.87,
+            score: 8700,
+            max_combo: 111,
+            w1: 1,
+            w2: 2,
+            w3: 3,
+            w4: 4,
+            w5: 5,
+            miss: 0,
+            held: 0,
+            let_go: 0,
+            mines_hit: 0,
+            modifiers: "".to_string(),
+            played_at: Utc::now(),
+        };
+        let replay = ReplayRecord {
+            id: Uuid::new_v4(),
+            score_id,
+            replay_version: 1,
+            engine_version: "1.0.0".to_string(),
+            chart_fingerprint: "Songs/R::pump-single::Hard::8".to_string(),
+            started_at_chart_second: 0.0,
+            playback_rate: 1.0,
+            modifiers: "".to_string(),
+            seed: None,
+            events_blob: br#"[{\"deltaMs\":0,\"track\":0,\"action\":1}]"#.to_vec(),
+            event_count: 1,
+            duration_ms: 1234,
+            checksum: "abc".to_string(),
+            created_at: Utc::now(),
+        };
+        db.save_high_score_with_replay(&hs, Some(&replay)).unwrap();
+
+        assert!(db.has_replay_for_score(&score_id).unwrap());
+        let loaded = db.get_replay_by_score_id(&score_id).unwrap().unwrap();
+        assert_eq!(loaded.score_id, score_id);
+        assert_eq!(loaded.event_count, 1);
     }
 }

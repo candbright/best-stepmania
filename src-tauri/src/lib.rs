@@ -1,7 +1,9 @@
 mod commands;
 pub mod error;
 
-use commands::{audio, chart, config, diagnostics, import, logging, noteskin, profile, scoring, song, window};
+use commands::{
+    audio, chart, config, diagnostics, import, logging, noteskin, profile, scoring, song, window,
+};
 use sm_audio::AudioEngine;
 use sm_chart::SongFile;
 use sm_noteskin::NoteSkinManager;
@@ -26,7 +28,12 @@ pub struct ScanState {
 
 impl Default for ScanState {
     fn default() -> Self {
-        Self { scanning: false, total_found: 0, done: false, error: None }
+        Self {
+            scanning: false,
+            total_found: 0,
+            done: false,
+            error: None,
+        }
     }
 }
 
@@ -56,7 +63,11 @@ pub const DEFAULT_CHART_CACHE_SIZE: usize = 8;
 
 impl ChartCache {
     pub fn new(max_size: usize) -> Self {
-        Self { entries: HashMap::new(), access_counter: 0, max_size }
+        Self {
+            entries: HashMap::new(),
+            access_counter: 0,
+            max_size,
+        }
     }
 
     pub fn get(&mut self, path: &PathBuf) -> Option<&SongFile> {
@@ -72,7 +83,9 @@ impl ChartCache {
     pub fn insert(&mut self, path: PathBuf, song: SongFile) {
         self.access_counter += 1;
         if self.entries.len() >= self.max_size && !self.entries.contains_key(&path) {
-            if let Some(lru_key) = self.entries.iter()
+            if let Some(lru_key) = self
+                .entries
+                .iter()
                 .min_by_key(|(_, (_, ts))| *ts)
                 .map(|(k, _)| k.clone())
             {
@@ -153,7 +166,10 @@ fn open_profile_db_or_recover(db_path: &std::path::Path) -> ProfileDb {
                     db
                 }
                 Err(e2) => {
-                    append_profile_recovery_record(db_path, &format!("recreate_on_disk_failed: {e2}"));
+                    append_profile_recovery_record(
+                        db_path,
+                        &format!("recreate_on_disk_failed: {e2}"),
+                    );
                     eprintln!("Failed to recreate profile database on disk: {e2}");
                     ProfileDb::open_in_memory()
                         .expect("SQLite in-memory profile database must open")
@@ -359,7 +375,9 @@ pub fn run() {
             profile::get_profiles,
             profile::create_profile,
             profile::save_score,
+            profile::save_score_with_replay,
             profile::get_top_scores,
+            profile::get_replay_by_score_id,
             profile::clear_chart_top_scores,
             profile::get_recent_scores,
             profile::toggle_favorite,

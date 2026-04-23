@@ -98,6 +98,7 @@ export const useSettingsStore = defineStore("settings", () => {
   const showOffset = ref(true);
   const lifeType = ref("bar");
   const autoPlay = ref(false);
+  const expertModeEnabled = ref(false);
 
   // Shared runtime controls
   const playbackRate = ref(1.0);
@@ -214,6 +215,7 @@ export const useSettingsStore = defineStore("settings", () => {
       showOffset.value = normalizedCfg.showOffset;
       lifeType.value = normalizedCfg.lifeType;
       autoPlay.value = normalizedCfg.autoPlay ?? false;
+      expertModeEnabled.value = normalizedCfg.expertModeEnabled ?? false;
       playbackRate.value = normalizedCfg.playbackRate ?? 1.0;
       uiScale.value = normalizedCfg.uiScale ?? 1.0;
       doublePanelGapPx.value = clampDoublePanelGapPx(normalizedCfg.doublePanelGapPx ?? DOUBLE_PANEL_GAP_DEFAULT_PX);
@@ -349,6 +351,7 @@ export const useSettingsStore = defineStore("settings", () => {
       showOffset: showOffset.value,
       lifeType: lifeType.value,
       autoPlay: autoPlay.value,
+      expertModeEnabled: expertModeEnabled.value,
       playerConfigs: [
         {
           speedMod: player1Config.value.speedMod,
@@ -432,6 +435,7 @@ export const useSettingsStore = defineStore("settings", () => {
     showOffset.value = true;
     lifeType.value = "bar";
     autoPlay.value = false;
+    expertModeEnabled.value = false;
     playbackRate.value = 1.0;
     uiScale.value = 1.0;
     doublePanelGapPx.value = DOUBLE_PANEL_GAP_DEFAULT_PX;
@@ -469,7 +473,7 @@ export const useSettingsStore = defineStore("settings", () => {
     uiSfxEnabled, uiSfxVolume, uiSfxStyle,
     audioOffsetMs,
     windowDisplayPreset, windowWidth, windowHeight, vsync, targetFps, showFpsOverlay,
-    judgmentStyle, showOffset, lifeType, autoPlay,
+    judgmentStyle, showOffset, lifeType, autoPlay, expertModeEnabled,
     playbackRate, uiScale, doublePanelGapPx, songSelectPanelWidthPx, batteryLives, showParticles,
     cursorEnabled, cursorStylePreset, cursorScale, cursorOpacity, cursorGlow,
     cursorTrailsEnabled, cursorRippleEnabled, cursorRippleDurationMs,

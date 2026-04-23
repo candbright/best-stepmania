@@ -62,6 +62,7 @@ export interface AppConfig {
   showOffset: boolean;
   lifeType: string;
   autoPlay: boolean;
+  expertModeEnabled?: boolean;
   playerConfigs: [PlayerConfig, PlayerConfig];
   playbackRate: number;
   uiScale: number;

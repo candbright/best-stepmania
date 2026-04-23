@@ -4,6 +4,7 @@ export * from "./song";
 export * from "./audio";
 export * from "./config";
 export * from "./profile";
+export * from "./replay";
 export * from "./imports";
 export * from "./scoring";
 export * from "./editor";

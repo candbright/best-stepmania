@@ -8,6 +8,8 @@ export interface ProfileInfo {
 }
 
 export interface HighScoreInfo {
+  scoreId: string;
+  hasReplay: boolean;
   grade: string;
   dpPercent: number;
   score: number;
@@ -23,6 +25,45 @@ export interface HighScoreInfo {
   minesHit: number;
   playedAt: string;
   fullCombo: boolean;
+}
+
+export interface ReplayEvent {
+  deltaMs: number;
+  track: 0;
+  action: 3;
+  keyMask: number;
+}
+
+export interface ReplayPayload {
+  replayId: string;
+  scoreId: string;
+  replayVersion: number;
+  engineVersion: string;
+  chartFingerprint: string;
+  startedAtChartSecond: number;
+  playbackRate: number;
+  modifiers: string;
+  seed: number | null;
+  events: ReplayEvent[];
+  eventCount: number;
+  durationMs: number;
+  checksum: string;
+  createdAt: string;
+}
+
+export interface SaveScoreWithReplayRequest {
+  score: SaveScoreRequest;
+  replay: {
+    replayVersion: number;
+    engineVersion: string;
+    chartFingerprint: string;
+    startedAtChartSecond: number;
+    playbackRate: number;
+    modifiers: string;
+    seed: number | null;
+    events: ReplayEvent[];
+    durationMs: number;
+  };
 }
 
 export interface SaveScoreRequest {

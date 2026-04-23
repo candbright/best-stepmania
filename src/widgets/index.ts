@@ -3,5 +3,4 @@ export { default as MusicPlayer } from "./MusicPlayer.vue";
 export { default as SettingsCard } from "./SettingsCard.vue";
 export { default as TopScores } from "./TopScores.vue";
 export { default as KeyChordPicker } from "./KeyChordPicker.vue";
-export { default as PlayerSettingsPanel } from "./PlayerSettingsPanel.vue";
 export { default as SongSelectDetailPanel } from "./song-select/SongSelectDetailPanel.vue";

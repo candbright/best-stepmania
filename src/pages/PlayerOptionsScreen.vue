@@ -11,7 +11,7 @@ import { SettingsCard } from "@/widgets";
 import { ROUTINE_PLAYER_COLORS, type RoutinePlayerColorId } from "@/shared/constants/routinePlayerColors";
 import { logDebug } from "@/shared/lib/devLog";
 import { chartFitsPlayMode } from "@/shared/lib/chartPlayMode";
-import { setMetronomeSfxEnabled, setRhythmSfxEnabled, setUiSfxEnabled } from "@/shared/lib/sfx";
+import { playMenuMove, setMetronomeSfxEnabled, setRhythmSfxEnabled, setUiSfxEnabled } from "@/shared/lib/sfx";
 
 const router = useRouter();
 const session = useSessionStore();
@@ -174,13 +174,19 @@ function goBack() {
 // Prevent disabling both players simultaneously
 function togglePlayer1(val: boolean) {
   if (!val && !session.hasPlayer2) return;
+  if (session.hasPlayer1 !== val) playMenuMove();
   session.hasPlayer1 = val;
 }
 
 function togglePlayer2(val: boolean) {
   if (isDoubleMode.value) return;
   if (!val && !session.hasPlayer1) return;
+  if (session.hasPlayer2 !== val) playMenuMove();
   session.hasPlayer2 = val;
+}
+
+function playToggleSfx() {
+  playMenuMove();
 }
 
 const canDisableP1 = computed(() => session.hasPlayer2);
@@ -305,97 +311,109 @@ onUnmounted(() => {
           </template>
 
           <template #default>
-            <!-- Difficulty -->
-            <div class="setting-row stacked">
-              <span class="setting-label">{{ t('playerOpt.difficulty') }}</span>
-              <div class="diff-grid">
-                <button v-for="chart in chartsForPlayMode" :key="chart.chartIndex"
-                  class="diff-chip" :class="{ active: session.p1ChartIndex === chart.chartIndex }"
-                  @click="session.p1ChartIndex = chart.chartIndex">
-                  {{ difficultyLabel(chart.difficulty) }} {{ chart.meter }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Speed -->
-            <div class="setting-row stacked">
-              <span class="setting-label">{{ t('playerOpt.speed') }}</span>
-              <div class="speed-mod-rows">
-                <div class="chip-grid-inline">
-                  <button v-for="mod in SPEED_MODS_C" :key="mod"
-                    class="chip-sm" :class="{ active: settings.player1Config.speedMod === mod }"
-                    @click="settings.player1Config.speedMod = mod">{{ mod }}</button>
+            <div class="player-card-section">
+              <h4 class="player-card-section__title">{{ t('playerOpt.sectionChart') }}</h4>
+              <div class="player-field-block">
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.difficulty') }}</div>
+                  <div class="diff-grid">
+                    <button v-for="chart in chartsForPlayMode" :key="chart.chartIndex"
+                      class="diff-chip" :class="{ active: session.p1ChartIndex === chart.chartIndex }"
+                      @click="session.p1ChartIndex = chart.chartIndex">
+                      {{ difficultyLabel(chart.difficulty) }} {{ chart.meter }}
+                    </button>
+                  </div>
                 </div>
-                <div class="chip-grid-inline">
-                  <button v-for="mod in SPEED_MODS_X" :key="mod"
-                    class="chip-sm" :class="{ active: settings.player1Config.speedMod === mod }"
-                    @click="settings.player1Config.speedMod = mod">{{ mod }}</button>
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.speed') }}</div>
+                  <div class="speed-mod-rows">
+                    <div class="chip-grid-inline">
+                      <button v-for="mod in SPEED_MODS_C" :key="mod"
+                        class="chip-sm" :class="{ active: settings.player1Config.speedMod === mod }"
+                        @click="settings.player1Config.speedMod = mod">{{ mod }}</button>
+                    </div>
+                    <div class="chip-grid-inline">
+                      <button v-for="mod in SPEED_MODS_X" :key="mod"
+                        class="chip-sm" :class="{ active: settings.player1Config.speedMod === mod }"
+                        @click="settings.player1Config.speedMod = mod">{{ mod }}</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Color scheme: pump-single / pump-double only -->
-            <div class="setting-row stacked" v-if="isSingleMode || isDoubleMode">
-              <span class="setting-label">{{ t('playerOpt.colorScheme') }}</span>
-              <div class="chip-grid-inline">
-                <button v-for="ns in availableSkins" :key="ns"
-                  class="chip-sm" :class="{ active: settings.player1Config.noteskin === ns }"
-                  @click="settings.player1Config.noteskin = ns">{{ noteskinLabel(ns) }}</button>
+            <div class="player-card-section">
+              <h4 class="player-card-section__title">{{ t('playerOpt.sectionLook') }}</h4>
+              <div class="player-field-block">
+                <div class="player-mod-slab" v-if="isSingleMode || isDoubleMode">
+                  <div class="sub-label">{{ t('playerOpt.colorScheme') }}</div>
+                  <div class="chip-grid-inline">
+                    <button v-for="ns in availableSkins" :key="ns"
+                      class="chip-sm" :class="{ active: settings.player1Config.noteskin === ns }"
+                      @click="settings.player1Config.noteskin = ns">{{ noteskinLabel(ns) }}</button>
+                  </div>
+                </div>
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.noteStyle') }}</div>
+                  <div class="chip-grid-inline">
+                    <button v-for="st in NOTE_STYLES" :key="st"
+                      class="chip-sm" :class="{ active: settings.player1Config.noteStyle === st }"
+                      @click="settings.player1Config.noteStyle = st">{{ noteStyleLabel(st) }}</button>
+                  </div>
+                </div>
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.noteScale') }}</div>
+                  <div class="chip-grid-inline">
+                    <button v-for="sc in NOTE_SCALE_OPTIONS" :key="sc"
+                      class="chip-sm" :class="{ active: settings.player1Config.noteScale === sc }"
+                      @click="settings.player1Config.noteScale = sc">{{ sc }}x</button>
+                  </div>
+                </div>
+                <div class="player-mod-slab" v-if="isRoutineMode">
+                  <div class="sub-label">{{ t('playerOpt.routineP1Color') }}</div>
+                  <div class="color-picker">
+                    <button v-for="color in availableP1Colors" :key="color.id"
+                      class="color-btn" :class="{ active: session.routineP1ColorId === color.id, disabled: routineColorDisabled(color.id, 1) }"
+                      :style="{ backgroundColor: color.hex }"
+                      :disabled="routineColorDisabled(color.id, 1)"
+                      @click="selectP1Color(color.id)" />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Note Style -->
-            <div class="setting-row stacked">
-              <span class="setting-label">{{ t('playerOpt.noteStyle') }}</span>
-              <div class="chip-grid-inline">
-                <button v-for="st in NOTE_STYLES" :key="st"
-                  class="chip-sm" :class="{ active: settings.player1Config.noteStyle === st }"
-                  @click="settings.player1Config.noteStyle = st">{{ noteStyleLabel(st) }}</button>
+            <div class="player-card-section">
+              <h4 class="player-card-section__title">{{ t('playerOpt.sectionPlayMods') }}</h4>
+              <div class="player-mods-subgroups">
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.trackSettings') }}</div>
+                  <div class="setting-row mod-toggle-row">
+                    <span class="setting-label">{{ t('playerOpt.reverse') }}</span>
+                    <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.reverse" @change="playToggleSfx" /><span class="toggle-slider"></span></label>
+                  </div>
+                </div>
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.keySettings') }}</div>
+                  <div class="player-key-toggle-grid">
+                    <div class="setting-row mod-toggle-row">
+                      <span class="setting-label">{{ t('playerOpt.mirror') }}</span>
+                      <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.mirror" @change="playToggleSfx" /><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="setting-row mod-toggle-row">
+                      <span class="setting-label">{{ t('playerOpt.sudden') }}</span>
+                      <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.sudden" @change="playToggleSfx" /><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="setting-row mod-toggle-row">
+                      <span class="setting-label">{{ t('playerOpt.hidden') }}</span>
+                      <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.hidden" @change="playToggleSfx" /><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="setting-row mod-toggle-row">
+                      <span class="setting-label">{{ t('playerOpt.rotate') }}</span>
+                      <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.rotate" @change="playToggleSfx" /><span class="toggle-slider"></span></label>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <!-- Note Scale -->
-            <div class="setting-row stacked">
-              <span class="setting-label">{{ t('playerOpt.noteScale') }}</span>
-              <div class="chip-grid-inline">
-                <button v-for="sc in NOTE_SCALE_OPTIONS" :key="sc"
-                  class="chip-sm" :class="{ active: settings.player1Config.noteScale === sc }"
-                  @click="settings.player1Config.noteScale = sc">{{ sc }}x</button>
-              </div>
-            </div>
-
-            <!-- Note colors by chart layer: Routine only -->
-            <div class="setting-row stacked" v-if="isRoutineMode">
-              <span class="setting-label">{{ t('playerOpt.routineP1Color') }}</span>
-              <div class="color-picker">
-                <button v-for="color in availableP1Colors" :key="color.id"
-                  class="color-btn" :class="{ active: session.routineP1ColorId === color.id, disabled: routineColorDisabled(color.id, 1) }"
-                  :style="{ backgroundColor: color.hex }"
-                  :disabled="routineColorDisabled(color.id, 1)"
-                  @click="selectP1Color(color.id)" />
-              </div>
-            </div>
-
-            <!-- Toggles -->
-            <div class="setting-row">
-              <span class="setting-label">{{ t('playerOpt.reverse') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.reverse" /><span class="toggle-slider"></span></label>
-            </div>
-            <div class="setting-row">
-              <span class="setting-label">{{ t('playerOpt.mirror') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.mirror" /><span class="toggle-slider"></span></label>
-            </div>
-            <div class="setting-row">
-              <span class="setting-label">{{ t('playerOpt.sudden') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.sudden" /><span class="toggle-slider"></span></label>
-            </div>
-            <div class="setting-row">
-              <span class="setting-label">{{ t('playerOpt.hidden') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.hidden" /><span class="toggle-slider"></span></label>
-            </div>
-            <div class="setting-row">
-              <span class="setting-label">{{ t('playerOpt.rotate') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="settings.player1Config.rotate" /><span class="toggle-slider"></span></label>
             </div>
           </template>
         </SettingsCard>
@@ -416,102 +434,114 @@ onUnmounted(() => {
           </template>
 
           <template #default>
-            <!-- Difficulty -->
-            <div class="setting-row stacked">
-              <span class="setting-label">{{ t('playerOpt.difficulty') }}</span>
-              <div class="diff-grid">
-                <button v-for="chart in chartsForPlayMode" :key="chart.chartIndex"
-                  class="diff-chip" :class="{ active: session.p2ChartIndex === chart.chartIndex }"
-                  :disabled="p2RoutineReadonly"
-                  @click="session.p2ChartIndex = chart.chartIndex">
-                  {{ difficultyLabel(chart.difficulty) }} {{ chart.meter }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Speed -->
-            <div class="setting-row stacked">
-              <span class="setting-label">{{ t('playerOpt.speed') }}</span>
-              <div class="speed-mod-rows">
-                <div class="chip-grid-inline">
-                  <button v-for="mod in SPEED_MODS_C" :key="mod"
-                    class="chip-sm" :class="{ active: settings.player2Config.speedMod === mod }"
-                    :disabled="p2RoutineReadonly"
-                    @click="settings.player2Config.speedMod = mod">{{ mod }}</button>
+            <div class="player-card-section">
+              <h4 class="player-card-section__title">{{ t('playerOpt.sectionChart') }}</h4>
+              <div class="player-field-block">
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.difficulty') }}</div>
+                  <div class="diff-grid">
+                    <button v-for="chart in chartsForPlayMode" :key="chart.chartIndex"
+                      class="diff-chip" :class="{ active: session.p2ChartIndex === chart.chartIndex }"
+                      :disabled="p2RoutineReadonly"
+                      @click="session.p2ChartIndex = chart.chartIndex">
+                      {{ difficultyLabel(chart.difficulty) }} {{ chart.meter }}
+                    </button>
+                  </div>
                 </div>
-                <div class="chip-grid-inline">
-                  <button v-for="mod in SPEED_MODS_X" :key="mod"
-                    class="chip-sm" :class="{ active: settings.player2Config.speedMod === mod }"
-                    :disabled="p2RoutineReadonly"
-                    @click="settings.player2Config.speedMod = mod">{{ mod }}</button>
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.speed') }}</div>
+                  <div class="speed-mod-rows">
+                    <div class="chip-grid-inline">
+                      <button v-for="mod in SPEED_MODS_C" :key="mod"
+                        class="chip-sm" :class="{ active: settings.player2Config.speedMod === mod }"
+                        :disabled="p2RoutineReadonly"
+                        @click="settings.player2Config.speedMod = mod">{{ mod }}</button>
+                    </div>
+                    <div class="chip-grid-inline">
+                      <button v-for="mod in SPEED_MODS_X" :key="mod"
+                        class="chip-sm" :class="{ active: settings.player2Config.speedMod === mod }"
+                        :disabled="p2RoutineReadonly"
+                        @click="settings.player2Config.speedMod = mod">{{ mod }}</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- Color scheme -->
-            <div v-if="isSingleMode" class="setting-row stacked">
-              <span class="setting-label">{{ t('playerOpt.colorScheme') }}</span>
-              <div class="chip-grid-inline">
-                <button v-for="ns in availableSkins" :key="ns"
-                  class="chip-sm" :class="{ active: settings.player2Config.noteskin === ns }"
-                  @click="settings.player2Config.noteskin = ns">{{ noteskinLabel(ns) }}</button>
+            <div class="player-card-section">
+              <h4 class="player-card-section__title">{{ t('playerOpt.sectionLook') }}</h4>
+              <div class="player-field-block">
+                <div v-if="isSingleMode" class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.colorScheme') }}</div>
+                  <div class="chip-grid-inline">
+                    <button v-for="ns in availableSkins" :key="ns"
+                      class="chip-sm" :class="{ active: settings.player2Config.noteskin === ns }"
+                      @click="settings.player2Config.noteskin = ns">{{ noteskinLabel(ns) }}</button>
+                  </div>
+                </div>
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.noteStyle') }}</div>
+                  <div class="chip-grid-inline">
+                    <button v-for="st in NOTE_STYLES" :key="st"
+                      class="chip-sm" :class="{ active: settings.player2Config.noteStyle === st }"
+                      :disabled="p2RoutineReadonly"
+                      @click="settings.player2Config.noteStyle = st">{{ noteStyleLabel(st) }}</button>
+                  </div>
+                </div>
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.noteScale') }}</div>
+                  <div class="chip-grid-inline">
+                    <button v-for="sc in NOTE_SCALE_OPTIONS" :key="sc"
+                      class="chip-sm" :class="{ active: settings.player2Config.noteScale === sc }"
+                      :disabled="p2RoutineReadonly"
+                      @click="settings.player2Config.noteScale = sc">{{ sc }}x</button>
+                  </div>
+                </div>
+                <div v-if="isRoutineMode" class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.routineP2Color') }}</div>
+                  <div class="color-picker">
+                    <button v-for="color in availableP2Colors" :key="color.id"
+                      class="color-btn" :class="{ active: session.routineP2ColorId === color.id, disabled: routineColorDisabled(color.id, 2) }"
+                      :style="{ backgroundColor: color.hex }"
+                      :disabled="routineColorDisabled(color.id, 2)"
+                      @click="selectP2Color(color.id)" />
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Note Style -->
-            <div class="setting-row stacked">
-              <span class="setting-label">{{ t('playerOpt.noteStyle') }}</span>
-              <div class="chip-grid-inline">
-                <button v-for="st in NOTE_STYLES" :key="st"
-                  class="chip-sm" :class="{ active: settings.player2Config.noteStyle === st }"
-                  :disabled="p2RoutineReadonly"
-                  @click="settings.player2Config.noteStyle = st">{{ noteStyleLabel(st) }}</button>
+            <div class="player-card-section">
+              <h4 class="player-card-section__title">{{ t('playerOpt.sectionPlayMods') }}</h4>
+              <div class="player-mods-subgroups">
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.trackSettings') }}</div>
+                  <div class="setting-row mod-toggle-row">
+                    <span class="setting-label">{{ t('playerOpt.reverse') }}</span>
+                    <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.reverse" :disabled="p2RoutineReadonly" @change="playToggleSfx" /><span class="toggle-slider"></span></label>
+                  </div>
+                </div>
+                <div class="player-mod-slab">
+                  <div class="sub-label">{{ t('playerOpt.keySettings') }}</div>
+                  <div class="player-key-toggle-grid">
+                    <div class="setting-row mod-toggle-row">
+                      <span class="setting-label">{{ t('playerOpt.mirror') }}</span>
+                      <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.mirror" :disabled="p2RoutineReadonly" @change="playToggleSfx" /><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="setting-row mod-toggle-row">
+                      <span class="setting-label">{{ t('playerOpt.sudden') }}</span>
+                      <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.sudden" :disabled="p2RoutineReadonly" @change="playToggleSfx" /><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="setting-row mod-toggle-row">
+                      <span class="setting-label">{{ t('playerOpt.hidden') }}</span>
+                      <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.hidden" :disabled="p2RoutineReadonly" @change="playToggleSfx" /><span class="toggle-slider"></span></label>
+                    </div>
+                    <div class="setting-row mod-toggle-row">
+                      <span class="setting-label">{{ t('playerOpt.rotate') }}</span>
+                      <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.rotate" :disabled="p2RoutineReadonly" @change="playToggleSfx" /><span class="toggle-slider"></span></label>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-
-            <!-- Note Scale -->
-            <div class="setting-row stacked">
-              <span class="setting-label">{{ t('playerOpt.noteScale') }}</span>
-              <div class="chip-grid-inline">
-                <button v-for="sc in NOTE_SCALE_OPTIONS" :key="sc"
-                  class="chip-sm" :class="{ active: settings.player2Config.noteScale === sc }"
-                  :disabled="p2RoutineReadonly"
-                  @click="settings.player2Config.noteScale = sc">{{ sc }}x</button>
-              </div>
-            </div>
-
-            <!-- Note colors by chart layer: Routine only -->
-            <div v-if="isRoutineMode" class="setting-row stacked">
-              <span class="setting-label">{{ t('playerOpt.routineP2Color') }}</span>
-              <div class="color-picker">
-                <button v-for="color in availableP2Colors" :key="color.id"
-                  class="color-btn" :class="{ active: session.routineP2ColorId === color.id, disabled: routineColorDisabled(color.id, 2) }"
-                  :style="{ backgroundColor: color.hex }"
-                  :disabled="routineColorDisabled(color.id, 2)"
-                  @click="selectP2Color(color.id)" />
-              </div>
-            </div>
-
-            <!-- Toggles -->
-            <div class="setting-row">
-              <span class="setting-label">{{ t('playerOpt.reverse') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.reverse" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
-            </div>
-            <div class="setting-row">
-              <span class="setting-label">{{ t('playerOpt.mirror') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.mirror" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
-            </div>
-            <div class="setting-row">
-              <span class="setting-label">{{ t('playerOpt.sudden') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.sudden" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
-            </div>
-            <div class="setting-row">
-              <span class="setting-label">{{ t('playerOpt.hidden') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.hidden" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
-            </div>
-            <div class="setting-row">
-              <span class="setting-label">{{ t('playerOpt.rotate') }}</span>
-              <label class="toggle-switch"><input type="checkbox" v-model="settings.player2Config.rotate" :disabled="p2RoutineReadonly" /><span class="toggle-slider"></span></label>
             </div>
           </template>
         </SettingsCard>
@@ -537,21 +567,28 @@ onUnmounted(() => {
         <div class="setting-row">
           <span class="setting-label">{{ t('playerOpt.autoPlay') }}</span>
           <label class="toggle-switch">
-            <input type="checkbox" v-model="settings.autoPlay" />
+            <input type="checkbox" v-model="settings.autoPlay" @change="playToggleSfx" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <span class="setting-label">{{ t('playerOpt.expertMode') }}</span>
+          <label class="toggle-switch">
+            <input type="checkbox" v-model="settings.expertModeEnabled" @change="playToggleSfx" />
             <span class="toggle-slider"></span>
           </label>
         </div>
         <div class="setting-row">
           <span class="setting-label">{{ t('settings.rhythmSfxEnabled') }}</span>
           <label class="toggle-switch">
-            <input type="checkbox" v-model="settings.rhythmSfxEnabled" />
+            <input type="checkbox" v-model="settings.rhythmSfxEnabled" @change="playToggleSfx" />
             <span class="toggle-slider"></span>
           </label>
         </div>
         <div class="setting-row">
-          <span class="setting-label">{{ t('playerOpt.sfx') }}</span>
+          <span class="setting-label">{{ t('settings.metronomeSfxEnabled') }}</span>
           <label class="toggle-switch">
-            <input type="checkbox" v-model="settings.metronomeSfxEnabled" />
+            <input type="checkbox" v-model="settings.metronomeSfxEnabled" @change="playToggleSfx" />
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -603,6 +640,109 @@ onUnmounted(() => {
   border-left: 3px solid rgba(255, 68, 68, 0.4);
 }
 
+/* Player detail card: 3 blocks — chart / appearance / modifiers */
+.player-card-section + .player-card-section {
+  margin-top: 0.75rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.player-card-section__title {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+  margin: 0 0 0.55rem 0;
+  line-height: 1.35;
+  padding-left: 0.55rem;
+  border-left: 2px solid rgba(255, 255, 255, 0.12);
+  transition: border-color 0.2s, color 0.2s;
+}
+.p1-card .player-card-section__title {
+  border-left-color: rgba(0, 191, 255, 0.6);
+  color: rgba(255, 255, 255, 0.5);
+}
+.p2-card .player-card-section__title {
+  border-left-color: rgba(255, 100, 100, 0.55);
+  color: rgba(255, 255, 255, 0.5);
+}
+.player-field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.player-card-section .player-field-block .setting-row.stacked {
+  border-bottom: none;
+  padding: 0;
+}
+.player-card-section .player-field-block .setting-label {
+  text-transform: none;
+  letter-spacing: 0.08em;
+  font-size: 0.66rem;
+  color: rgba(255, 255, 255, 0.48);
+  font-weight: 600;
+}
+
+/* Modifiers: sub-slabs + 2×2 key toggles on wide cards */
+.player-mods-subgroups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+}
+.player-mod-slab {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 0.5rem 0.55rem 0.4rem;
+}
+.sub-label {
+  display: block;
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.36);
+  margin: 0 0 0.4rem 0;
+}
+.mod-toggle-row {
+  border-bottom: none;
+  padding: 0.3rem 0;
+  min-height: 26px;
+  min-width: 0;
+}
+.mod-toggle-row .setting-label {
+  text-transform: none;
+  letter-spacing: 0.05em;
+  font-size: 0.64rem;
+  color: rgba(255, 255, 255, 0.5);
+  flex: 1;
+  min-width: 0;
+}
+.mod-toggle-row .toggle-switch {
+  width: 36px;
+  height: 20px;
+  min-width: 36px;
+}
+.mod-toggle-row .toggle-slider::before {
+  width: 14px;
+  height: 14px;
+  left: 3px;
+  bottom: 3px;
+}
+.player-key-toggle-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 0.45rem;
+  row-gap: 0;
+  align-items: center;
+}
+@media (max-width: 480px) {
+  .player-key-toggle-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .player-card-header {
   display: flex; align-items: center; gap: 0.5rem;
   padding: 0.65rem 0.85rem;
@@ -617,13 +757,6 @@ onUnmounted(() => {
 .player-card-disabled-body {
   padding: 2rem 1rem; text-align: center;
   color: rgba(255,255,255,0.2); font-size: 0.8rem;
-}
-
-.sub-section { margin-bottom: 0.5rem; }
-.sub-label {
-  display: flex; align-items: center; gap: 0.3rem;
-  font-size: 0.78rem; letter-spacing: 0.15em; color: rgba(255,255,255,0.3);
-  margin-bottom: 0.35rem; text-transform: uppercase;
 }
 
 .diff-grid { display: flex; flex-wrap: wrap; gap: 4px; }
