@@ -51,6 +51,8 @@ export interface HoldState {
   endRow: number;
   endSecond: number;
   active: boolean;
+  /** 首键判定已失败（Miss/W5/超窗），用于保持长条可见并灰显。 */
+  headMissed: boolean;
   held: boolean;
   finished: boolean;
   /** Roll 音符需要反复敲击（区别于 Hold 需要持续按住） */
@@ -59,6 +61,11 @@ export interface HoldState {
   lastRollTick: number;
   /** Hold：中途松键，长条变暗，可重新按住恢复；恢复后若持续到尾键判定成功仍算 held */
   letGo: boolean;
+  /** 长条分段结算游标（按长度多次计分）。 */
+  nextCheckpointSecond: number;
+  checkpointInterval: number;
+  /** 非高手模式：中途松手后的自动续联宽限区间（秒）。 */
+  graceUntilSecond: number | null;
 }
 
 export interface ScoreState {
@@ -88,6 +95,7 @@ export interface GameConfig {
   showOffset: boolean;
   lifeType: "bar" | "battery" | "survival";
   autoPlay: boolean;
+  expertModeEnabled: boolean;
   numTracks: number;
   playbackRate: number;
   batteryLives: number;
@@ -339,6 +347,13 @@ export interface LastResults {
   held: number; letGo: number; minesHit: number;
   fullCombo: boolean;
   offsets: number[];
+}
+
+export interface ReplayInputEvent {
+  deltaMs: number;
+  track: 0;
+  action: 3;
+  keyMask: number;
 }
 
 // ---------------------------------------------------------------------------

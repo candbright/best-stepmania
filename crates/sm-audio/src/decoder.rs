@@ -193,7 +193,9 @@ fn emit_decoded_buffer(
                         return Ok(EmitOutcome::Stopped);
                     }
                     let rf = ring.read_floor.load(Ordering::Acquire);
-                    if *next_emit_frame < rf.saturating_add(cap).saturating_sub(STREAM_CAP_MARGIN_FRAMES)
+                    if *next_emit_frame
+                        < rf.saturating_add(cap)
+                            .saturating_sub(STREAM_CAP_MARGIN_FRAMES)
                     {
                         break;
                     }
@@ -225,7 +227,9 @@ fn emit_decoded_buffer(
                         return Ok(EmitOutcome::Stopped);
                     }
                     let rf = ring.read_floor.load(Ordering::Acquire);
-                    if *next_emit_frame < rf.saturating_add(cap).saturating_sub(STREAM_CAP_MARGIN_FRAMES)
+                    if *next_emit_frame
+                        < rf.saturating_add(cap)
+                            .saturating_sub(STREAM_CAP_MARGIN_FRAMES)
                     {
                         break;
                     }
@@ -257,7 +261,9 @@ fn emit_decoded_buffer(
                         return Ok(EmitOutcome::Stopped);
                     }
                     let rf = ring.read_floor.load(Ordering::Acquire);
-                    if *next_emit_frame < rf.saturating_add(cap).saturating_sub(STREAM_CAP_MARGIN_FRAMES)
+                    if *next_emit_frame
+                        < rf.saturating_add(cap)
+                            .saturating_sub(STREAM_CAP_MARGIN_FRAMES)
                     {
                         break;
                     }

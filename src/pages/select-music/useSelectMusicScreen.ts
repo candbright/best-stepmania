@@ -549,6 +549,22 @@ export function useSelectMusicScreen() {
     }
   }
 
+  async function onWatchReplay(scoreId: string) {
+    if (!scoreId) return;
+    try {
+      const payload = await api.getReplayByScoreId(scoreId);
+      if (!payload) {
+        session.clearReplayContext(t("loadingOverlay.failed"));
+        return;
+      }
+      session.setReplayContext(payload);
+      await router.push("/gameplay");
+    } catch (e: unknown) {
+      logError("SelectMusic", "getReplayByScoreId failed:", e);
+      session.clearReplayContext(t("loadingOverlay.failed"));
+    }
+  }
+
   onMounted(() => {
     setUiSfxVolume((settings.uiSfxVolume ?? 70) / 100);
     void session.loadTopScores();
@@ -650,6 +666,7 @@ export function useSelectMusicScreen() {
     filteredCharts,
     onClearTopScores,
     onClearTopScoresConfirmed,
+    onWatchReplay,
     formatPlayedAt,
     canPlayCurrentSong,
     diffMin,

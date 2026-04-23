@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
-import type { SongListItem, ChartInfoItem, ChartInfo, HighScoreInfo } from "@/shared/api";
+import type { SongListItem, ChartInfoItem, ChartInfo, HighScoreInfo, ReplayPayload } from "@/shared/api";
 import type { LastResults } from "@/shared/lib/engine/types";
 import type { RoutinePlayerColorId } from "@/shared/constants/routinePlayerColors";
 import * as api from "@/shared/api";
@@ -52,10 +52,31 @@ export const useSessionStore = defineStore("session", () => {
   const editorPrimedCharts = ref<{ path: string; charts: ChartInfo[] } | null>(null);
   /** True when audio pipeline + `audioLoad` already ran before `router.push("/editor")`. */
   const editorEntryAudioPrimed = ref(false);
+  const replayMode = ref(false);
+  const replayScoreId = ref<string | null>(null);
+  const replayPayload = ref<ReplayPayload | null>(null);
+  const replayAutoplayUiLabel = ref<string | null>(null);
+  const replayError = ref<string | null>(null);
 
   function clearEditorEntryPrime(): void {
     editorPrimedCharts.value = null;
     editorEntryAudioPrimed.value = false;
+  }
+
+  function setReplayContext(payload: ReplayPayload): void {
+    replayMode.value = true;
+    replayScoreId.value = payload.scoreId;
+    replayPayload.value = payload;
+    replayAutoplayUiLabel.value = `Watching ${payload.scoreId}`;
+    replayError.value = null;
+  }
+
+  function clearReplayContext(error: string | null = null): void {
+    replayMode.value = false;
+    replayScoreId.value = null;
+    replayPayload.value = null;
+    replayAutoplayUiLabel.value = null;
+    replayError.value = error;
   }
   /** Flag: the editor created/deleted/saved a chart; song list needs re-fetch */
   const needsSongRefresh = ref(false);
@@ -207,6 +228,7 @@ export const useSessionStore = defineStore("session", () => {
     playMode, hasPlayer1, hasPlayer2, p1ChartIndex, p2ChartIndex,
     routineP1ColorId, routineP2ColorId,
     profileId, profileName, topScores, lastResults, lastResults2, lastScoreSaved, previewFromSecond, previewReturnToEditor, editorPreviewAnchorSecond, editorWarmResume,
+    replayMode, replayScoreId, replayPayload, replayAutoplayUiLabel, replayError,
     editorPrimedCharts, editorEntryAudioPrimed, clearEditorEntryPrime,
     needsSongRefresh, resumePlaybackOnReturn, resumeTitleMusicAfterOptions, openPlayModeSelectAfterTitleEnter, resumeFromEditor,
     selectFilterDiffMin, selectFilterDiffMax, selectFilterSearch, selectFilterPack,
@@ -215,6 +237,8 @@ export const useSessionStore = defineStore("session", () => {
     setCurrentSongIndexFromPlayer,
     loadTopScores,
     clearCurrentChartTopScores,
+    setReplayContext,
+    clearReplayContext,
     setEditorBackGuard,
     runEditorBackGuard,
   };

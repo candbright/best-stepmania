@@ -38,7 +38,13 @@ impl GrooveRadar {
         // Chaos: variance-based measure of irregular note distribution
         let chaos = (measure_density_variance / 4.0).min(1.0);
 
-        Self { stream, voltage, air, freeze, chaos }
+        Self {
+            stream,
+            voltage,
+            air,
+            freeze,
+            chaos,
+        }
     }
 
     pub fn values(&self) -> [f64; 5] {

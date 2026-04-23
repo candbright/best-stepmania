@@ -23,6 +23,7 @@ function makeConfig(audioOffsetMs: number): GameConfig {
     showOffset: false,
     lifeType: "bar",
     autoPlay: false,
+    expertModeEnabled: false,
     numTracks: 5,
     playbackRate: 1,
     batteryLives: 3,

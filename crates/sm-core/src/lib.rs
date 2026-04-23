@@ -1,10 +1,10 @@
-pub mod note;
-pub mod game_types;
 pub mod difficulty;
+pub mod game_types;
+pub mod note;
 
 pub use difficulty::Difficulty;
-pub use game_types::{StepsType, StepsTypeCategory, PlayMode};
-pub use note::{TapNote, TapNoteType, TapNoteSubType, NoteData};
+pub use game_types::{PlayMode, StepsType, StepsTypeCategory};
+pub use note::{NoteData, TapNote, TapNoteSubType, TapNoteType};
 
 pub const ROWS_PER_BEAT: i32 = 48;
 pub const MAX_TRACKS: usize = 16;

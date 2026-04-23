@@ -243,11 +243,7 @@ impl AudioEngine {
         let sample_rate = probe.sample_rate;
         let total_frames = probe.total_frames;
 
-        let ring = Arc::new(StreamingRing::new(
-            channels,
-            sample_rate,
-            RING_CAP_SECONDS,
-        ));
+        let ring = Arc::new(StreamingRing::new(channels, sample_rate, RING_CAP_SECONDS));
         let start_frame = (start_second * f64::from(sample_rate)).max(0.0) as u64;
         ring.begin_session(total_frames, start_frame);
 
@@ -257,7 +253,8 @@ impl AudioEngine {
         let stop_thread = Arc::clone(&stop);
 
         let handle = std::thread::spawn(move || {
-            let _ = decoder::run_streaming_decode(&path_owned, ring_thread, start_second, stop_thread);
+            let _ =
+                decoder::run_streaming_decode(&path_owned, ring_thread, start_second, stop_thread);
         });
 
         self.streaming_stop = Some(stop);
@@ -303,13 +300,7 @@ impl AudioEngine {
         self.ensure_stream()?;
         self.current_path = Some(path.to_path_buf());
         if let Some(ref pb) = self.playback {
-            pb.swap_track(
-                samples,
-                channels,
-                sample_rate,
-                0.0,
-                0.0,
-            );
+            pb.swap_track(samples, channels, sample_rate, 0.0, 0.0);
             pb.pause();
             pb.set_volume(self.music_volume as f64 * self.master_volume as f64);
         }

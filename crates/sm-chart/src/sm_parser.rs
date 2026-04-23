@@ -152,13 +152,8 @@ fn sm_community_steps_type_tag(raw: &str) -> Option<StepsType> {
 }
 
 fn note_glyph_line_is_all_note_chars(line: &str) -> bool {
-    line.chars().all(|c| {
-        c.is_ascii_digit()
-            || matches!(
-                c,
-                'M' | 'm' | 'L' | 'l' | 'F' | 'f' | 'K' | 'k'
-            )
-    })
+    line.chars()
+        .all(|c| c.is_ascii_digit() || matches!(c, 'M' | 'm' | 'L' | 'l' | 'F' | 'f' | 'K' | 'k'))
 }
 
 /// First note row width in `#NOTES` body (after trimming / `//` comments).
@@ -257,7 +252,11 @@ fn merge_adjacent_sm_lover_routine_charts(song: &mut SongFile) {
 }
 
 fn overlay_lover2_routine_layer(primary: &mut Chart, lover2: &Chart) {
-    for ti in 0..lover2.note_data.num_tracks.min(primary.note_data.num_tracks) {
+    for ti in 0..lover2
+        .note_data
+        .num_tracks
+        .min(primary.note_data.num_tracks)
+    {
         let rows: Vec<(i32, TapNote)> = lover2.note_data.tracks[ti]
             .iter()
             .map(|(&r, n)| (r, n.clone()))

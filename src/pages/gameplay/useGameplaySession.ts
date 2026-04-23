@@ -7,7 +7,13 @@ import { GameEngine } from "@/shared/lib/engine/GameEngine";
 import { createTauriAudioPort } from "@/shared/lib/engine";
 import { keyMapLookupTrack, resolveGameplayKeyMap10 } from "@/shared/lib/engine/keyBindings";
 import { JUDGMENT_COLORS, getJudgmentName } from "@/shared/lib/engine/judgmentDisplay";
-import type { JudgmentEvent, GameConfig, ChartNoteRow, NoteFieldExposed } from "@/shared/lib/engine/types";
+import type {
+  JudgmentEvent,
+  GameConfig,
+  ChartNoteRow,
+  NoteFieldExposed,
+  ReplayInputEvent,
+} from "@/shared/lib/engine/types";
 import * as api from "@/shared/api";
 import { getIpcInvokeSnapshot } from "@/shared/api";
 import type { TimingDataResponse } from "@/shared/api/editor";
@@ -15,13 +21,15 @@ import type { ChartTimingSlice } from "@/shared/lib/engine/chartTiming";
 import { useNoteSkin } from "@/shared/stores/noteskin";
 import {
   applyGameplayRhythmSfxSettings,
+  playBeatLine,
   playCountdown,
   playCountdownGo,
-  playRhythmLaneApproach,
+  playJudgment,
 } from "@/shared/lib/sfx";
 import { logDebug, logError, logInfo } from "@/shared/lib/devLog";
 import { useI18n } from "@/shared/i18n";
 import { playModeAndCoopForStepsType } from "@/shared/lib/chartPlayMode";
+import { APP_VERSION } from "@/shared/constants/appMeta";
 
 export function useGameplaySession() {
 const router = useRouter();
@@ -52,6 +60,13 @@ const lifePercent = ref(100);
 const scoreDisplay = ref(0);
 const comboDisplay = ref(0);
 const savingScore = ref(false);
+/** Stops duplicate `save_score` IPC if the engine fires finish/fail handlers more than once in one run. */
+let scoreWriteClaimedForRun = false;
+let scoreWrite2ClaimedForRun = false;
+const replayEvents = ref<ReplayInputEvent[]>([]);
+let replayLastEventMs = 0;
+const REPLAY_SAMPLE_INTERVAL_MS = 10;
+const replaySampleTimer = ref<ReturnType<typeof setInterval> | null>(null);
 const devPerf = ref({
   qualityLevel: "high",
   frameMs: 0,
@@ -134,6 +149,7 @@ const p1Config: GameConfig = {
   showOffset: settings.showOffset,
   lifeType: (settings.lifeType as "bar" | "battery" | "survival") || "bar",
   autoPlay: settings.autoPlay,
+  expertModeEnabled: settings.expertModeEnabled ?? false,
   numTracks,
   playbackRate: settings.playbackRate ?? 1,
   batteryLives: settings.batteryLives ?? 3,
@@ -187,6 +203,7 @@ function shouldShowCenterJudgment(): boolean {
 }
 
 function onJudgment(evt: JudgmentEvent) {
+  playJudgment(evt.judgment);
   logDebug("Gameplay", "judgment", {
     judgment: evt.judgment,
     player: evt.player,
@@ -283,8 +300,69 @@ function buildResultsObject() {
   return buildResultsForPlayer(1);
 }
 
+function currentChartFingerprint(songPath: string, stepsType: string, difficulty: string, meter: number): string {
+  return `${songPath}::${stepsType}::${difficulty}::${meter}`;
+}
+
+function resetReplayRecorder() {
+  replayEvents.value = [];
+  replayLastEventMs = 0;
+}
+
+function currentKeyMask(): number {
+  let mask = 0;
+  for (let i = 0; i < numTracks; i++) {
+    if (engine.keysDown[i]) {
+      mask |= 1 << i;
+    }
+  }
+  return mask;
+}
+
+function appendReplayEvent(keyMask: number) {
+  if (session.replayMode) return;
+  if (gameState.value !== "playing") return;
+  const elapsedMs = Math.max(0, Math.round(engine.getChartPlayheadSeconds() * 1000));
+  const deltaMs = Math.max(0, elapsedMs - replayLastEventMs);
+  replayLastEventMs = elapsedMs;
+  replayEvents.value.push({ deltaMs, track: 0, action: 3, keyMask });
+}
+
+function startReplaySampling() {
+  if (session.replayMode || replaySampleTimer.value) return;
+  appendReplayEvent(currentKeyMask());
+  replaySampleTimer.value = setInterval(() => {
+    appendReplayEvent(currentKeyMask());
+  }, REPLAY_SAMPLE_INTERVAL_MS);
+}
+
+function stopReplaySampling() {
+  if (replaySampleTimer.value) {
+    clearInterval(replaySampleTimer.value);
+    replaySampleTimer.value = null;
+  }
+  if (!session.replayMode && gameState.value === "playing") {
+    appendReplayEvent(currentKeyMask());
+  }
+}
+
+function validateReplayPayload(expectedFingerprint: string): string | null {
+  const payload = session.replayPayload;
+  if (!payload) return "missing-replay";
+  if (payload.chartFingerprint !== expectedFingerprint) return "chart-mismatch";
+  if (payload.engineVersion !== APP_VERSION) return "engine-version-mismatch";
+  for (const evt of payload.events) {
+    if (evt.track !== 0) return "invalid-track";
+    if (evt.action !== 3) return "invalid-action";
+    if (typeof evt.keyMask !== "number" || evt.keyMask < 0) {
+      return "invalid-key-mask";
+    }
+  }
+  return null;
+}
+
 async function saveScoreToProfile() {
-  if (settings.autoPlay) return;
+  if (settings.autoPlay || session.replayMode) return;
   if (!session.profileId || !session.currentSong) return;
   if (!engine.judgment) return;
 
@@ -301,9 +379,11 @@ async function saveScoreToProfile() {
   if (modCfg.hidden) modParts.push("Hidden");
   if (modCfg.rotate) modParts.push("Rotate");
 
+  if (scoreWriteClaimedForRun) return;
+  scoreWriteClaimedForRun = true;
   try {
     savingScore.value = true;
-    await api.saveScore({
+    const scoreReq = {
       profileId: session.profileId,
       songPath: session.currentSong.path,
       stepsType: chartForSave.stepsType,
@@ -317,7 +397,24 @@ async function saveScoreToProfile() {
       w4: results.w4, w5: results.w5, miss: results.miss,
       held: results.held, letGo: results.letGo, minesHit: results.minesHit,
       modifiers: modParts.join(", "),
-    });
+    };
+    const replayReq = {
+      replayVersion: 1,
+      engineVersion: APP_VERSION,
+      chartFingerprint: currentChartFingerprint(
+        session.currentSong.path,
+        chartForSave.stepsType,
+        chartForSave.difficulty,
+        chartForSave.meter,
+      ),
+      startedAtChartSecond: 0,
+      playbackRate: settings.playbackRate ?? 1,
+      modifiers: modParts.join(", "),
+      seed: null,
+      events: replayEvents.value,
+      durationMs: Math.max(0, replayLastEventMs),
+    };
+    await api.saveScoreWithReplay({ score: scoreReq, replay: replayReq });
     session.lastScoreSaved = true;
   } catch (err: unknown) {
     logError("Gameplay", "Failed to save score:", err);
@@ -341,15 +438,16 @@ engine.callbacks = {
     if (session.playMode !== "pump-double" && isPerPlayerDualSession()) updateHUD2();
   },
   onBeatLineApproach: (beat: number) => {
-    // Remove gameplay default metronome cue in both preview and normal play.
     void beat;
+    playBeatLine();
   },
   onRhythmLanesApproach: (tracks, scale) => {
-    for (const tr of tracks) {
-      playRhythmLaneApproach(tr, scale);
-    }
+    // Gameplay rhythm SFX should follow key judgments, not pre-hit lane approach ticks.
+    void tracks;
+    void scale;
   },
   onFinish: async () => {
+    stopReplaySampling();
     if (resultNavTimer.value) {
       clearTimeout(resultNavTimer.value);
       resultNavTimer.value = null;
@@ -395,6 +493,7 @@ engine.callbacks = {
     resultNavTimer.value = setTimeout(() => router.push("/evaluation"), 1500);
   },
   onFail: async () => {
+    stopReplaySampling();
     if (resultNavTimer.value) {
       clearTimeout(resultNavTimer.value);
       resultNavTimer.value = null;
@@ -440,6 +539,8 @@ async function saveScoreToProfile2() {
   // P2 chart: use charts[p2ChartIndex]
   const p2Chart = session.charts[session.p2ChartIndex];
   if (!p2Chart) return;
+  if (scoreWrite2ClaimedForRun) return;
+  scoreWrite2ClaimedForRun = true;
   try {
     await api.saveScore({
       profileId: session.profileId,
@@ -489,6 +590,9 @@ async function loadAndStart() {
   // Clear save badge from any previous run before loading the new chart.
   session.lastScoreSaved = null;
   session.lastResults2 = null;
+  scoreWriteClaimedForRun = false;
+  scoreWrite2ClaimedForRun = false;
+  resetReplayRecorder();
 
   // 先停止任何正在播放的预览音频，确保音频引擎干净
   try { await api.audioStop(); } catch { /* ignore */ }
@@ -508,6 +612,7 @@ async function loadAndStart() {
       settings.lifeType === "battery" || settings.lifeType === "survival" ? settings.lifeType : "bar";
     engine.config.batteryLives = Math.max(1, Math.min(99, settings.batteryLives ?? 3));
     engine.config.autoPlay = settings.autoPlay;
+    engine.config.expertModeEnabled = settings.expertModeEnabled ?? false;
     engine.config.playbackRate = settings.playbackRate ?? 1;
     engine.config.judgmentStyle = settings.judgmentStyle === "itg" ? "itg" : "ddr";
     engine.config.showOffset = settings.showOffset;
@@ -558,6 +663,17 @@ async function loadAndStart() {
     const mergedFromSingleWideChart =
       isRoutineMergedStepsType(chartForLoad?.stepsType) ||
       isPumpDoubleSingleChartStepsType(chartForLoad?.stepsType);
+    if (session.replayMode && chartForLoad) {
+      const replayError = validateReplayPayload(
+        currentChartFingerprint(song.path, chartForLoad.stepsType, chartForLoad.difficulty, chartForLoad.meter),
+      );
+      if (replayError) {
+        logError("Gameplay", "Replay validation failed", { replayError });
+        session.clearReplayContext(replayError);
+        router.push("/select-music");
+        return;
+      }
+    }
 
     // Update P2 HUD info
     if (session.hasPlayer2 && p2Chart) {
@@ -670,6 +786,11 @@ async function loadAndStart() {
     logInfo("Gameplay", `Audio load: ${audioOk ? "OK" : "FAILED"}, duration=${engine.songDuration}s`);
     // Load merged chart into single engine (10 tracks, double mode)
     engine.loadChart(mergedRows, audioOk ? engine.songDuration : 180);
+    if (session.replayMode && session.replayPayload) {
+      engine.setReplayInput(session.replayPayload.events, session.replayPayload.startedAtChartSecond);
+    } else {
+      engine.clearReplayInput();
+    }
     logInfo(
       "Gameplay",
       `Merged chart loaded: ${engine.notes.length} notes, engine.state=${engine.state}, lastNoteSecond=${engine.getDebugState().lastNoteSecond}`,
@@ -730,6 +851,7 @@ async function loadAndStart() {
       gameState.value = "playing";
       bgPlaying.value = true;
       await engine.startPlayingFrom(previewSec!, leadInSec);
+      startReplaySampling();
       logInfo("Gameplay", "editorPreview:afterStartPlayingFrom", engine.getDebugState());
     } else {
       logDebug("Gameplay", "start:countdown", {
@@ -752,6 +874,7 @@ async function loadAndStart() {
           gameState.value = "playing";
           bgPlaying.value = true;
           engine.startPlaying();
+          startReplaySampling();
         }
       }, 700);
     }
@@ -785,6 +908,7 @@ function validateChartNotes(noteRows: ChartNoteRow[], numTracks: number): boolea
 }
 
 function handleKeyDown(e: KeyboardEvent) {
+  if (session.replayMode) return;
   if (shortcutMatches(e, "gameplay.devPanel")) {
     e.preventDefault();
     showDevPanel.value = !showDevPanel.value;
@@ -824,6 +948,7 @@ function handleKeyDown(e: KeyboardEvent) {
 }
 
 function handleKeyUp(e: KeyboardEvent) {
+  if (session.replayMode) return;
   const keyMap = resolveGameplayKeyMap10(settings.gameplayPumpDoubleLanes);
   const col = keyMapLookupTrack(keyMap, e.code, e.key);
   if (col !== undefined) {
@@ -846,6 +971,7 @@ function pauseGame() {
   bgPlaying.value = false;
   gameState.value = "paused";
   showPauseMenu.value = true;
+  stopReplaySampling();
 }
 
 function resumeGame() {
@@ -854,11 +980,13 @@ function resumeGame() {
   engine.resume();
   bgPlaying.value = true;
   gameState.value = "playing";
+  startReplaySampling();
 }
 
 function quitGame() {
   logDebug("Gameplay", "quit", { to: session.previewReturnToEditor ? "editor" : "player-options" });
   engine.cleanup();
+  stopReplaySampling();
   if (countdownInterval.value) clearInterval(countdownInterval.value);
   if (resultNavTimer.value) { clearTimeout(resultNavTimer.value); resultNavTimer.value = null; }
   const backToEditor = session.previewReturnToEditor;
@@ -868,6 +996,7 @@ function quitGame() {
   session.previewReturnToEditor = false;
   session.previewFromSecond = null;
   session.editorPreviewAnchorSecond = null;
+  session.clearReplayContext();
   router.push(backToEditor ? "/editor" : "/player-options");
 }
 
@@ -876,6 +1005,7 @@ function quitToSelectMusic() {
     previewReturnToEditor: session.previewReturnToEditor,
   });
   engine.cleanup();
+  stopReplaySampling();
   if (countdownInterval.value) clearInterval(countdownInterval.value);
   if (resultNavTimer.value) { clearTimeout(resultNavTimer.value); resultNavTimer.value = null; }
   if (session.previewReturnToEditor) {
@@ -883,9 +1013,11 @@ function quitToSelectMusic() {
     session.previewReturnToEditor = false;
     session.previewFromSecond = null;
     session.editorPreviewAnchorSecond = null;
+    session.clearReplayContext();
     router.push("/editor");
     return;
   }
+  session.clearReplayContext();
   router.push("/select-music");
 }
 
@@ -951,7 +1083,9 @@ const p2LifeClass = computed(() => {
     if (countdownInterval.value) clearInterval(countdownInterval.value);
     if (resultNavTimer.value) clearTimeout(resultNavTimer.value);
     if (devPanelTimer.value) clearInterval(devPanelTimer.value);
+    stopReplaySampling();
     engine.cleanup();
+    session.clearReplayContext();
     void api.audioSetRate(1.0).catch((e) => logDebug("Optional", "gameplay.unmount.audioSetRate", e));
   }
 

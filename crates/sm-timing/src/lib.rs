@@ -19,7 +19,10 @@ pub struct TimingData {
 impl Default for TimingData {
     fn default() -> Self {
         Self {
-            bpms: vec![BpmSegment { beat: 0.0, bpm: 120.0 }],
+            bpms: vec![BpmSegment {
+                beat: 0.0,
+                bpm: 120.0,
+            }],
             stops: Vec::new(),
             delays: Vec::new(),
             warps: Vec::new(),
@@ -28,15 +31,25 @@ impl Default for TimingData {
                 numerator: 4,
                 denominator: 4,
             }],
-            tickcounts: vec![TickcountSegment { beat: 0.0, ticks_per_beat: 4 }],
-            combos: vec![ComboSegment { beat: 0.0, hit_mult: 1, miss_mult: 1 }],
+            tickcounts: vec![TickcountSegment {
+                beat: 0.0,
+                ticks_per_beat: 4,
+            }],
+            combos: vec![ComboSegment {
+                beat: 0.0,
+                hit_mult: 1,
+                miss_mult: 1,
+            }],
             speeds: vec![SpeedSegment {
                 beat: 0.0,
                 ratio: 1.0,
                 duration: 0.0,
                 unit: SpeedUnit::Beats,
             }],
-            scrolls: vec![ScrollSegment { beat: 0.0, factor: 1.0 }],
+            scrolls: vec![ScrollSegment {
+                beat: 0.0,
+                factor: 1.0,
+            }],
             fakes: Vec::new(),
             labels: Vec::new(),
             offset: 0.0,
@@ -195,7 +208,11 @@ impl TimingData {
     }
 
     pub fn get_bpm_at_beat(&self, beat: f64) -> f64 {
-        let mut bpm = if self.bpms.is_empty() { 120.0 } else { self.bpms[0].bpm };
+        let mut bpm = if self.bpms.is_empty() {
+            120.0
+        } else {
+            self.bpms[0].bpm
+        };
         for seg in &self.bpms {
             if seg.beat > beat {
                 break;
@@ -320,20 +337,33 @@ mod tests {
     #[test]
     fn test_constant_bpm() {
         let td = TimingData {
-            bpms: vec![BpmSegment { beat: 0.0, bpm: 120.0 }],
+            bpms: vec![BpmSegment {
+                beat: 0.0,
+                bpm: 120.0,
+            }],
             offset: 0.0,
             ..Default::default()
         };
         let sec = td.beat_to_second(4.0);
-        assert!((sec - 2.0).abs() < 0.001, "4 beats at 120 BPM = 2 seconds, got {}", sec);
+        assert!(
+            (sec - 2.0).abs() < 0.001,
+            "4 beats at 120 BPM = 2 seconds, got {}",
+            sec
+        );
     }
 
     #[test]
     fn test_bpm_change() {
         let td = TimingData {
             bpms: vec![
-                BpmSegment { beat: 0.0, bpm: 120.0 },
-                BpmSegment { beat: 4.0, bpm: 240.0 },
+                BpmSegment {
+                    beat: 0.0,
+                    bpm: 120.0,
+                },
+                BpmSegment {
+                    beat: 4.0,
+                    bpm: 240.0,
+                },
             ],
             offset: 0.0,
             ..Default::default()
@@ -347,8 +377,14 @@ mod tests {
     #[test]
     fn test_stop() {
         let td = TimingData {
-            bpms: vec![BpmSegment { beat: 0.0, bpm: 120.0 }],
-            stops: vec![StopSegment { beat: 2.0, duration: 0.5 }],
+            bpms: vec![BpmSegment {
+                beat: 0.0,
+                bpm: 120.0,
+            }],
+            stops: vec![StopSegment {
+                beat: 2.0,
+                duration: 0.5,
+            }],
             offset: 0.0,
             ..Default::default()
         };
@@ -360,18 +396,28 @@ mod tests {
     #[test]
     fn test_second_to_beat_constant() {
         let td = TimingData {
-            bpms: vec![BpmSegment { beat: 0.0, bpm: 120.0 }],
+            bpms: vec![BpmSegment {
+                beat: 0.0,
+                bpm: 120.0,
+            }],
             offset: 0.0,
             ..Default::default()
         };
         let beat = td.second_to_beat(2.0);
-        assert!((beat - 4.0).abs() < 0.001, "2 seconds at 120 BPM = 4 beats, got {}", beat);
+        assert!(
+            (beat - 4.0).abs() < 0.001,
+            "2 seconds at 120 BPM = 4 beats, got {}",
+            beat
+        );
     }
 
     #[test]
     fn test_warp_detection() {
         let td = TimingData {
-            warps: vec![WarpSegment { beat: 4.0, skip_beats: 2.0 }],
+            warps: vec![WarpSegment {
+                beat: 4.0,
+                skip_beats: 2.0,
+            }],
             ..Default::default()
         };
         assert!(!td.is_warp_at_beat(3.9));

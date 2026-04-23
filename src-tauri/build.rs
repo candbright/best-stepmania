@@ -10,7 +10,8 @@ fn main() {
 fn sync_webview2_loader_for_nsis() {
     use std::path::{Path, PathBuf};
 
-    let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
+    let manifest_dir =
+        PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
     let Some(target_dir) = out_dir.ancestors().nth(3).map(Path::to_path_buf) else {
         return;

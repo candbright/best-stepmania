@@ -32,6 +32,7 @@ const {
   filteredCharts,
   onClearTopScores,
   onClearTopScoresConfirmed,
+  onWatchReplay,
   formatPlayedAt,
   canPlayCurrentSong,
   diffMin,
@@ -136,6 +137,7 @@ const setSongScrollRef = (el: Element | ComponentPublicInstance | null) => {
             :formatPlayedAt="formatPlayedAt"
             :t="t"
             @clearTopScores="onClearTopScores"
+            @watchReplay="onWatchReplay"
           />
         </template>
         <template #actions>

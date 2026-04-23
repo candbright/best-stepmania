@@ -1,8 +1,8 @@
 pub mod encoding;
 mod pump_sm_layout;
+pub mod single_chart_sm;
 pub mod sm_parser;
 pub mod sm_writer;
-pub mod single_chart_sm;
 pub mod ssc_parser;
 mod tag_parser;
 

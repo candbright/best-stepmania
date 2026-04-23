@@ -59,6 +59,7 @@ export default {
   "select.filterDiffMinPlaceholder": "min",
   "select.filterDiffMaxPlaceholder": "max",
   "select.fullComboBadge": "FC",
+  "select.watchReplay": "Replay",
   "select.bpmUnit": "BPM",
   "select.onlyFavorites": "Only favorites",
   "select.refresh": "Refresh",

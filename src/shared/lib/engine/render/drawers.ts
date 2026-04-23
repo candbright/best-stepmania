@@ -173,9 +173,6 @@ export function drawHoldDrawer(
   const startNote = engine.notes.find((n) => n.track === hold.track && n.row === hold.startRow);
   if (!startNote) return;
 
-  const headJudged = engine.judgment?.isNoteJudged(hold.track, hold.startRow);
-  if (headJudged && !hold.active) return;
-
   const startSec = startNote.second;
   const endSec = hold.endSecond;
   /** Same domain as `note.second` / `getNoteY` — do not mix with row `beat` (can diverge under stops / timing). */
@@ -246,11 +243,14 @@ export function drawHoldDrawer(
   const holdHeight = Math.max(0, bottomY - topY);
   if (holdHeight <= 0 && holdAlpha <= 0) return;
 
+  const isBroken = hold.headMissed || hold.letGo;
   const baseAlpha = hold.finished
     ? 0.15
     : hold.active && hold.held
       ? 0.95
-      : 0.5;
+      : isBroken
+        ? 0.28
+        : 0.5;
   c.globalAlpha = baseAlpha * holdAlpha;
 
   if (isRoll) {
@@ -298,7 +298,7 @@ export function drawHoldDrawer(
 
   if (capAlpha > 0) {
     c.globalAlpha = baseAlpha * capAlpha;
-    c.fillStyle = bodyColor;
+    c.fillStyle = isBroken ? "rgba(140,140,140,0.9)" : bodyColor;
        c.save();
     c.translate(bodyX + bodyW / 2, capY);
     const capSize = 6;

@@ -178,7 +178,13 @@ pub struct AudioPlaybackEvent {
 
 const EVENT_AUDIO_PLAYBACK: &str = "audio-playback";
 
-fn emit_playback_event(app: &tauri::AppHandle, time: f64, duration: f64, is_playing: bool, event: &str) {
+fn emit_playback_event(
+    app: &tauri::AppHandle,
+    time: f64,
+    duration: f64,
+    is_playing: bool,
+    event: &str,
+) {
     let payload = AudioPlaybackEvent {
         event: event.to_string(),
         time,
@@ -313,10 +319,7 @@ pub async fn audio_preview(
 
 /// 后台 probe 元数据并存入缓存，不播放、不解码整首 PCM。
 #[tauri::command]
-pub async fn audio_preload(
-    state: State<'_, AppState>,
-    music_path: String,
-) -> Result<(), String> {
+pub async fn audio_preload(state: State<'_, AppState>, music_path: String) -> Result<(), String> {
     let base_dir = {
         state
             .songs_base_dir

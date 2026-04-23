@@ -1,4 +1,4 @@
-import type { ChartNote, ChartNoteRow, GameConfig, JudgmentEvent, ScoreState } from "./types";
+import type { ChartNote, ChartNoteRow, GameConfig, JudgmentEvent, ReplayInputEvent, ScoreState } from "./types";
 import { logDebug, logInfo, logWarn } from "@/shared/lib/devLog";
 import { JudgmentSystem } from "./JudgmentSystem";
 import type { AudioPort, AudioPlaybackState } from "./ports";
@@ -139,6 +139,10 @@ export class GameEngine {
 
   /** Editor preview: delayed `play()` when chart time is still before file t=0 (positive #OFFSET). */
   private previewPlayDelayHandle: ReturnType<typeof setTimeout> | null = null;
+  private replayInputEvents: ReplayInputEvent[] = [];
+  private replayEventAtMs: number[] = [];
+  private replayCursor = 0;
+  private replayStartChartSecond = 0;
 
   /**
    * Align rhythm-SFX cursor with the current chart clock. Without this, {@link lastBeatLineSfxBeat}
@@ -160,6 +164,52 @@ export class GameEngine {
     if (this.previewPlayDelayHandle !== null) {
       clearTimeout(this.previewPlayDelayHandle);
       this.previewPlayDelayHandle = null;
+    }
+  }
+
+  setReplayInput(events: ReplayInputEvent[], startedAtChartSecond: number): void {
+    this.replayInputEvents = events.slice();
+    this.replayEventAtMs = [];
+    let acc = 0;
+    for (const event of this.replayInputEvents) {
+      acc += Math.max(0, event.deltaMs);
+      this.replayEventAtMs.push(acc);
+    }
+    this.replayCursor = 0;
+    this.replayStartChartSecond = startedAtChartSecond;
+  }
+
+  clearReplayInput(): void {
+    this.replayInputEvents = [];
+    this.replayEventAtMs = [];
+    this.replayCursor = 0;
+    this.replayStartChartSecond = 0;
+  }
+
+  private consumeReplayInputUntil(simSecond: number): void {
+    if (this.replayCursor >= this.replayInputEvents.length) return;
+    const simChartSecond = simSecond - this.audioOffset;
+    const elapsedMs = (simChartSecond - this.replayStartChartSecond) * 1000;
+    if (elapsedMs < 0) return;
+    while (
+      this.replayCursor < this.replayInputEvents.length &&
+      this.replayEventAtMs[this.replayCursor]! <= elapsedMs + 1e-6
+    ) {
+      const event = this.replayInputEvents[this.replayCursor]!;
+      this.applyReplayKeyMask(event.keyMask);
+      this.replayCursor++;
+    }
+  }
+
+  private applyReplayKeyMask(mask: number): void {
+    for (let track = 0; track < this.config.numTracks; track++) {
+      const shouldDown = ((mask >>> track) & 1) === 1;
+      const isDown = this.keysDown[track] === true;
+      if (shouldDown && !isDown) {
+        this.pressKey(track);
+      } else if (!shouldDown && isDown) {
+        this.releaseKey(track);
+      }
     }
   }
 
@@ -744,16 +794,21 @@ export class GameEngine {
 
     let catchupSteps = 0;
     while (
+      this.state === "playing" &&
       this.simulatedSecond + SIMULATION_DT <= targetSecond &&
       catchupSteps < MAX_CATCHUP_SIM_STEPS_PER_UPDATE
     ) {
       this.simulatedSecond += SIMULATION_DT;
+      this.currentSecond = this.simulatedSecond;
+      this.consumeReplayInputUntil(this.simulatedSecond);
       this.runSimulationStep(this.simulatedSecond);
       catchupSteps++;
     }
     // Rare: timeline gap larger than cap (~68s @ 240Hz); one step so gameplay still advances.
-    if (this.simulatedSecond < targetSecond) {
+    if (this.state === "playing" && this.simulatedSecond < targetSecond) {
       this.simulatedSecond = targetSecond;
+      this.currentSecond = this.simulatedSecond;
+      this.consumeReplayInputUntil(this.simulatedSecond);
       this.runSimulationStep(this.simulatedSecond);
     }
 
@@ -832,7 +887,7 @@ export class GameEngine {
         !this.judgment.hasPendingHoldsBefore(settleLine)
       : false;
 
-    if (finishedByChartTail || noPendingPastJudgmentLine) {
+    if (this.state === "playing" && (finishedByChartTail || noPendingPastJudgmentLine)) {
       const finishPayload = {
         reason: finishedByChartTail ? "chartTail" : "settledPastJudgmentLine",
         finishedByChartTail,
@@ -888,6 +943,7 @@ export class GameEngine {
 
   private runSimulationStep(simSecond: number) {
     if (!this.judgment) return;
+    if (this.state !== "playing") return;
 
     const pendingEvents = this.judgment.updateAutoMiss(simSecond);
     for (const evt of pendingEvents) {
@@ -955,6 +1011,7 @@ export class GameEngine {
     this.chartLeadInFinishing = false;
     this.leadInSyncGuardUntilMs = 0;
     this.chartTiming = null;
+    this.clearReplayInput();
     if (this.audioLoaded) {
       this.audioPort?.stop().catch((e) => logDebug("Optional", "gameEngine.cleanup.audioStop", e));
     }

@@ -11,6 +11,8 @@ import { captureCurrentScoringConfig } from "./types";
 import { logDebug, logWarn } from "@/shared/lib/devLog";
 
 const ROLL_TICK_INTERVAL = 0.25;
+const HOLD_GRACE_SECONDS = 1.0;
+const HOLD_REPRESS_LENIENCY_SECONDS = 0.04;
 
 /** Type-safe map from JudgmentType to its corresponding ScoreState key. */
 const JUDGMENT_SCORE_KEY: Readonly<Record<JudgmentType, keyof Pick<ScoreState, "w1" | "w2" | "w3" | "w4" | "w5" | "miss">>> = {
@@ -165,6 +167,45 @@ export class JudgmentSystem {
         : Math.max(this.player1Score.maxCombo, this.player2Score.maxCombo);
   }
 
+  private applyHoldCheckpointResult(player: 1 | 2, held: boolean) {
+    const ps = this.getScoreStateForPlayer(player);
+    if (held) {
+      this.score.held++;
+      this.score.dancePoints += this.sc.holdDpWeights.held;
+      ps.held++;
+      ps.dancePoints += this.sc.holdDpWeights.held;
+      ps.combo++;
+      ps.maxCombo = Math.max(ps.maxCombo, ps.combo);
+      this.score.combo = Math.max(this.score.combo, ps.combo);
+      this.score.maxCombo =
+        this.config.sessionPlayMode === "pump-double"
+          ? this.player1Score.maxCombo
+          : Math.max(this.player1Score.maxCombo, this.player2Score.maxCombo);
+      return;
+    }
+
+    this.score.letGo++;
+    this.score.dancePoints += this.sc.holdDpWeights.letGo;
+    ps.letGo++;
+    ps.dancePoints += this.sc.holdDpWeights.letGo;
+    ps.combo = 0;
+    this.score.combo = Math.max(this.player1Score.combo, this.player2Score.combo);
+  }
+
+  private isHoldCheckpointHeld(hold: HoldState, currentSecond: number, keysDown: boolean[]): boolean {
+    if (hold.isRoll) {
+      if (this.config.autoPlay) return true;
+      const timeSinceTick = currentSecond - hold.lastRollTick;
+      return timeSinceTick <= ROLL_TICK_INTERVAL * 1.5;
+    }
+    if (this.config.autoPlay) return true;
+    const isDown = keysDown[hold.track] ?? false;
+    if (isDown) return true;
+    if (this.config.expertModeEnabled) return false;
+    if (hold.graceUntilSecond == null) return false;
+    return currentSecond <= hold.graceUntilSecond + HOLD_REPRESS_LENIENCY_SECONDS;
+  }
+
   isBothFailed(): boolean {
     if (this.config.requireBothFailedForGameOver) {
       return this.player1Score.failed && this.player2Score.failed;
@@ -228,17 +269,24 @@ export class JudgmentSystem {
       const isRoll = n.noteType === "Roll";
       // Include heads with only `holdEndSecond` (no tail row) so tail DP can be scored.
       if ((isHold || isRoll) && (n.holdEndRow !== null || n.holdEndSecond != null)) {
+        const checkpointInterval = isRoll ? ROLL_TICK_INTERVAL : Math.max(0.05, this.sc.timingWindows.hold);
+        const endSecond = n.holdEndSecond ?? n.second + 1;
+        const firstCheckpoint = Math.min(endSecond, n.second + checkpointInterval);
         this.holds.push({
           track: n.track,
           startRow: n.row,
           endRow: n.holdEndRow ?? n.row,
-          endSecond: n.holdEndSecond ?? n.second + 1,
+          endSecond,
           active: false,
+          headMissed: false,
           held: false,
           finished: false,
           isRoll,
           lastRollTick: 0,
           letGo: false,
+          nextCheckpointSecond: firstCheckpoint,
+          checkpointInterval,
+          graceUntilSecond: null,
         });
       }
     }
@@ -371,9 +419,20 @@ export class JudgmentSystem {
       const hold = this.holds.find(
         (h) => h.track === bestNote!.track && h.startRow === bestNote!.row,
       );
-      if (hold && judgment !== "Miss" && judgment !== "W5") {
-        hold.active = true;
-        hold.lastRollTick = currentSecond;
+      if (hold) {
+        if (judgment !== "Miss" && judgment !== "W5") {
+          hold.active = true;
+          hold.held = true;
+          hold.letGo = false;
+          hold.graceUntilSecond = null;
+          hold.lastRollTick = currentSecond;
+        } else {
+          hold.headMissed = true;
+          hold.active = false;
+          hold.held = false;
+          hold.letGo = true;
+          hold.graceUntilSecond = null;
+        }
       }
     }
 
@@ -431,6 +490,16 @@ export class JudgmentSystem {
         const pl = this.getPlayerForNote(note);
         const ps = this.getScoreStateForPlayer(pl);
         this.judgedRows.add(this.noteKey(note.track, note.row));
+        if (note.noteType === "HoldHead" || note.noteType === "Roll") {
+          const hold = this.holds.find((h) => h.track === note.track && h.startRow === note.row);
+          if (hold) {
+            hold.headMissed = true;
+            hold.active = false;
+            hold.held = false;
+            hold.letGo = true;
+            hold.graceUntilSecond = null;
+          }
+        }
         if (!ps.failed && !skipAllAutoMissDp) {
           const evt: JudgmentEvent = {
             judgment: "Miss",
@@ -484,7 +553,10 @@ export class JudgmentSystem {
         );
         if (hold) {
           hold.active = true;
+          hold.headMissed = false;
           hold.held = true;
+          hold.letGo = false;
+          hold.graceUntilSecond = null;
           hold.lastRollTick = currentSecond;
         }
       }
@@ -501,76 +573,39 @@ export class JudgmentSystem {
     let statsChanged = false;
     for (const hold of this.holds) {
       if (hold.finished) continue;
+      if (!hold.active) continue;
+      if (!hold.isRoll) {
+        const down = this.config.autoPlay ? true : (keysDown[hold.track] ?? false);
+        if (down) {
+          hold.held = true;
+          hold.letGo = false;
+          hold.graceUntilSecond = null;
+        } else if (hold.held && !hold.letGo) {
+          hold.letGo = true;
+          hold.held = false;
+          hold.graceUntilSecond = this.config.expertModeEnabled ? null : currentSecond + HOLD_GRACE_SECONDS;
+        }
+      } else if (this.config.autoPlay) {
+        hold.held = true;
+        hold.lastRollTick = currentSecond;
+      } else if (currentSecond - hold.lastRollTick > ROLL_TICK_INTERVAL) {
+        hold.held = false;
+      }
+
+      const settleSecond = Math.min(currentSecond, hold.endSecond);
+      while (hold.nextCheckpointSecond <= settleSecond + 1e-9) {
+        const pl = this.getPlayerForHold(hold);
+        const held = this.isHoldCheckpointHeld(hold, hold.nextCheckpointSecond, keysDown);
+        this.applyHoldCheckpointResult(pl, held);
+        statsChanged = true;
+        hold.held = held;
+        hold.letGo = !held;
+        hold.nextCheckpointSecond += hold.checkpointInterval;
+      }
 
       if (currentSecond >= hold.endSecond) {
         hold.finished = true;
-        if (hold.active) {
-          const pl = this.getPlayerForHold(hold);
-          const ps = this.getScoreStateForPlayer(pl);
-          if (hold.isRoll) {
-            const timeSinceTick = currentSecond - hold.lastRollTick;
-            // AutoPlay: always credit roll tails — large `simSecond` jumps (rAF stalls) can exceed the tick window.
-            if (
-              this.config.autoPlay ||
-              timeSinceTick <= ROLL_TICK_INTERVAL * 1.5
-            ) {
-              this.score.held++;
-              this.score.dancePoints += this.sc.holdDpWeights.held;
-              ps.held++;
-              ps.dancePoints += this.sc.holdDpWeights.held;
-              statsChanged = true;
-            } else {
-              this.score.letGo++;
-              this.score.dancePoints += this.sc.holdDpWeights.letGo;
-              ps.letGo++;
-              ps.dancePoints += this.sc.holdDpWeights.letGo;
-              statsChanged = true;
-            }
-          } else {
-            // AutoPlay: credit standard hold tails whenever the hold was started (active).
-            const creditHeld =
-              hold.held || (this.config.autoPlay && hold.active);
-            if (creditHeld) {
-              this.score.held++;
-              this.score.dancePoints += this.sc.holdDpWeights.held;
-              ps.held++;
-              ps.dancePoints += this.sc.holdDpWeights.held;
-              statsChanged = true;
-            } else {
-              this.score.letGo++;
-              this.score.dancePoints += this.sc.holdDpWeights.letGo;
-              ps.letGo++;
-              ps.dancePoints += this.sc.holdDpWeights.letGo;
-              statsChanged = true;
-            }
-          }
-        }
-        continue;
-      }
-
-      if (!hold.active) continue;
-
-      if (hold.isRoll) {
-        if (this.config.autoPlay) {
-          hold.held = true;
-          hold.lastRollTick = currentSecond;
-        } else {
-          const timeSinceTick = currentSecond - hold.lastRollTick;
-          if (timeSinceTick > ROLL_TICK_INTERVAL) {
-            hold.held = false;
-          }
-        }
-      } else {
-        const down = keysDown[hold.track] ?? false;
-        if (hold.letGo && down && hold.held) {
-          hold.letGo = false;
-          hold.held = true;
-        } else if (!down && hold.held && !hold.letGo) {
-          hold.letGo = true;
-          hold.held = false;
-        } else if (!hold.letGo) {
-          hold.held = this.config.autoPlay ? true : down;
-        }
+        hold.active = false;
       }
     }
     return statsChanged;

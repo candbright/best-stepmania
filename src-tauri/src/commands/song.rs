@@ -38,21 +38,31 @@ fn entry_to_item(e: &sm_song::SongEntry) -> SongListItem {
         subtitle: e.subtitle.clone(),
         artist: e.artist.clone(),
         display_bpm: e.display_bpm.clone(),
-        banner_path: e.banner_path.as_ref().map(|p| p.to_string_lossy().to_string()),
-        background_path: e.background_path.as_ref().map(|p| p.to_string_lossy().to_string()),
+        banner_path: e
+            .banner_path
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string()),
+        background_path: e
+            .background_path
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string()),
         pack: e.pack_name.clone(),
         genre: e.genre.clone(),
         sample_start: e.sample_start,
         sample_length: e.sample_length,
-        charts: e.charts.iter().map(|c| ChartInfoItem {
-            steps_type: c.steps_type.clone(),
-            difficulty: c.difficulty.clone(),
-            meter: c.meter,
-            chart_name: c.chart_name.clone(),
-            note_count: c.note_count,
-            num_tracks: c.num_tracks,
-            chart_index: c.chart_index,
-        }).collect(),
+        charts: e
+            .charts
+            .iter()
+            .map(|c| ChartInfoItem {
+                steps_type: c.steps_type.clone(),
+                difficulty: c.difficulty.clone(),
+                meter: c.meter,
+                chart_name: c.chart_name.clone(),
+                note_count: c.note_count,
+                num_tracks: c.num_tracks,
+                chart_index: c.chart_index,
+            })
+            .collect(),
     }
 }
 
@@ -87,11 +97,17 @@ pub fn get_song_list(
 
     if let Some(sort) = sort_by.as_deref() {
         match sort {
-            "title" => mgr.songs.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase())),
-            "artist" => mgr.songs.sort_by(|a, b| a.artist.to_lowercase().cmp(&b.artist.to_lowercase())),
+            "title" => mgr
+                .songs
+                .sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase())),
+            "artist" => mgr
+                .songs
+                .sort_by(|a, b| a.artist.to_lowercase().cmp(&b.artist.to_lowercase())),
             "bpm" => mgr.songs.sort_by(|a, b| a.display_bpm.cmp(&b.display_bpm)),
             "pack" => mgr.songs.sort_by(|a, b| {
-                a.pack_name.cmp(&b.pack_name).then_with(|| a.title.cmp(&b.title))
+                a.pack_name
+                    .cmp(&b.pack_name)
+                    .then_with(|| a.title.cmp(&b.title))
             }),
             _ => {}
         }
@@ -103,10 +119,7 @@ pub fn get_song_list(
 }
 
 #[tauri::command]
-pub fn get_song_music_path(
-    state: State<AppState>,
-    song_path: String,
-) -> Result<String, String> {
+pub fn get_song_music_path(state: State<AppState>, song_path: String) -> Result<String, String> {
     let mgr = state.song_manager.lock().map_err(|e| e.to_string())?;
     let song = mgr
         .songs

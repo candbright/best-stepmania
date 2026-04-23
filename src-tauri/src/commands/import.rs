@@ -21,7 +21,10 @@ fn validate_user_pack_name(name: &str) -> Result<&str, String> {
     if name.contains('/') || name.contains('\\') || name.contains("..") {
         return Err("Invalid pack name".to_string());
     }
-    if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == ' ' || c == '-' || c == '_') {
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == ' ' || c == '-' || c == '_')
+    {
         return Err("Pack name contains invalid characters".to_string());
     }
     Ok(name)
@@ -207,20 +210,22 @@ pub async fn prepare_song_import(
     let folder_name_clone = folder_name.clone();
 
     // 在阻塞线程中复制文件夹
-    let (song_dir, has_audio, has_cover, has_chart) = tauri::async_runtime::spawn_blocking(move || -> Result<(std::path::PathBuf, bool, bool, bool), String> {
-        let source = Path::new(&source_clone);
-        // 如果目标目录已存在（同名曲包的情况），自动生成不冲突的目录名
-        let target = unique_dir_under(&target_clone, folder_name_clone.as_str());
+    let (song_dir, has_audio, has_cover, has_chart) = tauri::async_runtime::spawn_blocking(
+        move || -> Result<(std::path::PathBuf, bool, bool, bool), String> {
+            let source = Path::new(&source_clone);
+            // 如果目标目录已存在（同名曲包的情况），自动生成不冲突的目录名
+            let target = unique_dir_under(&target_clone, folder_name_clone.as_str());
 
-        std::fs::create_dir_all(&target).map_err(|e| e.to_string())?;
-        copy_dir_recursive(source, &target).map_err(|e| e.to_string())?;
+            std::fs::create_dir_all(&target).map_err(|e| e.to_string())?;
+            copy_dir_recursive(source, &target).map_err(|e| e.to_string())?;
 
-        let has_audio = find_audio_file(&target).is_some();
-        let has_cover = find_cover_file(&target).is_some();
-        let has_chart = has_chart_file(&target);
+            let has_audio = find_audio_file(&target).is_some();
+            let has_cover = find_cover_file(&target).is_some();
+            let has_chart = has_chart_file(&target);
 
-        Ok((target, has_audio, has_cover, has_chart))
-    })
+            Ok((target, has_audio, has_cover, has_chart))
+        },
+    )
     .await
     .map_err(|e| format!("Prepare import failed: {e}"))??;
 
@@ -263,7 +268,10 @@ pub async fn create_chart_for_imported(
     if !music_source_path.trim().is_empty() {
         let src_path = Path::new(&music_source_path);
         if src_path.exists() && src_path.is_file() {
-            let ext = src_path.extension().and_then(|e| e.to_str()).unwrap_or("wav");
+            let ext = src_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("wav");
             let dest = dir.join(format!("music.{}", ext));
             std::fs::copy(src_path, &dest).map_err(|e| e.to_string())?;
             audio_file_path = dest;
@@ -286,7 +294,10 @@ pub async fn create_chart_for_imported(
     if !cover_source_path.trim().is_empty() {
         let src_path = Path::new(&cover_source_path);
         if src_path.exists() && src_path.is_file() {
-            let ext = src_path.extension().and_then(|e| e.to_str()).unwrap_or("bmp");
+            let ext = src_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("bmp");
             let dest = dir.join(format!("banner.{}", ext));
             std::fs::copy(src_path, &dest).map_err(|e| e.to_string())?;
             banner_file_path = dest;
@@ -308,10 +319,16 @@ pub async fn create_chart_for_imported(
     let background_file_name = if !background_source_path.trim().is_empty() {
         let src_path = Path::new(&background_source_path);
         if src_path.exists() && src_path.is_file() {
-            let ext = src_path.extension().and_then(|e| e.to_str()).unwrap_or("bmp");
+            let ext = src_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("bmp");
             let dest = dir.join(format!("background.{}", ext));
             std::fs::copy(src_path, &dest).map_err(|e| e.to_string())?;
-            dest.file_name().and_then(|n| n.to_str()).unwrap_or("background.bmp").to_string()
+            dest.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("background.bmp")
+                .to_string()
         } else {
             banner_file_name.clone()
         }
@@ -413,7 +430,7 @@ pub async fn import_song_pack(
 
         let has_chart = has_chart_file(source);
         let has_audio = find_audio_file(source).is_some();
-        
+
         // If source has chart OR audio, treat it as a single song
         if has_chart || has_audio {
             // 源目录本身就是一首歌，复制到根目录
@@ -424,10 +441,13 @@ pub async fn import_song_pack(
             }
         } else {
             // 源目录是曲包目录，获取曲包名称并在 songs 目录下创建对应曲包子目录
-            let pack_name_os = source.file_name().and_then(|n| n.to_str()).unwrap_or("imported-pack");
-            match validate_user_pack_name(pack_name_os).map_err(|e| {
-                format!("{e} (folder name: {:?})", pack_name_os)
-            }) {
+            let pack_name_os = source
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("imported-pack");
+            match validate_user_pack_name(pack_name_os)
+                .map_err(|e| format!("{e} (folder name: {:?})", pack_name_os))
+            {
                 Err(e) => errors.push(e),
                 Ok(pack_name) => {
                     let pack_target = songs_dir_clone.join(pack_name);
@@ -437,14 +457,20 @@ pub async fn import_song_pack(
                         Ok(entries) => {
                             for entry in entries.flatten() {
                                 let p = entry.path();
-                                if !p.is_dir() { continue; }
+                                if !p.is_dir() {
+                                    continue;
+                                }
 
                                 // Check if this directory has chart or audio (treat as song folder)
                                 let has_chart = has_chart_file(&p);
                                 let has_audio = find_audio_file(&p).is_some();
 
                                 if has_chart || has_audio {
-                                    match copy_song_folder_with_defaults(&p, &pack_target, &mut warnings) {
+                                    match copy_song_folder_with_defaults(
+                                        &p,
+                                        &pack_target,
+                                        &mut warnings,
+                                    ) {
                                         Ok(true) => imported += 1,
                                         Ok(false) => skipped += 1,
                                         Err(e) => errors.push(e),
@@ -457,9 +483,14 @@ pub async fn import_song_pack(
                                                 let sp = sub.path();
                                                 if sp.is_dir() {
                                                     let sub_has_chart = has_chart_file(&sp);
-                                                    let sub_has_audio = find_audio_file(&sp).is_some();
+                                                    let sub_has_audio =
+                                                        find_audio_file(&sp).is_some();
                                                     if sub_has_chart || sub_has_audio {
-                                                        match copy_song_folder_with_defaults(&sp, &pack_target, &mut warnings) {
+                                                        match copy_song_folder_with_defaults(
+                                                            &sp,
+                                                            &pack_target,
+                                                            &mut warnings,
+                                                        ) {
                                                             Ok(true) => imported += 1,
                                                             Ok(false) => skipped += 1,
                                                             Err(e) => errors.push(e),
@@ -488,7 +519,12 @@ pub async fn import_song_pack(
         rescan_songs(&state).await?;
     }
 
-    Ok(ImportResult { imported_count: imported, skipped_count: skipped, errors, warnings })
+    Ok(ImportResult {
+        imported_count: imported,
+        skipped_count: skipped,
+        errors,
+        warnings,
+    })
 }
 
 /// 列出 songs 目录下的所有曲包（一级子目录），并始终包含 root 曲包。
@@ -510,10 +546,13 @@ pub fn list_song_packs(state: State<AppState>) -> Result<Vec<serde_json::Value>,
 
     let mut mgr = state.song_manager.lock().map_err(|e| e.to_string())?;
     // 重新扫描以获取最新状态
-    mgr.scan_directory(&songs_dir.to_string_lossy()).map_err(|e| e.to_string())?;
+    mgr.scan_directory(&songs_dir.to_string_lossy())
+        .map_err(|e| e.to_string())?;
 
     // Root 曲包：来自 .root 目录的歌曲（pack_name == ROOT_PACK_ID）
-    let root_song_count = mgr.songs.iter()
+    let root_song_count = mgr
+        .songs
+        .iter()
         .filter(|s| s.pack_name == ROOT_PACK_ID)
         .count();
     let root_size_bytes = dir_size(&root_dir).unwrap_or(0);
@@ -532,17 +571,20 @@ pub fn list_song_packs(state: State<AppState>) -> Result<Vec<serde_json::Value>,
     if let Ok(entries) = std::fs::read_dir(&songs_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if !path.is_dir() { continue; }
-            let name = path.file_name()
+            if !path.is_dir() {
+                continue;
+            }
+            let name = path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("")
                 .to_string();
             // 跳过 root 曲包目录本身
-            if name == ROOT_PACK_ID { continue; }
+            if name == ROOT_PACK_ID {
+                continue;
+            }
             // 统计该曲包下的歌曲数
-            let song_count = mgr.songs.iter()
-                .filter(|s| s.pack_name == name)
-                .count();
+            let song_count = mgr.songs.iter().filter(|s| s.pack_name == name).count();
             // 计算目录大小（MB）
             let size_bytes = dir_size(&path).unwrap_or(0);
             let size_mb = size_bytes as f64 / 1024.0 / 1024.0;
@@ -562,7 +604,10 @@ pub fn list_song_packs(state: State<AppState>) -> Result<Vec<serde_json::Value>,
         match (a_root, b_root) {
             (true, false) => Ordering::Less,
             (false, true) => Ordering::Greater,
-            _ => a["name"].as_str().unwrap_or("").cmp(b["name"].as_str().unwrap_or("")),
+            _ => a["name"]
+                .as_str()
+                .unwrap_or("")
+                .cmp(b["name"].as_str().unwrap_or("")),
         }
     });
     Ok(packs)
@@ -608,10 +653,7 @@ pub async fn create_empty_pack(
 
 /// 删除指定曲包（songs 目录下的一级子目录）。root 曲包不可删除。
 #[tauri::command]
-pub async fn delete_song_pack(
-    state: State<'_, AppState>,
-    pack_name: String,
-) -> Result<(), String> {
+pub async fn delete_song_pack(state: State<'_, AppState>, pack_name: String) -> Result<(), String> {
     // 禁止删除 root 曲包
     if pack_name.trim() == ROOT_PACK_ID {
         return Err("Cannot delete the root song pack".to_string());
@@ -639,7 +681,10 @@ pub async fn delete_song_pack(
 /// 创建新歌曲目录（可放在根目录或指定曲包），并生成基础 .sm 文件。
 /// 若未提供封面/音源，自动生成默认资源（封面 512x384，音源 wav）。
 #[tauri::command]
-pub async fn create_song(state: State<'_, AppState>, req: CreateSongRequest) -> Result<CreateSongResult, String> {
+pub async fn create_song(
+    state: State<'_, AppState>,
+    req: CreateSongRequest,
+) -> Result<CreateSongResult, String> {
     let songs_dir = {
         let base = state.songs_base_dir.lock().map_err(|e| e.to_string())?;
         std::path::PathBuf::from(base.clone())
@@ -652,10 +697,22 @@ pub async fn create_song(state: State<'_, AppState>, req: CreateSongRequest) -> 
     let genre = req.genre.unwrap_or_default().trim().to_string();
     let pack_name_raw = req.pack_name.unwrap_or_default().trim().to_string();
 
-    let song_title = if title.is_empty() { "New Song".to_string() } else { title };
-    let song_artist = if artist.is_empty() { "Unknown Artist".to_string() } else { artist };
+    let song_title = if title.is_empty() {
+        "New Song".to_string()
+    } else {
+        title
+    };
+    let song_artist = if artist.is_empty() {
+        "Unknown Artist".to_string()
+    } else {
+        artist
+    };
     let song_subtitle = subtitle;
-    let song_genre = if genre.is_empty() { "Unknown".to_string() } else { genre };
+    let song_genre = if genre.is_empty() {
+        "Unknown".to_string()
+    } else {
+        genre
+    };
 
     // 空包名或根目录均落在 `Songs/.root/`（与导入、曲包列表一致）
     let base_dir = pack_content_dir(&songs_dir, &pack_name_raw)?;
@@ -668,7 +725,12 @@ pub async fn create_song(state: State<'_, AppState>, req: CreateSongRequest) -> 
     let song_dir = unique_dir_under(&base_dir, &song_dir_name);
     std::fs::create_dir_all(&song_dir).map_err(|e| e.to_string())?;
 
-    let (music_file_name, used_default_music) = if let Some(src) = req.music_source_path.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    let (music_file_name, used_default_music) = if let Some(src) = req
+        .music_source_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         let src_path = std::path::PathBuf::from(src);
         if !src_path.exists() || !src_path.is_file() {
             return Err(format!("Music source does not exist: {}", src));
@@ -688,7 +750,12 @@ pub async fn create_song(state: State<'_, AppState>, req: CreateSongRequest) -> 
         (file_name, true)
     };
 
-    let (banner_file_name, used_default_cover) = if let Some(src) = req.cover_source_path.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+    let (banner_file_name, used_default_cover) = if let Some(src) = req
+        .cover_source_path
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
         let src_path = std::path::PathBuf::from(src);
         if !src_path.exists() || !src_path.is_file() {
             return Err(format!("Cover source does not exist: {}", src));
@@ -821,7 +888,9 @@ pub async fn delete_song(state: State<'_, AppState>, song_path: String) -> Resul
         return Err(format!("Song directory not found: {}", song_path));
     }
     // Safety: path must reside inside songs_dir and not be songs_dir itself
-    let canonical_path = path.canonicalize().map_err(|e| format!("Cannot resolve path: {e}"))?;
+    let canonical_path = path
+        .canonicalize()
+        .map_err(|e| format!("Cannot resolve path: {e}"))?;
     let canonical_songs = songs_dir.canonicalize().unwrap_or(songs_dir.clone());
     if !canonical_path.starts_with(&canonical_songs) || canonical_path == canonical_songs {
         return Err("Invalid song path: not under songs directory".to_string());
@@ -891,7 +960,7 @@ pub fn read_file_base64(path: String) -> Result<String, String> {
         _ => "application/octet-stream",
     };
 
-    use base64::{Engine as _, engine::general_purpose};
+    use base64::{engine::general_purpose, Engine as _};
     let b64 = general_purpose::STANDARD.encode(&buf);
     Ok(format!("data:{};base64,{}", mime, b64))
 }
@@ -932,11 +1001,23 @@ fn find_cover_file(dir: &Path) -> Option<std::path::PathBuf> {
             let p = entry.path();
             if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
                 let ext_lower = ext.to_lowercase();
-                if ext_lower == "png" || ext_lower == "jpg" || ext_lower == "jpeg" || ext_lower == "bmp" || ext_lower == "gif" || ext_lower == "webp" {
+                if ext_lower == "png"
+                    || ext_lower == "jpg"
+                    || ext_lower == "jpeg"
+                    || ext_lower == "bmp"
+                    || ext_lower == "gif"
+                    || ext_lower == "webp"
+                {
                     // Check for common banner/cover file names
                     if let Some(file_name) = p.file_stem().and_then(|s| s.to_str()) {
                         let name_lower = file_name.to_lowercase();
-                        if name_lower.contains("bn") || name_lower.contains("banner") || name_lower.contains("jacket") || name_lower.contains("bg") || name_lower.contains("background") || name_lower.contains("cover") {
+                        if name_lower.contains("bn")
+                            || name_lower.contains("banner")
+                            || name_lower.contains("jacket")
+                            || name_lower.contains("bg")
+                            || name_lower.contains("background")
+                            || name_lower.contains("cover")
+                        {
                             return Some(p);
                         }
                     }
@@ -958,27 +1039,29 @@ fn write_empty_chart_sm(path: &std::path::Path, title: &str) -> Result<(), Strin
     } else {
         title.to_string()
     };
-    
+
     let escaped_title = escape_sm_value(&song_name);
     let escaped_artist = escape_sm_value("Unknown Artist");
     let escaped_genre = escape_sm_value("Unknown");
-    
+
     // Look for existing audio file to reference
     let audio_file_path = path.parent().and_then(find_audio_file);
-    let audio_ref = audio_file_path.as_ref()
+    let audio_ref = audio_file_path
+        .as_ref()
         .and_then(|p| p.file_name())
         .and_then(|n| n.to_str())
         .map(|s| s.to_string())
         .unwrap_or_else(|| "music.wav".to_string());
-    
+
     // Look for existing banner
     let banner_file_path = path.parent().and_then(find_cover_file);
-    let banner_ref = banner_file_path.as_ref()
+    let banner_ref = banner_file_path
+        .as_ref()
         .and_then(|p| p.file_name())
         .and_then(|n| n.to_str())
         .map(|s| s.to_string())
         .unwrap_or_else(|| "banner.bmp".to_string());
-    
+
     let sm_content = format!(
         "#TITLE:{};\n#SUBTITLE:;\n#ARTIST:{};\n#GENRE:{};\n#MUSIC:{};\n#BANNER:{};\n#BACKGROUND:{};\n#SAMPLESTART:0.000;\n#SAMPLELENGTH:12.000;\n#OFFSET:0.000;\n#BPMS:0.000=120.000;\n\n#NOTES:\n     dance-single:\n     :\n     Edit:\n     1:\n     0,0,0,0:\n;\n",
         escaped_title,
@@ -988,7 +1071,7 @@ fn write_empty_chart_sm(path: &std::path::Path, title: &str) -> Result<(), Strin
         escape_sm_value(&banner_ref),
         escape_sm_value(&banner_ref),
     );
-    
+
     std::fs::write(path, sm_content).map_err(|e| e.to_string())
 }
 
@@ -1020,7 +1103,9 @@ async fn rescan_songs(state: &State<'_, AppState>) -> Result<(), String> {
             s.total_found = count;
         }
         mgr
-    }).await.map_err(|e| format!("Rescan failed: {e}"))?;
+    })
+    .await
+    .map_err(|e| format!("Rescan failed: {e}"))?;
 
     let mut mgr = state.song_manager.lock().map_err(|e| e.to_string())?;
     *mgr = new_mgr;

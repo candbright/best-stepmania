@@ -99,10 +99,15 @@ fn refresh_song_list_entry(state: &State<'_, AppState>, chart_path: &Path) {
 }
 
 /// Direct `.sm` / `.ssc` paths must belong to the scanned library (prevents arbitrary file reads via IPC).
-fn ensure_chart_file_in_library(state: &State<'_, AppState>, chart_path: &Path) -> Result<(), String> {
+fn ensure_chart_file_in_library(
+    state: &State<'_, AppState>,
+    chart_path: &Path,
+) -> Result<(), String> {
     let mgr = state.song_manager.lock().map_err(|e| e.to_string())?;
     if mgr.songs.is_empty() {
-        return Err("Song library is empty; scan songs before opening chart files by path".to_string());
+        return Err(
+            "Song library is empty; scan songs before opening chart files by path".to_string(),
+        );
     }
     let canon_chart = chart_path.canonicalize().ok();
     let known = mgr.songs.iter().any(|s| {
@@ -130,7 +135,11 @@ fn ensure_song_dir_in_library(state: &State<'_, AppState>, dir: &Path) -> Result
         .canonicalize()
         .map_err(|e| format!("Song path not accessible: {e}"))?;
     let mgr = state.song_manager.lock().map_err(|e| e.to_string())?;
-    if mgr.songs.iter().any(|s| s.path.canonicalize().ok().as_ref() == Some(&dir_canon)) {
+    if mgr
+        .songs
+        .iter()
+        .any(|s| s.path.canonicalize().ok().as_ref() == Some(&dir_canon))
+    {
         return Ok(());
     }
     drop(mgr);
@@ -241,7 +250,10 @@ pub fn load_chart(state: State<'_, AppState>, song_path: String) -> Result<Vec<C
         .collect())
 }
 
-fn extract_chart_note_rows(song: &sm_chart::SongFile, chart_index: usize) -> Result<Vec<ChartNoteRow>, String> {
+fn extract_chart_note_rows(
+    song: &sm_chart::SongFile,
+    chart_index: usize,
+) -> Result<Vec<ChartNoteRow>, String> {
     let chart = song.charts.get(chart_index).ok_or_else(|| {
         format!(
             "Chart index {} out of range (total charts: {})",
@@ -639,10 +651,12 @@ pub fn update_chart_properties(
         sm_chart::parse_file(&chart_path.to_string_lossy()).map_err(|e| e.to_string())?;
 
     let total = song.charts.len();
-    let chart = song
-        .charts
-        .get_mut(chart_index)
-        .ok_or_else(|| format!("Chart index {} out of range (total: {})", chart_index, total))?;
+    let chart = song.charts.get_mut(chart_index).ok_or_else(|| {
+        format!(
+            "Chart index {} out of range (total: {})",
+            chart_index, total
+        )
+    })?;
 
     let st = sm_core::StepsType::from_str_tag(&steps_type)
         .ok_or_else(|| format!("Unknown steps type: {}", steps_type))?;
@@ -1044,8 +1058,7 @@ pub fn export_chart_as_sm(
     output_path: String,
 ) -> Result<(), String> {
     let chart_path = resolve_chart_path(&state, &song_path)?;
-    let song =
-        sm_chart::parse_file(&chart_path.to_string_lossy()).map_err(|e| e.to_string())?;
+    let song = sm_chart::parse_file(&chart_path.to_string_lossy()).map_err(|e| e.to_string())?;
     let export_song = sm_chart::build_single_chart_sm_song(&song, chart_index)?;
 
     let path = Path::new(&output_path);
@@ -1083,7 +1096,8 @@ pub fn import_sm_as_new_chart(
         return Err("File must be a .sm chart".to_string());
     }
 
-    let content = sm_chart::encoding::read_file_auto_encoding(sm_file).map_err(|e| e.to_string())?;
+    let content =
+        sm_chart::encoding::read_file_auto_encoding(sm_file).map_err(|e| e.to_string())?;
     let parsed = sm_chart::parse_str(&content, "sm").map_err(|e| e.to_string())?;
 
     if parsed.charts.is_empty() {

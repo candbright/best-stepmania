@@ -32,23 +32,35 @@ impl StepsType {
     }
 
     pub fn is_pump(self) -> bool {
-        matches!(self,
-            Self::PumpSingle | Self::PumpHalfdouble | Self::PumpDouble
-            | Self::PumpCouple | Self::PumpRoutine
+        matches!(
+            self,
+            Self::PumpSingle
+                | Self::PumpHalfdouble
+                | Self::PumpDouble
+                | Self::PumpCouple
+                | Self::PumpRoutine
         )
     }
 
     pub fn is_dance(self) -> bool {
-        matches!(self,
-            Self::DanceSingle | Self::DanceDouble | Self::DanceSolo
-            | Self::DanceCouple | Self::DanceRoutine | Self::DanceThreepanel
+        matches!(
+            self,
+            Self::DanceSingle
+                | Self::DanceDouble
+                | Self::DanceSolo
+                | Self::DanceCouple
+                | Self::DanceRoutine
+                | Self::DanceThreepanel
         )
     }
 
     pub fn category(self) -> StepsTypeCategory {
         match self {
-            Self::DanceSingle | Self::DanceThreepanel | Self::DanceSolo
-            | Self::PumpSingle | Self::PumpHalfdouble => StepsTypeCategory::Single,
+            Self::DanceSingle
+            | Self::DanceThreepanel
+            | Self::DanceSolo
+            | Self::PumpSingle
+            | Self::PumpHalfdouble => StepsTypeCategory::Single,
             Self::DanceDouble | Self::PumpDouble => StepsTypeCategory::Double,
             Self::DanceCouple | Self::PumpCouple => StepsTypeCategory::Couple,
             Self::DanceRoutine | Self::PumpRoutine => StepsTypeCategory::Routine,

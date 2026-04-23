@@ -18,6 +18,7 @@ withDefaults(
 
 const emit = defineEmits<{
   (e: "clearTopScores"): void;
+  (e: "watchReplay", scoreId: string): void;
 }>();
 </script>
 
@@ -44,6 +45,14 @@ const emit = defineEmits<{
         <span class="grade" :style="gradeTextGradientStyle(row.grade)">{{ row.grade }}</span>
         <span class="pct">{{ displayPercentFromDpRatio(row.dpPercent).toFixed(2) }}%</span>
         <span v-if="row.fullCombo" class="fc-badge">{{ t('select.fullComboBadge') }}</span>
+        <button
+          v-if="row.hasReplay"
+          type="button"
+          class="replay-btn"
+          @click="emit('watchReplay', row.scoreId)"
+        >
+          {{ t('select.watchReplay') }}
+        </button>
         <span class="played-at">{{ formatPlayedAt(row.playedAt) }}</span>
       </li>
     </ul>
@@ -124,5 +133,19 @@ const emit = defineEmits<{
   padding: 0.15rem 0.5rem; background: #00e676; color: #000;
   border-radius: 4px; font-size: 0.7rem; font-weight: 800;
   font-family: 'Orbitron', sans-serif;
+}
+.replay-btn {
+  margin-left: 0.25rem;
+  font-size: 0.66rem;
+  font-weight: 700;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 70%, var(--border-color));
+  background: color-mix(in srgb, var(--primary-color) 18%, transparent);
+  color: var(--text-color);
+  padding: 0.14rem 0.45rem;
+  cursor: pointer;
+}
+.replay-btn:hover {
+  background: color-mix(in srgb, var(--primary-color) 32%, transparent);
 }
 </style>

@@ -200,8 +200,7 @@ impl PlaybackState {
             if let Ok(t) = self.track.try_lock() {
                 if let TrackData::Streaming { ring, .. } = &*t {
                     let pos = f64::from_bits(self.position.load(Ordering::Relaxed));
-                    ring.read_floor
-                        .store(pos.floor() as u64, Ordering::Release);
+                    ring.read_floor.store(pos.floor() as u64, Ordering::Release);
                 }
             }
             for s in output.iter_mut() {
@@ -354,8 +353,7 @@ impl PlaybackState {
             pos += advance_per_frame;
         }
 
-        ring.read_floor
-            .store(pos.floor() as u64, Ordering::Release);
+        ring.read_floor.store(pos.floor() as u64, Ordering::Release);
         self.position.store(f64::to_bits(pos), Ordering::Relaxed);
     }
 }

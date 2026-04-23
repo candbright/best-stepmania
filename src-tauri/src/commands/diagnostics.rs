@@ -1,9 +1,9 @@
 use crate::AppState;
 use std::fmt::Write as _;
 use std::io::Write;
-use std::path::{Path, PathBuf};
 #[cfg(target_os = "linux")]
 use std::path::Path as LinuxPath;
+use std::path::{Path, PathBuf};
 use tauri::State;
 
 /// 避免把异常大的日志整包打进 zip（仍可在 manifest 里看到路径与原因）。
@@ -46,7 +46,13 @@ pub fn export_diagnostics(state: State<AppState>) -> Result<ExportDiagnosticsRes
     // config.toml
     let config_path = data_dir.join("config.toml");
     if config_path.exists() {
-        zip_write_file_from_disk(&mut zip, options, "config.toml", &config_path, &mut manifest)?;
+        zip_write_file_from_disk(
+            &mut zip,
+            options,
+            "config.toml",
+            &config_path,
+            &mut manifest,
+        )?;
     } else {
         writeln!(manifest, "- config.toml: (missing)").unwrap();
     }
@@ -101,12 +107,7 @@ pub fn export_diagnostics(state: State<AppState>) -> Result<ExportDiagnosticsRes
         zip.start_file("song-library.json", options)
             .map_err(|e| e.to_string())?;
         zip.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
-        writeln!(
-            manifest,
-            "- song-library.json ({} songs)",
-            mgr.songs.len()
-        )
-        .unwrap();
+        writeln!(manifest, "- song-library.json ({} songs)", mgr.songs.len()).unwrap();
     }
 
     // Last scan / background scan status
@@ -225,12 +226,7 @@ fn append_logs_under(
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(e) => {
-            writeln!(
-                manifest,
-                "- logs: cannot read dir {} — {e}",
-                dir.display()
-            )
-            .unwrap();
+            writeln!(manifest, "- logs: cannot read dir {} — {e}", dir.display()).unwrap();
             return Ok(());
         }
     };
@@ -251,13 +247,7 @@ fn append_logs_under(
 
         if meta.is_dir() {
             append_logs_under(
-                &path,
-                data_dir,
-                songs_dir,
-                skip_file,
-                zip,
-                options,
-                manifest,
+                &path, data_dir, songs_dir, skip_file, zip, options, manifest,
             )?;
             continue;
         }
@@ -297,12 +287,7 @@ fn append_logs_under(
         zip.start_file(&zip_name, options)
             .map_err(|e| e.to_string())?;
         zip.write_all(&bytes).map_err(|e| e.to_string())?;
-        writeln!(
-            manifest,
-            "- added log {zip_name} ({} bytes)",
-            bytes.len()
-        )
-        .unwrap();
+        writeln!(manifest, "- added log {zip_name} ({} bytes)", bytes.len()).unwrap();
     }
 
     Ok(())
@@ -386,16 +371,14 @@ fn collect_system_info(state: &AppState) -> String {
     info.push_str(&format!("Data Directory: {}\n", state.data_dir.display()));
 
     if let Ok(base) = state.songs_base_dir.lock() {
-        info.push_str(&format!("Songs Directory (configured): {}\n", base.as_str()));
+        info.push_str(&format!(
+            "Songs Directory (configured): {}\n",
+            base.as_str()
+        ));
     }
 
     info.push_str("\n--- Relevant environment variables ---\n");
-    for key in [
-        "RUST_LOG",
-        "RUST_BACKTRACE",
-        "TAURI_ENV_DEBUG",
-        "PATH",
-    ] {
+    for key in ["RUST_LOG", "RUST_BACKTRACE", "TAURI_ENV_DEBUG", "PATH"] {
         match std::env::var(key) {
             Ok(val) => {
                 if key == "PATH" {

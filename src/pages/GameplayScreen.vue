@@ -104,6 +104,9 @@ onUnmounted(() => {
       :p2-offset-display="p2OffsetDisplay"
       @pause="pauseGame"
     />
+    <div v-if="session.replayMode" class="replay-badge">
+      REPLAY MODE - {{ session.replayAutoplayUiLabel ?? "Watching" }}
+    </div>
 
     <!-- Dev Performance Panel (F3 to toggle) -->
     <div v-if="showDevPanel" class="dev-perf-panel">
@@ -311,5 +314,18 @@ onUnmounted(() => {
   font-size: 11px;
   line-height: 1.45;
   color: color-mix(in srgb, var(--text-color) 90%, transparent);
+}
+.replay-badge {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 44;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  border: 1px solid color-mix(in srgb, #00e5ff 70%, var(--border-color));
+  background: color-mix(in srgb, #00e5ff 15%, var(--bg-color));
 }
 </style>

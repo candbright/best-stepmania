@@ -147,7 +147,11 @@ impl SongManager {
 
         let music_path = if !song_file.music.is_empty() {
             let p = song_dir.join(&song_file.music);
-            if p.exists() { Some(p) } else { None }
+            if p.exists() {
+                Some(p)
+            } else {
+                None
+            }
         } else {
             find_audio_file(song_dir)
         };
@@ -156,7 +160,11 @@ impl SongManager {
         let background_path = resolve_asset(song_dir, &song_file.background, &["bg", "background"]);
         let jacket_path = if !song_file.jacket.is_empty() {
             let p = song_dir.join(&song_file.jacket);
-            if p.exists() { Some(p) } else { None }
+            if p.exists() {
+                Some(p)
+            } else {
+                None
+            }
         } else {
             None
         };

@@ -155,8 +155,15 @@ pub struct JudgmentCounts {
 impl Default for JudgmentCounts {
     fn default() -> Self {
         Self {
-            w1: 0, w2: 0, w3: 0, w4: 0, w5: 0,
-            miss: 0, held: 0, let_go: 0, mines_hit: 0,
+            w1: 0,
+            w2: 0,
+            w3: 0,
+            w4: 0,
+            w5: 0,
+            miss: 0,
+            held: 0,
+            let_go: 0,
+            mines_hit: 0,
         }
     }
 }
@@ -336,7 +343,9 @@ impl ScoreState {
             LifeType::Bar => {
                 let delta = LifeConfig::default().delta_for(judgment);
                 self.life = (self.life + delta).clamp(0.0, 1.0);
-                if self.life <= 0.0 { self.failed = true; }
+                if self.life <= 0.0 {
+                    self.failed = true;
+                }
             }
             LifeType::Battery => {
                 // Only a Miss (is_combo_breaking) consumes a battery life.
@@ -347,13 +356,17 @@ impl ScoreState {
                     }
                     let max = self.battery_max_lives.max(1);
                     self.life = self.battery_lives as f64 / max as f64;
-                    if self.battery_lives == 0 { self.failed = true; }
+                    if self.battery_lives == 0 {
+                        self.failed = true;
+                    }
                 }
             }
             LifeType::Survival => {
                 let delta = LifeConfig::survival().delta_for(judgment);
                 self.life = (self.life + delta).clamp(0.0, 1.0);
-                if self.life <= 0.0 { self.failed = true; }
+                if self.life <= 0.0 {
+                    self.failed = true;
+                }
             }
         }
     }
@@ -417,7 +430,9 @@ impl ScoreState {
     }
 
     pub fn mean_offset(&self) -> f64 {
-        if self.timing_offsets.is_empty() { return 0.0; }
+        if self.timing_offsets.is_empty() {
+            return 0.0;
+        }
         self.timing_offsets.iter().sum::<f64>() / self.timing_offsets.len() as f64
     }
 
@@ -452,9 +467,15 @@ mod tests {
     #[test]
     fn test_score_state() {
         let mut state = ScoreState::new(100, 10);
-        for _ in 0..50 { state.record_judgment(Judgment::W1); }
-        for _ in 0..30 { state.record_judgment(Judgment::W2); }
-        for _ in 0..20 { state.record_judgment(Judgment::W3); }
+        for _ in 0..50 {
+            state.record_judgment(Judgment::W1);
+        }
+        for _ in 0..30 {
+            state.record_judgment(Judgment::W2);
+        }
+        for _ in 0..20 {
+            state.record_judgment(Judgment::W3);
+        }
         assert_eq!(state.combo, 100);
         assert!(state.is_full_combo());
     }
@@ -473,14 +494,18 @@ mod tests {
     #[test]
     fn test_grade() {
         let mut state = ScoreState::new(10, 0);
-        for _ in 0..10 { state.record_judgment(Judgment::W1); }
+        for _ in 0..10 {
+            state.record_judgment(Judgment::W1);
+        }
         assert_eq!(state.grade(), Grade::SSS);
     }
 
     #[test]
     fn test_battery_life() {
         // Default battery lives = 3.
-        let mut state = ScoreState::new(10, 0).with_life_type(LifeType::Battery).with_battery_lives(3);
+        let mut state = ScoreState::new(10, 0)
+            .with_life_type(LifeType::Battery)
+            .with_battery_lives(3);
         state.record_judgment(Judgment::Miss);
         assert_eq!(state.battery_lives, 2);
         assert!(!state.failed);
@@ -492,8 +517,12 @@ mod tests {
     #[test]
     fn test_battery_w5_no_drain() {
         // W5 must NOT drain a battery life (only Miss does).
-        let mut state = ScoreState::new(10, 0).with_life_type(LifeType::Battery).with_battery_lives(3);
-        for _ in 0..5 { state.record_judgment(Judgment::W5); }
+        let mut state = ScoreState::new(10, 0)
+            .with_life_type(LifeType::Battery)
+            .with_battery_lives(3);
+        for _ in 0..5 {
+            state.record_judgment(Judgment::W5);
+        }
         assert_eq!(state.battery_lives, 3);
         assert!(!state.failed);
     }
@@ -511,7 +540,9 @@ mod tests {
     fn test_fc_miss_only() {
         // FC requires zero misses; W5 alone does not break FC.
         let mut state = ScoreState::new(5, 0);
-        for _ in 0..4 { state.record_judgment(Judgment::W5); }
+        for _ in 0..4 {
+            state.record_judgment(Judgment::W5);
+        }
         assert!(state.is_full_combo());
         state.record_judgment(Judgment::Miss);
         assert!(!state.is_full_combo());

@@ -45,7 +45,10 @@ mod tests {
             title: "T".into(),
             offset: 1.25,
             timing: TimingData {
-                bpms: vec![BpmSegment { beat: 0.0, bpm: 100.0 }],
+                bpms: vec![BpmSegment {
+                    beat: 0.0,
+                    bpm: 100.0,
+                }],
                 ..Default::default()
             },
             charts: vec![Chart {
@@ -83,7 +86,10 @@ mod tests {
             title: "T".into(),
             offset: 0.5,
             timing: TimingData {
-                bpms: vec![BpmSegment { beat: 0.0, bpm: 60.0 }],
+                bpms: vec![BpmSegment {
+                    beat: 0.0,
+                    bpm: 60.0,
+                }],
                 ..Default::default()
             },
             charts: vec![Chart {
@@ -96,7 +102,10 @@ mod tests {
                 credit: String::new(),
                 note_data: nd,
                 chart_timing: Some(TimingData {
-                    bpms: vec![BpmSegment { beat: 0.0, bpm: 180.0 }],
+                    bpms: vec![BpmSegment {
+                        beat: 0.0,
+                        bpm: 180.0,
+                    }],
                     ..Default::default()
                 }),
                 sm_notes_primary_tag: None,
@@ -128,7 +137,10 @@ mod tests {
             title: "Multi".into(),
             offset: 0.25,
             timing: TimingData {
-                bpms: vec![BpmSegment { beat: 0.0, bpm: 100.0 }],
+                bpms: vec![BpmSegment {
+                    beat: 0.0,
+                    bpm: 100.0,
+                }],
                 ..Default::default()
             },
             charts: vec![
@@ -156,7 +168,10 @@ mod tests {
                     credit: String::new(),
                     note_data: nd1,
                     chart_timing: Some(TimingData {
-                        bpms: vec![BpmSegment { beat: 0.0, bpm: 200.0 }],
+                        bpms: vec![BpmSegment {
+                            beat: 0.0,
+                            bpm: 200.0,
+                        }],
                         ..Default::default()
                     }),
                     sm_notes_primary_tag: None,

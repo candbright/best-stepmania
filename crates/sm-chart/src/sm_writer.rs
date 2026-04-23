@@ -29,9 +29,17 @@ pub fn write_sm(song: &SongFile) -> String {
     }
     write_tag(&mut out, "OFFSET", &format!("{:.6}", song.offset));
     if song.sample_start >= 0.0 {
-        write_tag(&mut out, "SAMPLESTART", &format!("{:.6}", song.sample_start));
+        write_tag(
+            &mut out,
+            "SAMPLESTART",
+            &format!("{:.6}", song.sample_start),
+        );
     }
-    write_tag(&mut out, "SAMPLELENGTH", &format!("{:.6}", song.sample_length));
+    write_tag(
+        &mut out,
+        "SAMPLELENGTH",
+        &format!("{:.6}", song.sample_length),
+    );
 
     match &song.display_bpm {
         DisplayBpm::Specified(v) => write_tag(&mut out, "DISPLAYBPM", &format!("{:.6}", v)),
@@ -112,18 +120,23 @@ fn write_sm_notes_section(chart: &Chart, line1: &str, notes_body: &str) -> Strin
 
 /// Lover / routine: two consecutive `#NOTES` blocks (`lover1` then `lover2`) for community `.sm`.
 fn write_sm_routine_lover_pair(chart: &Chart) -> String {
-    let l1 = write_note_data_sm_routine_layer(&chart.note_data, chart.steps_type, RoutineWriteLayer::Layer1);
-    let l2 = write_note_data_sm_routine_layer(&chart.note_data, chart.steps_type, RoutineWriteLayer::Layer2);
+    let l1 = write_note_data_sm_routine_layer(
+        &chart.note_data,
+        chart.steps_type,
+        RoutineWriteLayer::Layer1,
+    );
+    let l2 = write_note_data_sm_routine_layer(
+        &chart.note_data,
+        chart.steps_type,
+        RoutineWriteLayer::Layer2,
+    );
     let a = write_sm_notes_section(chart, "lover1", &l1);
     let b = write_sm_notes_section(chart, "lover2", &l2);
     format!("{}\n\n{}", a, b)
 }
 
 fn write_sm_chart(chart: &Chart) -> String {
-    if matches!(
-        chart.steps_type.category(),
-        StepsTypeCategory::Routine
-    ) {
+    if matches!(chart.steps_type.category(), StepsTypeCategory::Routine) {
         return write_sm_routine_lover_pair(chart);
     }
 
@@ -167,9 +180,17 @@ pub fn write_ssc(song: &SongFile) -> String {
         write_tag(&mut out, "CDTITLE", &song.cd_title);
     }
     if song.sample_start >= 0.0 {
-        write_tag(&mut out, "SAMPLESTART", &format!("{:.3}", song.sample_start));
+        write_tag(
+            &mut out,
+            "SAMPLESTART",
+            &format!("{:.3}", song.sample_start),
+        );
     }
-    write_tag(&mut out, "SAMPLELENGTH", &format!("{:.3}", song.sample_length));
+    write_tag(
+        &mut out,
+        "SAMPLELENGTH",
+        &format!("{:.3}", song.sample_length),
+    );
     write_tag(&mut out, "OFFSET", &format!("{:.3}", song.offset));
 
     match &song.display_bpm {
@@ -233,11 +254,13 @@ fn write_ssc_chart(chart: &Chart) -> String {
     }
 
     out.push_str("#NOTES:\n");
-    out.push_str(&if matches!(chart.steps_type.category(), StepsTypeCategory::Routine) {
-        write_note_data_routine(&chart.note_data)
-    } else {
-        write_note_data(&chart.note_data)
-    });
+    out.push_str(
+        &if matches!(chart.steps_type.category(), StepsTypeCategory::Routine) {
+            write_note_data_routine(&chart.note_data)
+        } else {
+            write_note_data(&chart.note_data)
+        },
+    );
     out.push_str(";\n");
     out
 }
@@ -446,12 +469,10 @@ fn write_note_data_impl(
                         } else {
                             match note.note_type {
                                 TapNoteType::Tap => '1',
-                                TapNoteType::HoldHead => {
-                                    match note.sub_type {
-                                        Some(TapNoteSubType::Roll) => '4',
-                                        _ => '2',
-                                    }
-                                }
+                                TapNoteType::HoldHead => match note.sub_type {
+                                    Some(TapNoteSubType::Roll) => '4',
+                                    _ => '2',
+                                },
                                 TapNoteType::Mine => 'M',
                                 TapNoteType::Lift => 'L',
                                 TapNoteType::Fake => 'F',
@@ -503,7 +524,12 @@ fn tap_glyph_char(note: &TapNote) -> char {
     }
 }
 
-fn is_hold_tail(nd: &NoteData, track: usize, row: i32, layer_filter: Option<RoutineWriteLayer>) -> bool {
+fn is_hold_tail(
+    nd: &NoteData,
+    track: usize,
+    row: i32,
+    layer_filter: Option<RoutineWriteLayer>,
+) -> bool {
     if let Some(track_data) = nd.tracks.get(track) {
         for (head_row, note) in track_data.range(..row).rev() {
             if note.note_type == TapNoteType::HoldHead {
@@ -612,7 +638,10 @@ mod tests {
             artist: "Author".to_string(),
             music: "test.ogg".to_string(),
             timing: TimingData {
-                bpms: vec![BpmSegment { beat: 0.0, bpm: 120.0 }],
+                bpms: vec![BpmSegment {
+                    beat: 0.0,
+                    bpm: 120.0,
+                }],
                 ..Default::default()
             },
             charts: vec![Chart {

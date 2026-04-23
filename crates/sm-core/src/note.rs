@@ -163,11 +163,7 @@ impl NoteData {
 
     /// Returns an iterator over all rows that contain at least one note
     pub fn occupied_rows(&self) -> Vec<i32> {
-        let mut rows: Vec<i32> = self
-            .tracks
-            .iter()
-            .flat_map(|t| t.keys().copied())
-            .collect();
+        let mut rows: Vec<i32> = self.tracks.iter().flat_map(|t| t.keys().copied()).collect();
         rows.sort_unstable();
         rows.dedup();
         rows

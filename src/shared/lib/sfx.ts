@@ -292,8 +292,8 @@ export function playMenuBack() {
 }
 
 export function playJudgment(judgment: string) {
-  if (!gameplaySfxEnabled) return;
-  const vol = gameplayRhythmAmp(0.34);
+  if (!gameplaySfxEnabled || !rhythmSfxEnabled) return;
+  const vol = laneRhythmAmp(0.34);
 
   switch (judgment) {
     case "W1":
