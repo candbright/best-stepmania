@@ -269,7 +269,7 @@
   width: min(92vw, 28rem);
   border-radius: 12px;
   border: 1px solid var(--border-color);
-  background: linear-gradient(180deg, rgba(16,16,28,0.98), rgba(12,12,22,0.98));
+  background: linear-gradient(180deg, var(--bg-color), var(--section-bg));
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
   padding: 1rem 1.1rem;
 }
@@ -277,20 +277,26 @@
   margin: 0 0 0.6rem;
   font-size: 0.86rem;
   letter-spacing: 0.08em;
-  color: rgba(255,255,255,0.9);
+  color: var(--text-color);
 }
 .options-screen .confirm-dialog-card p {
   margin: 0;
   font-size: 0.78rem;
   line-height: 1.5;
-  color: rgba(255,255,255,0.66);
+  color: var(--text-muted);
 }
 .options-screen .confirm-dialog-bullets {
   margin: 0.75rem 0 0;
   padding-left: 1.1rem;
-  color: rgba(255,255,255,0.72);
-  font-size: 0.74rem;
+  color: var(--text-color);
+  font-size: 0.7rem;
   line-height: 1.45;
+}
+.options-screen .confirm-dialog-message {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 .options-screen .confirm-dialog-bullets li + li {
   margin-top: 0.28rem;
@@ -310,13 +316,13 @@
   border: 1px solid var(--border-color);
 }
 .options-screen .confirm-dialog-cancel {
-  background: rgba(255,255,255,0.05);
-  color: rgba(255,255,255,0.86);
+  background: var(--bg-color);
+  color: var(--text-color);
 }
 .options-screen .confirm-dialog-ok {
-  background: rgba(255,80,80,0.18);
-  border-color: rgba(255,120,120,0.45);
-  color: rgba(255,220,220,0.98);
+  background: var(--primary-color-bg);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, var(--border-color));
+  color: var(--text-color);
 }
 .options-screen .confirm-dialog-cancel:disabled,
 .options-screen .confirm-dialog-ok:disabled {

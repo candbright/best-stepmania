@@ -83,7 +83,7 @@ onUnmounted(() => {
       <div class="bg-glow g2" />
     </div>
 
-    <header class="topbar">
+    <header class="topbar" @dragstart.prevent>
       <button class="tb-btn" @click="emit('back')">←</button>
       <div class="topbar-center">
         <span class="topbar-title">{{ title }}</span>
@@ -166,16 +166,30 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--bg-color) 82%, transparent);
   border-bottom: 1px solid var(--border-color);
   backdrop-filter: blur(12px);
+  user-select: none;
 }
 
-.topbar-center { flex: 1; display: flex; justify-content: center; }
+.topbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
 .topbar-title {
   font-family: 'Orbitron', sans-serif;
   font-size: 0.75rem; letter-spacing: 0.35em;
   color: var(--text-muted);
   text-transform: uppercase;
+  white-space: nowrap;
+  -webkit-user-drag: none;
 }
-.topbar-actions { display: flex; gap: 0.4rem; }
+.topbar-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 0.4rem;
+}
 .tb-btn {
   padding: 0.35rem 0.65rem; border-radius: 6px;
   background: var(--section-bg);
@@ -322,6 +336,12 @@ onUnmounted(() => {
 }
 @media (max-width: 640px) {
   .topbar { flex-wrap: wrap; }
-  .topbar-center { order: 3; width: 100%; }
+  .topbar-center {
+    position: static;
+    left: auto;
+    transform: none;
+    order: 3;
+    width: 100%;
+  }
 }
 </style>

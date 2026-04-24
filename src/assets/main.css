@@ -386,6 +386,7 @@ select {
 }
 
 .form-modal-btn {
+  position: relative;
   padding: 0.45rem 0.9rem;
   border-radius: 8px;
   border: 1px solid var(--border-color);
@@ -420,4 +421,26 @@ select {
 .form-modal-btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+@keyframes form-modal-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.form-modal-btn-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-top-color: currentColor;
+  border-radius: 999px;
+  animation: form-modal-btn-spin 0.75s linear infinite;
+}
+
+.form-modal-btn-label--hidden {
+  visibility: hidden;
 }

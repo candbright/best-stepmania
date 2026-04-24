@@ -8,10 +8,14 @@ export interface ConfirmDialogRequest {
   onConfirm: () => void | Promise<void>;
 }
 
+type ConfirmDialogOptions = {
+  onBusyChange?: (busy: boolean) => void;
+};
+
 /**
  * Shared confirm flow: open, busy state, run action, close.
  */
-export function useConfirmDialog() {
+export function useConfirmDialog(options: ConfirmDialogOptions = {}) {
   const open = ref(false);
   const title = ref("");
   const message = ref("");
@@ -39,11 +43,13 @@ export function useConfirmDialog() {
     const run = pendingRun;
     if (!run) return;
     busy.value = true;
+    options.onBusyChange?.(true);
     try {
       await run();
       open.value = false;
       pendingRun = null;
     } finally {
+      options.onBusyChange?.(false);
       busy.value = false;
     }
   }

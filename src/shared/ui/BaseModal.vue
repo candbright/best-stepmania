@@ -7,6 +7,7 @@ const props = withDefaults(
     title?: string;
     closeOnOverlay?: boolean;
     closeOnEsc?: boolean;
+    closeDisabled?: boolean;
     width?: string;
     /** When true, body scrolls inside a max-height shell (long forms). */
     bodyScrollable?: boolean;
@@ -15,6 +16,7 @@ const props = withDefaults(
     title: "",
     closeOnOverlay: true,
     closeOnEsc: true,
+    closeDisabled: false,
     width: "min(560px, 92vw)",
     bodyScrollable: false,
   },
@@ -28,11 +30,12 @@ const slots = useSlots();
 const hasFooter = computed(() => Boolean(slots.footer));
 
 function close() {
+  if (props.closeDisabled) return;
   emit("update:modelValue", false);
 }
 
 function onEscKey(e: KeyboardEvent) {
-  if (!props.modelValue || !props.closeOnEsc) return;
+  if (!props.modelValue || !props.closeOnEsc || props.closeDisabled) return;
   if (e.key === "Escape") {
     e.preventDefault();
     e.stopPropagation();
@@ -57,7 +60,7 @@ onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
     <div
       v-if="modelValue"
       class="base-modal-overlay"
-      @click.self="closeOnOverlay ? close() : undefined"
+      @click.self="closeOnOverlay && !closeDisabled ? close() : undefined"
     >
       <div
         class="form-modal-shell"
@@ -71,7 +74,7 @@ onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
           <slot name="title">
             <span class="form-modal-title">{{ title }}</span>
           </slot>
-          <button type="button" class="form-modal-close" aria-label="close" @click="close">×</button>
+          <button type="button" class="form-modal-close" aria-label="close" :disabled="closeDisabled" @click="close">×</button>
         </header>
         <div class="form-modal-body">
           <slot />

@@ -721,8 +721,15 @@ async function loadAndStart() {
     );
 
     if (p1NoteRows.length === 0 && p2NoteRows.length === 0) {
-      logInfo("Gameplay", "No notes found, returning to select-music");
-      router.push("/select-music");
+      logInfo("Gameplay", "No notes found, redirecting to evaluation");
+      if (resultNavTimer.value) {
+        clearTimeout(resultNavTimer.value);
+      }
+      gameState.value = "finished";
+      session.lastResults = null;
+      session.lastResults2 = null;
+      session.lastScoreSaved = null;
+      resultNavTimer.value = setTimeout(() => router.push("/evaluation"), 0);
       return;
     }
 
@@ -933,6 +940,12 @@ function handleKeyDown(e: KeyboardEvent) {
   const keyMap = resolveGameplayKeyMap10(settings.gameplayPumpDoubleLanes);
   const col = keyMapLookupTrack(keyMap, e.code, e.key);
   if (col !== undefined) {
+    if (settings.autoPlay) {
+      // In autoplay, swallow gameplay lane inputs so manual key presses
+      // cannot interfere with W1-only auto judgment.
+      e.preventDefault();
+      return;
+    }
     if (showDevPanel.value) {
       logDebug("Gameplay", "input:keydown", {
         code: e.code,
@@ -952,6 +965,10 @@ function handleKeyUp(e: KeyboardEvent) {
   const keyMap = resolveGameplayKeyMap10(settings.gameplayPumpDoubleLanes);
   const col = keyMapLookupTrack(keyMap, e.code, e.key);
   if (col !== undefined) {
+    if (settings.autoPlay) {
+      e.preventDefault();
+      return;
+    }
     if (showDevPanel.value) {
       logDebug("Gameplay", "input:keyup", {
         code: e.code,

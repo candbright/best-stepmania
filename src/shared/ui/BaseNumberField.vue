@@ -48,6 +48,7 @@ function syncTextFromModel() {
 watch(
   () => props.modelValue,
   () => {
+    if (isFocused.value) return;
     syncTextFromModel();
   },
   { immediate: true },
@@ -114,17 +115,26 @@ function onFocus() {
   syncTextFromModel();
 }
 
+function isIntermediateRaw(raw: string): boolean {
+  return raw === "" || raw === "-" || raw === "+" || raw === "." || raw === "-." || raw === "+.";
+}
+
+function parseCompleteRaw(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (isIntermediateRaw(trimmed)) return null;
+  if (!/^[-+]?(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) return null;
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
+}
+
 function emitFromRaw(raw: string) {
-  if (raw === "" || raw === "-") {
+  const trimmed = raw.trim();
+  if (trimmed === "" || trimmed === "-" || trimmed === "+") {
     if (props.nullable) emit("update:modelValue", null);
     return;
   }
-  const n = parseFloat(raw);
-  if (!Number.isFinite(n)) {
-    if (props.nullable) emit("update:modelValue", null);
-    return;
-  }
-  emit("update:modelValue", clamp(normalizeFloat(n)));
+  const n = parseCompleteRaw(trimmed);
+  if (n !== null) emit("update:modelValue", clamp(normalizeFloat(n)));
 }
 
 function onInput(e: Event) {
@@ -134,8 +144,8 @@ function onInput(e: Event) {
 
 function onBlur() {
   isFocused.value = false;
-  const raw = text.value;
-  if (raw === "" || raw === "-") {
+  const trimmed = text.value.trim();
+  if (trimmed === "" || trimmed === "-" || trimmed === "+") {
     if (props.nullable) {
       emit("update:modelValue", null);
     } else {
@@ -143,8 +153,8 @@ function onBlur() {
       emit("update:modelValue", Number.isFinite(fb) ? clamp(fb) : 0);
     }
   } else {
-    const n = parseFloat(raw);
-    if (!Number.isFinite(n)) {
+    const n = parseCompleteRaw(trimmed);
+    if (n === null) {
       if (props.nullable) {
         emit("update:modelValue", null);
       } else {
@@ -164,7 +174,7 @@ function onBlur() {
     :class="['app-number-field-host', inputClass]"
   >
     <input
-      type="number"
+      type="text"
       v-bind="$attrs"
       class="app-number-field-native"
       :value="text"

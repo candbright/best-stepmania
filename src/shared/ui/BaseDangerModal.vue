@@ -120,8 +120,8 @@ onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
             :disabled="!canConfirm"
             @click="emit('confirm')"
           >
-            <span v-if="loading" class="spinner">&#x27F3;</span>
-            {{ loading ? t("loading") : confirmLabel }}
+            <span v-if="loading" class="form-modal-btn-spinner" aria-hidden="true" />
+            <span :class="{ 'form-modal-btn-label--hidden': loading }">{{ confirmLabel }}</span>
           </button>
         </div>
       </div>
@@ -282,13 +282,4 @@ onUnmounted(() => window.removeEventListener("keydown", onEscKey, true));
   cursor: not-allowed;
 }
 
-.spinner {
-  display: inline-block;
-  margin-right: 0.35rem;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
 </style>

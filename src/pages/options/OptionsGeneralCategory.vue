@@ -40,7 +40,7 @@ function onResetAllSettings() {
   dialog.requestConfirm({
     title: t("settings.resetAllSettings"),
     message: t("settings.resetAllSettingsConfirm"),
-    confirmText: t("settings.resetAllSettings"),
+    confirmText: t("confirm"),
     onConfirm: () => resetAllSettings(),
   });
 }

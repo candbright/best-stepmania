@@ -12,9 +12,11 @@ import {
 } from "@/shared/lib/sfx";
 import { logDebug } from "@/shared/lib/devLog";
 import { useConfirmDialog } from "@/shared/composables/useConfirmDialog";
+import { setGlobalCursorBusy, syncGlobalCursorClass } from "@/shared/composables/useCursorLayer";
 import { useSettingsSaveQueue } from "@/shared/composables/useSettingsSaveQueue";
 import { useAppSettingsSync } from "@/shared/composables/useAppSettingsSync";
 import { useSfxPreviewGate } from "@/shared/composables/useSfxPreviewGate";
+import { BaseModal } from "@/shared/ui";
 import { OPTIONS_DIALOG, OPTIONS_PANEL_SFX, type OptionsPanelSfx } from "./options/injectionKeys";
 import OptionsContentCategory from "./options/OptionsContentCategory.vue";
 import OptionsAudioCategory from "./options/OptionsAudioCategory.vue";
@@ -40,7 +42,12 @@ const {
   requestConfirm,
   close: closeConfirmDialog,
   accept: confirmDialogAccept,
-} = useConfirmDialog();
+} = useConfirmDialog({
+  onBusyChange: (busy) => {
+    setGlobalCursorBusy(busy);
+    syncGlobalCursorClass(!busy);
+  },
+});
 const { schedule, flushAwait } = useSettingsSaveQueue(() => settings.saveAppConfig(session.profileName), 800);
 const { stopAll: stopAppSettingsSync } = useAppSettingsSync(settings, schedule);
 const sfxGate = useSfxPreviewGate();
@@ -153,30 +160,31 @@ const activeCategory = ref<SettingsCategoryId>("general");
       </div>
     </div>
 
-    <div
-      v-if="confirmDialogOpen"
-      class="confirm-dialog-backdrop"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="confirmDialogTitle"
-      @click.self="closeConfirmDialog()"
+    <BaseModal
+      :model-value="confirmDialogOpen"
+      :title="confirmDialogTitle"
+      :close-disabled="confirmDialogBusy"
+      width="min(560px, 92vw)"
+      @update:model-value="(open) => { if (!open) closeConfirmDialog(); }"
     >
-      <div class="confirm-dialog-card">
-        <h4>{{ confirmDialogTitle }}</h4>
-        <p>{{ confirmDialogMessage }}</p>
+      <div class="form-modal-fields">
+        <p class="confirm-dialog-message">{{ confirmDialogMessage }}</p>
         <ul v-if="confirmDialogBullets.length > 0" class="confirm-dialog-bullets">
           <li v-for="item in confirmDialogBullets" :key="item">{{ item }}</li>
         </ul>
-        <div class="confirm-dialog-actions">
-          <button type="button" class="confirm-dialog-cancel" :disabled="confirmDialogBusy" @click="closeConfirmDialog()">
-            {{ t("back") }}
+      </div>
+      <template #footer>
+        <div class="form-modal-footer-inner">
+          <button type="button" class="form-modal-btn" :disabled="confirmDialogBusy" @click="closeConfirmDialog()">
+            {{ t("cancel") }}
           </button>
-          <button type="button" class="confirm-dialog-ok" :disabled="confirmDialogBusy" @click="confirmDialogAccept()">
-            {{ confirmDialogBusy ? "..." : confirmDialogConfirmText }}
+          <button type="button" class="form-modal-btn form-modal-btn--primary" :disabled="confirmDialogBusy" @click="confirmDialogAccept()">
+            <span v-if="confirmDialogBusy" class="form-modal-btn-spinner" aria-hidden="true" />
+            <span :class="{ 'form-modal-btn-label--hidden': confirmDialogBusy }">{{ confirmDialogConfirmText }}</span>
           </button>
         </div>
-      </div>
-    </div>
+      </template>
+    </BaseModal>
   </div>
 </template>
 

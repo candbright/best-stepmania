@@ -1,144 +1,22 @@
 <script setup lang="ts">
 import type { ComponentPublicInstance } from "vue";
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, watch } from "vue";
+import { useScrollAreaCore } from "@/shared/composables/useScrollAreaCore";
 
 const props = defineProps<{
   /** 暴露内部可滚动元素，供 scrollIntoView / querySelector 等使用 */
   setScrollEl?: (el: Element | ComponentPublicInstance | null) => void;
   /** 滚动条轨道宽度（px） */
   scrollbarWidth?: number;
+  /** 是否显示上下箭头按钮 */
+  showArrows?: boolean;
 }>();
 
-const trackWidthPx = computed(() => props.scrollbarWidth ?? 6);
+const trackWidthPx = computed(() => props.scrollbarWidth ?? 9);
 
-const viewportRef = ref<HTMLElement | null>(null);
-const trackRef = ref<HTMLElement | null>(null);
-
-const thumbHeightPx = ref(0);
-const thumbTopPx = ref(0);
-const trackVisible = ref(false);
-
-let dragging = false;
-let dragStartClientY = 0;
-let dragStartScrollTop = 0;
-
-function scrollMetrics() {
-  const el = viewportRef.value;
-  const track = trackRef.value;
-  if (!el || !track) {
-    return {
-      scrollHeight: 0,
-      clientHeight: 0,
-      scrollTop: 0,
-      maxScroll: 0,
-      trackHeight: 0,
-    };
-  }
-  const scrollHeight = el.scrollHeight;
-  const clientHeight = el.clientHeight;
-  const scrollTop = el.scrollTop;
-  const maxScroll = Math.max(0, scrollHeight - clientHeight);
-  const trackHeight = track.clientHeight;
-  return { scrollHeight, clientHeight, scrollTop, maxScroll, trackHeight };
-}
-
-function updateThumbFromScroll() {
-  const el = viewportRef.value;
-  const track = trackRef.value;
-  if (!el || !track) return;
-
-  const { scrollHeight, clientHeight, scrollTop, maxScroll, trackHeight } = scrollMetrics();
-
-  if (maxScroll <= 0 || scrollHeight <= clientHeight) {
-    trackVisible.value = false;
-    thumbHeightPx.value = 0;
-    thumbTopPx.value = 0;
-    return;
-  }
-
-  trackVisible.value = true;
-  const minThumb = 24;
-  const thumbH = Math.max(minThumb, (clientHeight / scrollHeight) * trackHeight);
-  const maxThumbTop = Math.max(0, trackHeight - thumbH);
-  thumbHeightPx.value = thumbH;
-  const ratio = maxScroll > 0 ? scrollTop / maxScroll : 0;
-  thumbTopPx.value = ratio * maxThumbTop;
-}
-
-function onViewportScroll() {
-  updateThumbFromScroll();
-}
-
-function onThumbPointerDown(e: PointerEvent) {
-  if (e.button !== 0) return;
-  const el = viewportRef.value;
-  if (!el) return;
-  e.preventDefault();
-  e.stopPropagation();
-  dragging = true;
-  dragStartClientY = e.clientY;
-  dragStartScrollTop = el.scrollTop;
-  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-}
-
-function onThumbPointerMove(e: PointerEvent) {
-  if (!dragging) return;
-  const el = viewportRef.value;
-  if (!el) return;
-
-  const { maxScroll, trackHeight } = scrollMetrics();
-  const thumbH = thumbHeightPx.value;
-  const maxThumbTop = Math.max(0, trackHeight - thumbH);
-  if (maxThumbTop <= 0 || maxScroll <= 0) return;
-
-  const delta = e.clientY - dragStartClientY;
-  const deltaScroll = (delta / maxThumbTop) * maxScroll;
-  el.scrollTop = Math.min(Math.max(0, dragStartScrollTop + deltaScroll), maxScroll);
-}
-
-function onThumbPointerUp(e: PointerEvent) {
-  if (!dragging) return;
-  dragging = false;
-  try {
-    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-  } catch {
-    /* ignore */
-  }
-}
-
-function onTrackPointerDown(e: PointerEvent) {
-  if (e.button !== 0) return;
-  const target = e.target as HTMLElement | null;
-  if (target?.classList.contains("custom-scroll-thumb")) return;
-
-  const track = trackRef.value;
-  const el = viewportRef.value;
-  if (!track || !el) return;
-
-  const rect = track.getBoundingClientRect();
-  const y = e.clientY - rect.top;
-  const { maxScroll, trackHeight } = scrollMetrics();
-  const thumbH = thumbHeightPx.value;
-  const maxThumbTop = Math.max(0, trackHeight - thumbH);
-  if (maxThumbTop <= 0 || maxScroll <= 0) return;
-
-  const clickRatio = Math.min(Math.max(0, (y - thumbH / 2) / maxThumbTop), 1);
-  el.scrollTop = clickRatio * maxScroll;
-}
-
-let ro: ResizeObserver | null = null;
-
-function bindObservers() {
-  ro?.disconnect();
-  const el = viewportRef.value;
-  const track = trackRef.value;
-  if (!el || !track) return;
-  ro = new ResizeObserver(() => {
-    updateThumbFromScroll();
-  });
-  ro.observe(el);
-  ro.observe(track);
-}
+const core = useScrollAreaCore("vertical");
+const viewportRef = core.viewportRef;
+const trackRef = core.trackRef;
 
 function reportScrollEl() {
   props.setScrollEl?.(viewportRef.value);
@@ -146,15 +24,13 @@ function reportScrollEl() {
 
 onMounted(() => {
   reportScrollEl();
-  bindObservers();
-  updateThumbFromScroll();
 });
 
 onBeforeUnmount(() => {
-  ro?.disconnect();
-  ro = null;
   props.setScrollEl?.(null);
 });
+
+watch(viewportRef, reportScrollEl);
 
 </script>
 
@@ -163,28 +39,44 @@ onBeforeUnmount(() => {
     <div
       ref="viewportRef"
       class="custom-scroll-viewport"
-      @scroll.passive="onViewportScroll"
+      @scroll.passive="core.onViewportScroll"
     >
       <slot />
     </div>
     <div
-      ref="trackRef"
       class="custom-scroll-track"
-      :class="{ 'is-collapsed': !trackVisible }"
-      :style="{ width: trackVisible ? `${trackWidthPx}px` : '0px' }"
-      @pointerdown="onTrackPointerDown"
+      :class="{ 'is-collapsed': !core.trackVisible.value }"
+      :style="{ width: core.trackVisible.value ? `${trackWidthPx}px` : '0px' }"
     >
+      <button
+        v-if="props.showArrows"
+        type="button"
+        class="custom-scroll-arrow custom-scroll-arrow--up"
+        @click="core.nudgeScrollBy(-1)"
+      >▲</button>
       <div
-        class="custom-scroll-thumb"
-        :style="{
-          height: `${thumbHeightPx}px`,
-          transform: `translateY(${thumbTopPx}px)`,
-        }"
-        @pointerdown="onThumbPointerDown"
-        @pointermove="onThumbPointerMove"
-        @pointerup="onThumbPointerUp"
-        @pointercancel="onThumbPointerUp"
-      />
+        ref="trackRef"
+        class="custom-scroll-rail"
+        @pointerdown="(e) => core.onTrackPointerDown(e, 'custom-scroll-thumb')"
+      >
+        <div
+          class="custom-scroll-thumb"
+          :style="{
+            height: `${core.thumbSizePx.value}px`,
+            transform: `translateY(${core.thumbOffsetPx.value}px)`,
+          }"
+          @pointerdown="core.onThumbPointerDown"
+          @pointermove="core.onThumbPointerMove"
+          @pointerup="core.onThumbPointerUp"
+          @pointercancel="core.onThumbPointerUp"
+        />
+      </div>
+      <button
+        v-if="props.showArrows"
+        type="button"
+        class="custom-scroll-arrow custom-scroll-arrow--down"
+        @click="core.nudgeScrollBy(1)"
+      >▼</button>
     </div>
   </div>
 </template>
@@ -214,16 +106,35 @@ onBeforeUnmount(() => {
 
 .custom-scroll-track {
   flex-shrink: 0;
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
   background: color-mix(in srgb, var(--border-color) 55%, transparent);
   border-radius: 3px;
   touch-action: none;
   transition: width 0.12s ease;
 }
+.custom-scroll-rail {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
 .custom-scroll-track.is-collapsed {
   pointer-events: none;
   background: transparent;
   min-width: 0;
+}
+.custom-scroll-arrow {
+  width: 100%;
+  height: 14px;
+  border: none;
+  border-radius: 2px;
+  padding: 0;
+  line-height: 1;
+  font-size: 9px;
+  color: color-mix(in srgb, var(--primary-color) 70%, var(--text-color));
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  cursor: inherit;
 }
 
 .custom-scroll-thumb {

@@ -22,9 +22,9 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="hero">
+  <div class="hero" @dragstart.prevent>
     <div class="hero-art">
-      <img v-if="bannerUrl" :src="bannerUrl" class="hero-img" />
+      <img v-if="bannerUrl" :src="bannerUrl" class="hero-img" draggable="false" />
       <div v-else class="hero-ph" :style="{ '--h': hue }">{{ title[0] }}</div>
       <button
         type="button"
@@ -49,7 +49,14 @@ const emit = defineEmits<{
 <style scoped>
 .hero { position: relative; min-height: 160px; flex-shrink: 0; overflow: hidden; }
 .hero-art { position: absolute; inset: 0; }
-.hero-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.5; }
+.hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.5;
+  -webkit-user-drag: none;
+  user-select: none;
+}
 .hero-ph {
   width: 100%; height: 100%;
   background: linear-gradient(135deg, hsl(var(--h),45%,18%), hsl(calc(var(--h) + 40),45%,12%));

@@ -4,8 +4,7 @@ export default {
   "settings.resetAllSettings": "恢复全部默认设置",
   "settings.resetAllSettingsHint":
     "将音频、显示、判定、快捷键与玩家选项等恢复为安装时的默认值。",
-  "settings.resetAllSettingsConfirm":
-    "确定要恢复全部默认设置吗？将立即写入配置文件。",
+  "settings.resetAllSettingsConfirm": "确定要恢复全部默认设置吗？",
   "settings.audio": "音频",
   "settings.display": "显示",
   "settings.cursorSection": "鼠标与点击特效",

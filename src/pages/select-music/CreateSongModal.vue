@@ -6,7 +6,7 @@ import { usePlayerStore } from "@/shared/stores/player";
 import { useI18n } from "@/shared/i18n";
 import * as api from "@/shared/api";
 import { openFileDialog } from "@/shared/lib/platform";
-import BaseFormModal from "@/shared/ui/BaseFormModal.vue";
+import { BaseModal } from "@/shared/ui";
 import BaseSelect from "@/shared/ui/BaseSelect.vue";
 import BaseNumberField from "@/shared/ui/BaseNumberField.vue";
 import type { Ref } from "vue";
@@ -34,6 +34,7 @@ const { t } = useI18n();
 
 const creatingSong = ref(false);
 const ROOT_PACK_KEY = "__ROOT__";
+const ROOT_PACK_ID = ".root";
 
 const createPack = ref(ROOT_PACK_KEY);
 const createPackCustom = ref("");
@@ -80,6 +81,31 @@ const createDifficultyOptions = computed(() => [
   { value: "Expert", label: "Expert" },
   { value: "Edit", label: "Edit" },
 ]);
+
+function normalizeSongName(name: string): string {
+  return name.trim().toLocaleLowerCase();
+}
+
+const createTargetPackName = computed(() => {
+  if (createPack.value === "__CUSTOM__") {
+    return createPackCustom.value.trim();
+  }
+  if (createPack.value === ROOT_PACK_KEY) {
+    return ROOT_PACK_ID;
+  }
+  return createPack.value;
+});
+
+const duplicateSongNameError = computed(() => {
+  const normalized = normalizeSongName(createTitle.value);
+  const targetPack = createTargetPackName.value;
+  if (!normalized || !targetPack) return "";
+  const isDuplicate = library.songs.some((song) => {
+    if (song.pack !== targetPack) return false;
+    return normalizeSongName(song.title || "") === normalized;
+  });
+  return isDuplicate ? t("songPacks.duplicateSongName") : "";
+});
 
 function numOrEmptyBridge(r: Ref<number | "">) {
   return computed({
@@ -142,7 +168,7 @@ async function createSong() {
     creatingSong.value = true;
     const packName = createPack.value === "__CUSTOM__"
       ? createPackCustom.value.trim()
-      : (createPack.value === ROOT_PACK_KEY ? "" : createPack.value);
+      : (createPack.value === ROOT_PACK_KEY ? ROOT_PACK_ID : createPack.value);
 
     const result = await api.createSong({
       packName: packName || undefined,
@@ -205,14 +231,18 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
 </script>
 
 <template>
-  <BaseFormModal
+  <BaseModal
     :model-value="show"
     :title="t('select.createSong')"
-    :bottom-hint="bottomHint"
-    wide
-    @close="close"
+    :close-disabled="creatingSong"
+    width="min(520px, 92vw)"
+    :body-scrollable="true"
+    @update:model-value="(v) => { if (!v) close(); }"
   >
-    <div class="create-song-form">
+    <div class="form-modal-fields create-song-form">
+      <p v-if="duplicateSongNameError" class="form-modal-error">
+        {{ duplicateSongNameError }}
+      </p>
       <label class="form-modal-label">{{ t('select.targetPack') }}</label>
       <BaseSelect v-model="createPack" variant="form" :options="createPackSelectOptions" />
       <input
@@ -334,14 +364,14 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
         <button
           type="button"
           class="form-modal-btn form-modal-btn--primary"
-          :disabled="creatingSong"
+          :disabled="creatingSong || !!duplicateSongNameError"
           @click="createSong"
         >
           {{ t('confirm') }}
         </button>
       </div>
     </template>
-  </BaseFormModal>
+  </BaseModal>
 </template>
 
 <style scoped>
@@ -366,9 +396,9 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
   padding: 0.35rem 0.6rem;
   border-radius: 6px;
   font-size: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid color-mix(in srgb, var(--text-color) 20%, transparent);
+  background: color-mix(in srgb, var(--text-color) 8%, transparent);
+  color: color-mix(in srgb, var(--text-color) 72%, transparent);
   cursor: pointer;
   font-family: 'Rajdhani', sans-serif;
   white-space: nowrap;
@@ -376,13 +406,13 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
 }
 
 .form-modal-path-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--text-color) 14%, transparent);
   color: var(--text-color);
 }
 
 .form-modal-hint {
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: color-mix(in srgb, var(--text-color) 50%, transparent);
   margin: 0.25rem 0;
 }
 
@@ -411,7 +441,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
 .toggle-slider {
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--text-color) 15%, transparent);
   border-radius: 22px;
   transition: 0.2s;
 }
@@ -423,7 +453,7 @@ onUnmounted(() => window.removeEventListener("keydown", onKeyDown, true));
   height: 14px;
   left: 3px;
   bottom: 3px;
-  background: rgba(255, 255, 255, 0.5);
+  background: color-mix(in srgb, var(--text-color) 60%, transparent);
   border-radius: 50%;
   transition: 0.2s;
 }

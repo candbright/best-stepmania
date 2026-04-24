@@ -99,7 +99,17 @@ export function syncGlobalCursorClass(enable: boolean) {
   }
 }
 
+export function setGlobalCursorBusy(busy: boolean) {
+  if (busy) {
+    document.documentElement.dataset.appCursorBusy = "1";
+  } else {
+    delete document.documentElement.dataset.appCursorBusy;
+  }
+}
+
 export function useCursorLayer() {
+  const CURSOR_BUSY_DATASET_KEY = "appCursorBusy";
+  const CURSOR_BUSY_ATTRIBUTE = "data-app-cursor-busy";
   const settings = useSettingsStore();
 
   const cursor = ref({
@@ -108,13 +118,19 @@ export function useCursorLayer() {
     visible: false,
   });
   const cursorVisualState = ref<CursorVisualState>("default");
+  const isCursorBusy = ref(false);
   const cursorRipples = ref<CursorRipple[]>([]);
   let rippleId = 0;
+  let busyStateObserver: MutationObserver | null = null;
 
   const shouldRenderCursorLayer = computed(() => true);
   const cursorPresetClass = computed(() => (settings.cursorStylePreset === "b" ? "preset-b" : "preset-a"));
-  const shouldHideSystemCursor = computed(() => true);
+  const shouldHideSystemCursor = computed(() => !isCursorBusy.value);
   const isCursorVisible = computed(() => true);
+
+  function readBusyStateFromDataset() {
+    isCursorBusy.value = document.documentElement.dataset[CURSOR_BUSY_DATASET_KEY] === "1";
+  }
 
   function preventContextMenu(e: MouseEvent) {
     e.preventDefault();
@@ -122,6 +138,15 @@ export function useCursorLayer() {
 
   function handleGlobalPointerMove(e: PointerEvent) {
     if (e.pointerType !== "mouse") return;
+    if (isCursorBusy.value) {
+      cursorVisualState.value = "wait";
+      cursor.value = {
+        x: e.clientX,
+        y: e.clientY,
+        visible: true,
+      };
+      return;
+    }
 
     const forced = readDatasetCursorOverride();
     if (forced) {
@@ -195,12 +220,32 @@ export function useCursorLayer() {
   function handleGlobalPointerDown(e: PointerEvent) {
     if (e.defaultPrevented) return;
     if (e.pointerType !== "mouse") return;
+    cursor.value = {
+      x: e.clientX,
+      y: e.clientY,
+      visible: true,
+    };
+    if (isCursorBusy.value) {
+      cursorVisualState.value = "wait";
+      return;
+    }
     if (e.button !== 0) return;
     spawnCursorRipple(e.clientX, e.clientY);
   }
 
   function handleGlobalPointerUp(e: PointerEvent) {
     if (e.defaultPrevented) return;
+    if (e.pointerType === "mouse") {
+      cursor.value = {
+        x: e.clientX,
+        y: e.clientY,
+        visible: true,
+      };
+    }
+    if (isCursorBusy.value) {
+      cursorVisualState.value = "wait";
+      return;
+    }
     const target = e.target as HTMLElement | null;
     if (!target) return;
 
@@ -268,6 +313,12 @@ export function useCursorLayer() {
   );
 
   async function mountGlobalCursorListeners() {
+    readBusyStateFromDataset();
+    busyStateObserver = new MutationObserver(readBusyStateFromDataset);
+    busyStateObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: [CURSOR_BUSY_ATTRIBUTE],
+    });
     const pos = await getCursorPosition();
     if (pos) {
       cursor.value = { x: pos.x, y: pos.y, visible: true };
@@ -280,6 +331,10 @@ export function useCursorLayer() {
   }
 
   function unmountGlobalCursorListeners() {
+    if (busyStateObserver) {
+      busyStateObserver.disconnect();
+      busyStateObserver = null;
+    }
     syncGlobalCursorClass(false);
     document.removeEventListener("contextmenu", preventContextMenu);
     document.removeEventListener("pointermove", handleGlobalPointerMove, { capture: true });
