@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { useI18n } from "@/shared/i18n";
 import type { BpmChange } from "./useEditorState";
-import { BPM_BEAT_MATCH_EPS } from "./constants";
+import { BPM_BEAT_MATCH_EPS, EDITOR_CANVAS_SCROLLBAR_PX } from "./constants";
 import { BaseNumberField } from "@/shared/ui";
+import CustomScrollArea from "@/shared/ui/CustomScrollArea.vue";
 
 const { t } = useI18n();
 
@@ -22,7 +23,8 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="sidebar-content bpm-panel">
+  <CustomScrollArea class="sidebar-content bpm-panel" :scrollbar-width="EDITOR_CANVAS_SCROLLBAR_PX" :show-arrows="true">
+    <div class="sidebar-content-inner">
     <h4>{{ t('editor.bpmTabTitle') }}</h4>
     <template v-if="allChartsLength">
       <div class="bpm-add-section">
@@ -61,5 +63,6 @@ const emit = defineEmits<{
       </div>
     </template>
     <p v-else class="chart-list-empty-hint">{{ t('editor.noChartsHint') }}</p>
-  </div>
+    </div>
+  </CustomScrollArea>
 </template>

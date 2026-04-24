@@ -7,79 +7,10 @@ import { useSettingsStore } from "@/shared/stores/settings";
 import { useI18n } from "@/shared/i18n";
 import { useBlockingOverlayStore } from "@/shared/stores/blockingOverlay";
 import { playMenuMove, playMenuBack } from "@/shared/lib/sfx";
-import type { SongListItem } from "@/shared/api";
 import { useEditorEntryNavigation } from "./useEditorEntryNavigation";
 import { useEditorSongManagement } from "./useEditorSongManagement";
 import { useSongSelectCore } from "@/shared/composables/useSongSelectCore";
 import { useEditorSongSelectLifecycle } from "./useEditorSongSelectLifecycle";
-
-type SongSelectCoreReturn = ReturnType<typeof useSongSelectCore>;
-
-export interface UseEditorSongSelectScreenReturn {
-  // === Shared state from core ===
-  t: ReturnType<typeof useI18n>["t"];
-  session: ReturnType<typeof useSessionStore>;
-  bannerCache: ReturnType<typeof ref<Record<string, string>>>;
-  showFilterModal: ReturnType<typeof ref<boolean>>;
-  songScrollRef: ReturnType<typeof ref<HTMLElement | null>>;
-  DIFF_COLORS: Record<string, string>;
-  ROOT_PACK_KEY: string;
-  groupedSongs: SongSelectCoreReturn["groupedSongs"];
-  filteredCharts: SongSelectCoreReturn["filteredCharts"];
-  filteredSongs: SongSelectCoreReturn["filteredSongs"];
-  collapsedPacks: ReturnType<typeof ref<Set<string>>>;
-  diffMin: SongSelectCoreReturn["diffMin"];
-  diffMax: SongSelectCoreReturn["diffMax"];
-  filterSearch: SongSelectCoreReturn["filterSearch"];
-  filterPack: SongSelectCoreReturn["filterPack"];
-  existingPacks: SongSelectCoreReturn["existingPacks"];
-  sortLabel: SongSelectCoreReturn["sortLabel"];
-  hasActiveFilter: ReturnType<typeof computed<boolean>>;
-  activeFilterCount: ReturnType<typeof computed<number>>;
-  refreshing: ReturnType<typeof ref<boolean>>;
-  filterStepsType: ReturnType<typeof ref<string>>;
-  showCreateSongModal: ReturnType<typeof ref<boolean>>;
-  confirmDeleteSong: ReturnType<typeof ref<SongListItem | null>>;
-  importing: ReturnType<typeof ref<boolean>>;
-  importStatus: ReturnType<typeof ref<string>>;
-  canEditCurrentSong: ReturnType<typeof computed<boolean>>;
-  showFavoritesOnly: SongSelectCoreReturn["showFavoritesOnly"];
-  favoriteSet: SongSelectCoreReturn["favoriteSet"];
-  isFavorite: (path: string) => boolean;
-
-  // === Actions ===
-  selectSong: (idx: number) => void;
-  focusSongByDelta: (delta: number) => void;
-  ensureCurrentSongVisible: () => void;
-  togglePack: (packKey: string) => void;
-  onFilterClear: () => void;
-  onFilterApply: () => void;
-  cycleSortMode: () => void;
-  refreshSongs: () => Promise<void>;
-  toggleFavorite: (songPath: string) => Promise<void>;
-  setShowFavoritesOnly: (value: boolean) => void;
-  difficultyLabel: (diff: string) => string;
-  stepsTypeLabel: (stepsType: string) => string;
-  onKeyDown: (e: KeyboardEvent) => void;
-  loadBannerLazy: (idx: number) => void;
-  preloadAllBanners: () => void;
-
-  // === Editor-specific actions ===
-  openEditor: () => void;
-  goBack: () => void;
-  openCreateSongModal: () => void;
-  handleCreateSuccess: (msg: string) => Promise<void>;
-  handleCreateError: (msg: string) => void;
-  askDeleteCurrentSong: () => void;
-  handleDeleteSongSuccess: () => Promise<void>;
-  handleDeleteSongError: (msg: string) => void;
-  importSongs: () => Promise<void>;
-  cancelEditorNavLoad: () => void;
-
-  // === Lifecycle ===
-  onMountedHandler: () => Promise<void>;
-  onUnmountedHandler: () => void;
-}
 
 /**
  * Editor-specific song selection composable.
@@ -158,6 +89,17 @@ export function useEditorSongSelectScreen() {
     filterStepsType.value = "";
   }
 
+  function pickRandomSong() {
+    if (filteredSongs.value.length === 0) return;
+    const randomIdx = Math.floor(Math.random() * filteredSongs.value.length);
+    const randomSong = filteredSongs.value[randomIdx];
+    if (!randomSong) return;
+    const libraryIndex = library.songs.findIndex((song) => song.path === randomSong.path);
+    if (libraryIndex < 0) return;
+    selectSong(libraryIndex);
+    ensureCurrentSongVisible();
+  }
+
   // === Computed ===
   const canEditCurrentSong = computed(() => {
     return session.currentSong != null;
@@ -177,9 +119,11 @@ export function useEditorSongSelectScreen() {
   });
   const {
     showCreateSongModal,
+    showImportSongModal,
     confirmDeleteSong,
     importing,
     importStatus,
+    importSongDefaults,
     openCreateSongModal,
     handleCreateSuccess,
     handleCreateError,
@@ -187,6 +131,7 @@ export function useEditorSongSelectScreen() {
     handleDeleteSongSuccess,
     handleDeleteSongError,
     importSongs,
+    handleImportSongConfirm,
   } = useEditorSongManagement({
     session,
     library,
@@ -268,9 +213,11 @@ export function useEditorSongSelectScreen() {
     refreshing,
     filterStepsType,
     showCreateSongModal,
+    showImportSongModal,
     confirmDeleteSong,
     importing,
     importStatus,
+    importSongDefaults,
     canEditCurrentSong,
     showFavoritesOnly,
     favoriteSet,
@@ -285,6 +232,7 @@ export function useEditorSongSelectScreen() {
     onFilterApply,
     cycleSortMode,
     refreshSongs,
+    pickRandomSong,
     toggleFavorite,
     setShowFavoritesOnly,
     difficultyLabel,
@@ -303,6 +251,7 @@ export function useEditorSongSelectScreen() {
     handleDeleteSongSuccess,
     handleDeleteSongError,
     importSongs,
+    handleImportSongConfirm,
     cancelEditorNavLoad,
 
     // Lifecycle

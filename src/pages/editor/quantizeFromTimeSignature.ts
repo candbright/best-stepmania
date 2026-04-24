@@ -4,7 +4,7 @@
  */
 
 export const EDITOR_QUANTIZE_VALUES = [
-  3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 192,
+  2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 192,
 ] as const;
 
 export type EditorQuantizeValue = (typeof EDITOR_QUANTIZE_VALUES)[number];

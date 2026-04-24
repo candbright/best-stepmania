@@ -12,6 +12,7 @@ import { useEditorSongSelectScreen } from "./editor/useEditorSongSelectScreen";
 import CreateSongModal from "./select-music/CreateSongModal.vue";
 import FilterModal from "./select-music/FilterModal.vue";
 import DeleteSongModal from "./song-packs/DeleteSongModal.vue";
+import ImportSongModal from "./song-packs/ImportSongModal.vue";
 
 const {
   t,
@@ -38,6 +39,7 @@ const {
   sortLabel,
   cycleSortMode,
   refreshSongs,
+  pickRandomSong,
   refreshing,
   hasActiveFilter,
   activeFilterCount,
@@ -59,6 +61,9 @@ const {
   handleDeleteSongError,
   askDeleteCurrentSong,
   importSongs,
+  showImportSongModal,
+  importSongDefaults,
+  handleImportSongConfirm,
   openEditor,
   onMountedHandler,
   onUnmountedHandler,
@@ -91,9 +96,11 @@ onUnmounted(() => {
         :sortLabel="sortLabel"
         :refreshTitle="t('editorSelect.refresh')"
         :filterLabel="t('select.filter')"
+        :randomTitle="t('select.random.button')"
         @refresh="refreshSongs"
         @openFilter="showFilterModal = true"
         @cycleSort="cycleSortMode"
+        @randomPick="pickRandomSong"
       >
         <button class="tb-icon-btn" :title="t('editorSelect.createSong')" @click="openCreateSongModal">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -201,6 +208,25 @@ onUnmounted(() => {
       @close="showCreateSongModal = false"
       @success="handleCreateSuccess"
       @error="handleCreateError"
+    />
+
+    <ImportSongModal
+      :show="showImportSongModal"
+      :packs="existingPacks.map((name) => ({ name, path: '', songCount: 0, sizeMb: 0 }))"
+      :default-title="importSongDefaults.title"
+      :default-artist="importSongDefaults.artist"
+      :default-subtitle="importSongDefaults.subtitle"
+      :default-genre="importSongDefaults.genre"
+      :default-bpm="importSongDefaults.bpm"
+      :default-offset="importSongDefaults.offset"
+      :default-music-source-path="importSongDefaults.musicSourcePath"
+      :default-cover-source-path="importSongDefaults.coverSourcePath"
+      :default-background-source-path="importSongDefaults.backgroundSourcePath"
+      :default-chart-source-path="importSongDefaults.chartSourcePath"
+      :submitting="importing"
+      :force-create-chart="true"
+      @close="showImportSongModal = false"
+      @confirm="handleImportSongConfirm"
     />
   </SongSelectLayout>
 </template>

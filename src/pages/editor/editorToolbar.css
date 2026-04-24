@@ -13,28 +13,26 @@
   box-sizing: border-box;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0;
   align-self: stretch;
+  min-width: 3.5rem;
   min-height: var(--editor-toolbar-band-h);
   padding:
     var(--editor-toolbar-track-pad-y)
     max(0.45rem, 10px)
     var(--editor-toolbar-hscroll-pad)
-    max(1.4rem, 28px);
+    max(0.45rem, 10px);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   background: var(--bg-color);
   z-index: 2;
-}
-.toolbar-divider--back {
-  margin-left: 0.28rem;
-  margin-right: 0.12rem;
 }
 .toolbar-scroll {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   min-height: var(--editor-toolbar-band-h);
 }
 .toolbar-scroll-track {
@@ -49,11 +47,14 @@
     max(0.35rem, 10px);
   min-height: var(--editor-toolbar-band-h);
   max-height: var(--editor-toolbar-band-h);
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   scroll-padding-left: 18px;
   scroll-padding-right: 18px;
+  user-select: none;
+  -webkit-user-drag: none;
 }
+.toolbar-scroll-track::-webkit-scrollbar { display: none; }
 .toolbar-scroll-icons {
   display: flex;
   flex-wrap: nowrap;
@@ -69,16 +70,6 @@
   width: 18px;
   min-width: 18px;
   flex: 0 0 18px;
-}
-.toolbar-scroll-track::-webkit-scrollbar {
-  height: var(--editor-hscrollbar-thick);
-}
-.toolbar-scroll-track::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 2px;
-}
-.toolbar-scroll-track::-webkit-scrollbar-track {
-  background: transparent;
 }
 .toolbar-song-fixed {
   flex-shrink: 0;

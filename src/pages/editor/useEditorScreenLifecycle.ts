@@ -71,16 +71,24 @@ export function useEditorScreenLifecycle(opts: UseEditorScreenLifecycleOptions) 
   onMounted(() => {
     s.afterChartNotesLoaded.value = onAfterEditorSnapshotReady;
     void nextTick(() => {
-      const attach = (el: HTMLElement | null) => {
-        if (!el) return;
-        const fn = (e: WheelEvent) => editorHorizontalWheelOnEl(el, e);
-        el.addEventListener("wheel", fn, { passive: false });
+      const attach = (host: HTMLElement | null, viewport: HTMLElement | null) => {
+        if (!host || !viewport) return;
+        const fn = (e: WheelEvent) => editorHorizontalWheelOnEl(viewport, e);
+        host.addEventListener("wheel", fn, { passive: false });
         editorHorizontalWheelCleanups.push(() => {
-          el.removeEventListener("wheel", fn);
+          host.removeEventListener("wheel", fn);
         });
       };
-      attach(editorToolbarRef.value?.getScrollTrackEl() ?? null);
-      attach(editorStatusBarRef.value?.getScrollTrackEl() ?? null);
+      const toolbar = editorToolbarRef.value;
+      const status = editorStatusBarRef.value;
+      attach(
+        toolbar?.getHorizontalScrollHostEl() ?? null,
+        toolbar?.getScrollTrackEl() ?? null,
+      );
+      attach(
+        status?.getHorizontalScrollHostEl() ?? null,
+        status?.getScrollTrackEl() ?? null,
+      );
     });
   });
 

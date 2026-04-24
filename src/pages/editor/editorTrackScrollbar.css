@@ -1,0 +1,149 @@
+/**
+ * 编辑器轨道区竖向自定义滚动条外观，供画布旁竖条、顶栏/底栏横向滚动条、右侧抽屉内 CustomScrollArea 复用。
+ * 由 EditorScreen 通过 <style src> 单点引入；依赖其上的 --editor-canvas-scrollbar-* 等变量。
+ */
+
+/* ----- 竖向：画布右侧 ----- */
+.editor-scrollbar--inactive {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.editor-scrollbar {
+  width: var(--editor-canvas-scrollbar-w);
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: none !important;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  touch-action: none;
+}
+.editor-scrollbar-arrow {
+  width: 100%;
+  height: var(--editor-canvas-scrollbar-arrow-h, 12px);
+  border: none;
+  padding: 0;
+  line-height: 1;
+  font-size: 9px;
+  color: color-mix(in srgb, var(--primary-color) 70%, var(--text-color));
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  cursor: none !important;
+}
+.scrollbar-track {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.scrollbar-thumb {
+  position: absolute;
+  left: 1px;
+  right: 1px;
+  background: color-mix(in srgb, var(--primary-color) 35%, transparent);
+  border-radius: 3px;
+  min-height: 16px;
+  transition: background 0.15s;
+  cursor: none !important;
+  touch-action: none;
+}
+.scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--primary-color) 55%, transparent);
+}
+
+/* ----- 横向：功能栏 / 状态栏 底部分条（与轨道区色值一致） ----- */
+.editor-hscrollbar {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  margin: 0 0 2px 0;
+  box-sizing: border-box;
+  height: var(--editor-canvas-scrollbar-w, 9px);
+  min-height: var(--editor-canvas-scrollbar-w, 9px);
+  max-height: var(--editor-canvas-scrollbar-w, 9px);
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: none !important;
+}
+.editor-hscrollbar.is-collapsed {
+  opacity: 0;
+  pointer-events: none;
+}
+.editor-hscrollbar__arrow {
+  flex: 0 0 var(--editor-canvas-scrollbar-arrow-h, 12px);
+  box-sizing: border-box;
+  width: var(--editor-canvas-scrollbar-arrow-h, 12px);
+  min-width: var(--editor-canvas-scrollbar-arrow-h, 12px);
+  max-width: var(--editor-canvas-scrollbar-arrow-h, 12px);
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  line-height: 1;
+  font-size: 9px;
+  color: color-mix(in srgb, var(--primary-color) 70%, var(--text-color));
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  cursor: none !important;
+}
+.editor-hscrollbar__track {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  align-self: stretch;
+  background: transparent;
+  position: relative;
+  touch-action: none;
+  cursor: none !important;
+}
+.editor-hscrollbar__thumb {
+  position: absolute;
+  top: 1px;
+  bottom: 1px;
+  left: 0;
+  height: auto;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--primary-color) 35%, transparent);
+  touch-action: none;
+  transition: background 0.15s;
+  cursor: none !important;
+}
+.editor-hscrollbar__thumb:hover {
+  background: color-mix(in srgb, var(--primary-color) 55%, transparent);
+}
+
+/* ----- 右侧抽屉：CustomScrollArea（与竖向轨道条同一套色与尺寸） ----- */
+.editor-screen .sidebar-content .custom-scroll-viewport {
+  cursor: none !important;
+}
+.editor-screen .sidebar-content .custom-scroll-track {
+  background: color-mix(in srgb, var(--primary-color) 8%, transparent);
+  border-left: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0;
+  cursor: none !important;
+}
+.editor-screen .sidebar-content .custom-scroll-thumb {
+  left: 1px;
+  right: 1px;
+  width: auto;
+  top: 0;
+  background: color-mix(in srgb, var(--primary-color) 35%, transparent);
+  border-radius: 3px;
+  min-height: 16px;
+  transition: background 0.15s;
+  cursor: none !important;
+  box-sizing: border-box;
+}
+.editor-screen .sidebar-content .custom-scroll-thumb:hover {
+  background: color-mix(in srgb, var(--primary-color) 55%, transparent);
+}
+.editor-screen .sidebar-content .custom-scroll-arrow {
+  background: color-mix(in srgb, var(--primary-color) 14%, transparent);
+  color: color-mix(in srgb, var(--primary-color) 70%, var(--text-color));
+  border-radius: 0;
+  height: var(--editor-canvas-scrollbar-arrow-h, 12px);
+  font-size: 9px;
+}

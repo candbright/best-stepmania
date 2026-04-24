@@ -258,7 +258,13 @@ export function useEditorActions(
     player,
   });
 
-  const { handleScrollbarMouseDown } = createEditorScrollbar(s);
+  const {
+    handleScrollbarTrackPointerDown,
+    handleScrollbarThumbPointerDown,
+    handleScrollbarThumbPointerMove,
+    handleScrollbarThumbPointerUp,
+    nudgeScrollBy: nudgeScrollbarBy,
+  } = createEditorScrollbar(s);
 
   // ====== Note helpers ======
   function createLongNote(track: number, startRow: number, endRow: number, noteType: string) {
@@ -357,7 +363,11 @@ export function useEditorActions(
     commitBpmEdit,
     cancelBpmEdit,
     // Scrollbar
-    handleScrollbarMouseDown,
+    handleScrollbarTrackPointerDown,
+    handleScrollbarThumbPointerDown,
+    handleScrollbarThumbPointerMove,
+    handleScrollbarThumbPointerUp,
+    nudgeScrollbarBy,
     // Undo
     undo,
     redo,

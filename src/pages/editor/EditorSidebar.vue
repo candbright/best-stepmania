@@ -94,7 +94,7 @@ const emit = defineEmits<{
       <button type="button" class="sidebar-tab" :class="{ active: sidebarTab === 'bpm' }" @click="sidebarTab = 'bpm'" :title="t('editor.bpmTabHint')">♩</button>
     </div>
 
-    <div class="sidebar-panels">
+    <div class="sidebar-panels" @dragstart.prevent>
       <EditorSidebarChartsPanel
         v-show="sidebarTab === 'charts'"
         v-model:edit-chart-steps-type="editChartStepsType"

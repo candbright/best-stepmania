@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useI18n } from "@/shared/i18n";
 import { BaseNumberField } from "@/shared/ui";
+import CustomScrollArea from "@/shared/ui/CustomScrollArea.vue";
+import { EDITOR_CANVAS_SCROLLBAR_PX } from "./constants";
 
 const { t } = useI18n();
 
@@ -37,7 +39,8 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="sidebar-content">
+  <CustomScrollArea class="sidebar-content" :scrollbar-width="EDITOR_CANVAS_SCROLLBAR_PX" :show-arrows="true">
+    <div class="sidebar-content-inner">
     <h4 class="sidebar-section-head">{{ t('editor.metadata') }}</h4>
     <div class="meta-form">
       <label class="meta-field">
@@ -112,5 +115,6 @@ const emit = defineEmits<{
         {{ t('editor.save') }}
       </button>
     </div>
-  </div>
+    </div>
+  </CustomScrollArea>
 </template>

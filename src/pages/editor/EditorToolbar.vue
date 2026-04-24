@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from "vue";
 import { useI18n } from "@/shared/i18n";
 import EditorToolbarNoteSelectionGroup from "./EditorToolbarNoteSelectionGroup.vue";
 import EditorToolbarPlaybackGroup from "./EditorToolbarPlaybackGroup.vue";
 import EditorToolbarControlsGroup from "./EditorToolbarControlsGroup.vue";
 import type { ShortcutId } from "@/shared/lib/engine/keyBindings";
+import { ref } from "vue";
+import { useHorizontalScrollArea } from "@/shared/composables/useHorizontalScrollArea";
 import "./editorToolbar.css";
 
 const { t } = useI18n();
@@ -58,10 +59,26 @@ const emit = defineEmits<{
   toolbarSelectKeydown: [e: KeyboardEvent];
 }>();
 
-const toolbarScrollTrackRef = ref<HTMLElement | null>(null);
+const {
+  viewportRef: toolbarScrollViewportRef,
+  trackRef: toolbarCustomTrackRef,
+  thumbWidthPx: toolbarThumbWidthPx,
+  thumbLeftPx: toolbarThumbLeftPx,
+  trackVisible: toolbarTrackVisible,
+  onViewportScroll: onToolbarViewportScroll,
+  onThumbPointerDown: onToolbarThumbPointerDown,
+  onThumbPointerMove: onToolbarThumbPointerMove,
+  onThumbPointerUp: onToolbarThumbPointerUp,
+  onTrackPointerDown: onToolbarTrackPointerDown,
+  nudgeScrollBy: nudgeToolbarScrollBy,
+} = useHorizontalScrollArea();
+void toolbarCustomTrackRef;
+
+const toolbarScrollHostRef = ref<HTMLElement | null>(null);
 
 defineExpose({
-  getScrollTrackEl: (): HTMLElement | null => toolbarScrollTrackRef.value,
+  getScrollTrackEl: (): HTMLElement | null => toolbarScrollViewportRef.value,
+  getHorizontalScrollHostEl: (): HTMLElement | null => toolbarScrollHostRef.value,
 });
 
 </script>
@@ -70,10 +87,14 @@ defineExpose({
   <header class="toolbar">
     <div class="toolbar-back-fixed">
       <button class="tool-icon-btn" type="button" @click="emit('goBack')" :title="t('back')">←</button>
-      <div class="toolbar-divider toolbar-divider--back" />
     </div>
-    <div class="toolbar-scroll">
-      <div ref="toolbarScrollTrackRef" class="toolbar-scroll-track">
+    <div ref="toolbarScrollHostRef" class="toolbar-scroll">
+      <div
+        ref="toolbarScrollViewportRef"
+        class="toolbar-scroll-track"
+        @dragstart.prevent
+        @scroll.passive="onToolbarViewportScroll"
+      >
         <div class="toolbar-scroll-icons">
           <EditorToolbarNoteSelectionGroup
             v-model:current-note-type="currentNoteType"
@@ -131,6 +152,24 @@ defineExpose({
             @toolbar-select-keydown="emit('toolbarSelectKeydown', $event)"
           />
         </div>
+      </div>
+      <div class="editor-hscrollbar" :class="{ 'is-collapsed': !toolbarTrackVisible }">
+        <button type="button" class="editor-hscrollbar__arrow" @click="nudgeToolbarScrollBy(-1)">◀</button>
+        <div
+          ref="toolbarCustomTrackRef"
+          class="editor-hscrollbar__track"
+          @pointerdown="onToolbarTrackPointerDown"
+        >
+          <div
+            class="editor-hscrollbar__thumb hscroll-thumb"
+            :style="{ width: `${toolbarThumbWidthPx}px`, transform: `translateX(${toolbarThumbLeftPx}px)` }"
+            @pointerdown="onToolbarThumbPointerDown"
+            @pointermove="onToolbarThumbPointerMove"
+            @pointerup="onToolbarThumbPointerUp"
+            @pointercancel="onToolbarThumbPointerUp"
+          />
+        </div>
+        <button type="button" class="editor-hscrollbar__arrow" @click="nudgeToolbarScrollBy(1)">▶</button>
       </div>
     </div>
     <div class="toolbar-song-fixed" :title="songTitle">

@@ -15,11 +15,70 @@ interface UseEditorSongManagementOptions {
   navigateToEditorWithPrefetch: (routeQuery?: Record<string, string>) => Promise<void>;
 }
 
+interface ImportSongFormData {
+  packName: string;
+  title: string;
+  artist: string;
+  subtitle: string;
+  genre: string;
+  bpm: number;
+  offset: number;
+  stepsType: string;
+  difficulty: string;
+  meter: number;
+  createChart: boolean;
+  musicSourcePath: string;
+  coverSourcePath: string;
+  backgroundSourcePath: string;
+  chartSourcePath: string;
+}
+
+interface ImportSongDefaults {
+  title: string;
+  artist: string;
+  subtitle: string;
+  genre: string;
+  bpm: number;
+  offset: number;
+  musicSourcePath: string;
+  coverSourcePath: string;
+  backgroundSourcePath: string;
+  chartSourcePath: string;
+}
+
 export function useEditorSongManagement(options: UseEditorSongManagementOptions) {
+  const ROOT_PACK_ID = ".root";
   const showCreateSongModal = ref(false);
+  const showImportSongModal = ref(false);
   const confirmDeleteSong = ref<SongListItem | null>(null);
   const importing = ref(false);
   const importStatus = ref("");
+  const importSongSourcePath = ref("");
+  const importSongDefaults = ref<ImportSongDefaults>({
+    title: "",
+    artist: "",
+    subtitle: "",
+    genre: "",
+    bpm: 120,
+    offset: 0,
+    musicSourcePath: "",
+    coverSourcePath: "",
+    backgroundSourcePath: "",
+    chartSourcePath: "",
+  });
+
+  function normalizeSongName(name: string): string {
+    return name.trim().toLocaleLowerCase();
+  }
+
+  function hasDuplicateSongNameInPack(packName: string, songName: string): boolean {
+    const normalized = normalizeSongName(songName);
+    if (!normalized) return false;
+    return options.library.songs.some((song) => {
+      if (song.pack !== packName) return false;
+      return normalizeSongName(song.title || "") === normalized;
+    });
+  }
 
   function openCreateSongModal() {
     showCreateSongModal.value = true;
@@ -89,39 +148,95 @@ export function useEditorSongManagement(options: UseEditorSongManagementOptions)
 
   async function importSongs() {
     try {
-      const selected = await openDirectoryDialog(options.t("select.import"));
-      if (!selected) return;
-      importing.value = true;
+      const selected = await openDirectoryDialog(options.t("songPacks.selectSongDirectory"));
+      if (!selected || typeof selected !== "string") return;
       importStatus.value = "";
-
       if (!isTauri()) {
         importStatus.value = options.t("select.importWebNotSupported");
         return;
       }
-
-      const result = await api.importSongPack(selected as string, "");
-      importStatus.value = options.t("select.importSuccess")
-        .replace("{0}", String(result.importedCount))
-        .replace("{1}", String(result.skippedCount));
-      if (result.importedCount > 0) {
-        const oldPaths = new Set(options.library.songs.map((s) => s.path));
-        const newSongs = await api.getSongList(options.library.sortMode);
-        options.library.songs = newSongs;
-
-        const firstImportedIdx = newSongs.findIndex((s) => !oldPaths.has(s.path));
-        const nextIndex = firstImportedIdx >= 0
-          ? firstImportedIdx
-          : Math.max(0, Math.min(options.session.currentSongIndex, newSongs.length - 1));
-
-        if (newSongs.length > 0) {
-          await options.session.selectSong(nextIndex);
-          options.player.setQueue(newSongs, nextIndex);
-        }
-      }
+      importSongSourcePath.value = selected;
+      const sourceInfo = await api.inspectSongImportSource(selected);
+      importSongDefaults.value = {
+        title: sourceInfo.title?.trim() || sourceInfo.folderName?.trim() || "",
+        artist: sourceInfo.artist ?? "",
+        subtitle: sourceInfo.subtitle ?? "",
+        genre: sourceInfo.genre ?? "",
+        bpm: Number.isFinite(sourceInfo.bpm) ? sourceInfo.bpm : 120,
+        offset: Number.isFinite(sourceInfo.offset) ? sourceInfo.offset : 0,
+        musicSourcePath: sourceInfo.musicSourcePath ?? "",
+        coverSourcePath: sourceInfo.coverSourcePath ?? "",
+        backgroundSourcePath: sourceInfo.backgroundSourcePath ?? "",
+        chartSourcePath: sourceInfo.chartSourcePath ?? "",
+      };
+      showImportSongModal.value = true;
     } catch (e: unknown) {
       importStatus.value = options.t("select.importError") + ": " + String(e);
+      setTimeout(() => {
+        importStatus.value = "";
+      }, 5000);
+    }
+  }
+
+  async function handleImportSongConfirm(data: ImportSongFormData) {
+    if (!importSongSourcePath.value) return;
+    importing.value = true;
+    importStatus.value = "";
+    const oldPaths = new Set(options.library.songs.map((s) => s.path));
+    try {
+      const targetPack = data.packName || ROOT_PACK_ID;
+      if (hasDuplicateSongNameInPack(targetPack, data.title)) {
+        importStatus.value = options.t("songPacks.duplicateSongName");
+        return;
+      }
+      const prepareResult = await api.prepareSongImport(importSongSourcePath.value, targetPack);
+      await api.createChartForImported(
+        prepareResult.songDir,
+        data.title,
+        data.artist,
+        data.subtitle,
+        data.genre,
+        data.bpm,
+        data.offset,
+        data.stepsType,
+        data.difficulty,
+        data.meter,
+        true,
+        data.musicSourcePath,
+        data.coverSourcePath,
+        data.backgroundSourcePath,
+        data.chartSourcePath,
+      );
+      const newSongs = await api.getSongList(options.library.sortMode);
+      options.library.songs = newSongs;
+      const firstImportedIdx = newSongs.findIndex((s) => !oldPaths.has(s.path));
+      const nextIndex = firstImportedIdx >= 0
+        ? firstImportedIdx
+        : Math.max(0, Math.min(options.session.currentSongIndex, newSongs.length - 1));
+
+      if (newSongs.length > 0) {
+        await options.session.selectSong(nextIndex);
+        options.player.setQueue(newSongs, nextIndex);
+      }
+      showImportSongModal.value = false;
+      importStatus.value = options.t("songPacks.songImported");
+    } catch (e: unknown) {
+      importStatus.value = options.t("songPacks.songImportFailed") + ": " + String(e);
     } finally {
       importing.value = false;
+      importSongSourcePath.value = "";
+      importSongDefaults.value = {
+        title: "",
+        artist: "",
+        subtitle: "",
+        genre: "",
+        bpm: 120,
+        offset: 0,
+        musicSourcePath: "",
+        coverSourcePath: "",
+        backgroundSourcePath: "",
+        chartSourcePath: "",
+      };
       setTimeout(() => {
         importStatus.value = "";
       }, 5000);
@@ -130,9 +245,11 @@ export function useEditorSongManagement(options: UseEditorSongManagementOptions)
 
   return {
     showCreateSongModal,
+    showImportSongModal,
     confirmDeleteSong,
     importing,
     importStatus,
+    importSongDefaults,
     openCreateSongModal,
     handleCreateSuccess,
     handleCreateError,
@@ -140,5 +257,6 @@ export function useEditorSongManagement(options: UseEditorSongManagementOptions)
     handleDeleteSongSuccess,
     handleDeleteSongError,
     importSongs,
+    handleImportSongConfirm,
   };
 }

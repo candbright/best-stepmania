@@ -86,7 +86,8 @@ const {
   addBeatShiftNotesDown, deleteBeatShiftNotesUp, canDeleteBeatShiftNotesUp,
   saveToFile, saveMetadata, exportCurrentChartAsSm, importSmAsNewChart,
   handleCanvasClick, handleMouseDown, handleRightClick, handleScroll,
-  handleScrollbarMouseDown,
+  handleScrollbarTrackPointerDown, handleScrollbarThumbPointerDown, handleScrollbarThumbPointerMove, handleScrollbarThumbPointerUp,
+  nudgeScrollbarBy,
   switchChart, createNewChart, duplicateCurrentChart, performDeleteCurrentChart, applyChartProperties,
   addBpmChangeFromInput, updateBpmChange, deleteBpmChange,
   commitBpmEdit, cancelBpmEdit,
@@ -468,7 +469,8 @@ useEditorScreenLifecycle({
           <input
             ref="bpmInlineInput"
             v-model="editingBpmInputValue"
-            type="number" step="0.01" min="1"
+            type="text"
+            inputmode="decimal"
             class="bpm-inline-input"
             @keydown.enter="commitBpmEdit"
             @keydown.escape="cancelBpmEdit" />
@@ -479,15 +481,22 @@ useEditorScreenLifecycle({
         <div
           class="editor-scrollbar"
           :class="{ 'editor-scrollbar--inactive': !editorToolbarEditingEnabled }"
-          @mousedown="handleScrollbarMouseDown"
+          @dragstart.prevent
         >
-          <div class="scrollbar-track">
+          <button type="button" class="editor-scrollbar-arrow editor-scrollbar-arrow--up" @click="nudgeScrollbarBy(-1)">▲</button>
+          <div class="scrollbar-track" @pointerdown="handleScrollbarTrackPointerDown">
             <div class="scrollbar-thumb"
               :style="{
                 top: scrollbarThumbTop * 100 + '%',
                 height: Math.max(scrollbarThumbRatio * 100, 3) + '%'
-              }" />
+              }"
+              @pointerdown="handleScrollbarThumbPointerDown"
+              @pointermove="handleScrollbarThumbPointerMove"
+              @pointerup="handleScrollbarThumbPointerUp"
+              @pointercancel="handleScrollbarThumbPointerUp"
+            />
           </div>
+          <button type="button" class="editor-scrollbar-arrow editor-scrollbar-arrow--down" @click="nudgeScrollbarBy(1)">▼</button>
         </div>
       </div>
 
@@ -604,6 +613,7 @@ useEditorScreenLifecycle({
   </div>
 </template>
 
+<style src="./editor/editorTrackScrollbar.css"></style>
 <style scoped>
 .editor-screen {
   width: 100%;
@@ -615,6 +625,7 @@ useEditorScreenLifecycle({
   /* Toolbar: icon row height fixed; horizontal bar sits in padding below icons (does not shrink buttons). */
   --editor-hscrollbar-thick: 4px;
   --editor-canvas-scrollbar-w: 9px;
+  --editor-canvas-scrollbar-arrow-h: 12px;
   --editor-toolbar-icons-h: 42px;
   --editor-toolbar-track-pad-y: 6px;
   --editor-toolbar-hscroll-pad: 10px;
@@ -679,31 +690,6 @@ useEditorScreenLifecycle({
   max-width: 22rem;
   line-height: 1.45;
 }
-.editor-scrollbar--inactive {
-  opacity: 0.35;
-  pointer-events: none;
-}
-.editor-scrollbar {
-  width: var(--editor-canvas-scrollbar-w);
-  flex-shrink: 0;
-  background: rgba(255,255,255,0.02);
-  border-left: 1px solid rgba(255,255,255,0.06);
-  cursor: pointer;
-  position: relative;
-}
-.scrollbar-track {
-  position: absolute; inset: 0;
-}
-.scrollbar-thumb {
-  position: absolute;
-  left: 1px;
-  right: 1px;
-  background: color-mix(in srgb, var(--primary-color) 35%, transparent);
-  border-radius: 3px;
-  min-height: 16px;
-  transition: background 0.15s;
-}
-.scrollbar-thumb:hover { background: color-mix(in srgb, var(--primary-color) 55%, transparent); }
 
 /* ===== Shared button styles ===== */
 .tool-btn {

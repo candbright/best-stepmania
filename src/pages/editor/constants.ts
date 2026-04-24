@@ -1,6 +1,11 @@
 // --- Editor Constants ---
 // Static configuration values shared across the editor.
 
+/** 与 `EditorScreen` 中 `.editor-screen` 的 `--editor-canvas-scrollbar-w`、`editorTrackScrollbar.css` 中竖/横滚动条同宽（px）。 */
+export const EDITOR_CANVAS_SCROLLBAR_PX = 9;
+/** 与 `--editor-canvas-scrollbar-arrow-h` 及 `editorTrackScrollbar.css` 中箭头尺寸一致（px）。 */
+export const EDITOR_CANVAS_SCROLLBAR_ARROW_PX = 12;
+
 export const COLUMN_WIDTH = 72;
 export const NOTE_SIZE = 48;
 export const HEADER_HEIGHT = 56;
@@ -16,7 +21,7 @@ export const EDITOR_ZOOM_MAX = 1200;
 export const EDITOR_ZOOM_STEP_KEY = 10;
 
 /** Quantize dropdown values; +/- keys cycle this list (Ctrl++ / Ctrl+- still adjust zoom). */
-export const EDITOR_QUANTIZE_LEVELS = [3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 192] as const;
+export const EDITOR_QUANTIZE_LEVELS = [2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 192] as const;
 
 /** Two BPM changes closer than this (in beats) are treated as the same anchor (matches quantize grid). */
 export const BPM_BEAT_MATCH_EPS = 1e-4;

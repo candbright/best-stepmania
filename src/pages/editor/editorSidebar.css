@@ -61,11 +61,16 @@
 .sidebar-content {
   flex: 1;
   min-height: 0;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  padding: 0.75rem;
-  scrollbar-gutter: stable;
+  display: flex;
+  overflow: hidden;
 }
+.sidebar-content-inner {
+  width: 100%;
+  min-height: 0;
+  padding: 0.75rem;
+  cursor: none !important;
+}
+/* 抽屉内滚动条与轨道区共用样式：见 editorTrackScrollbar.css（由 EditorScreen 引入） */
 .sidebar-content h4 {
   font-size: 0.65rem;
   letter-spacing: 0.15em;

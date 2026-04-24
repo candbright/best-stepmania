@@ -2,7 +2,8 @@
 import type { StyleValue } from "vue";
 import { useI18n } from "@/shared/i18n";
 import type { ChartInfo } from "@/shared/api";
-import { DIFF_COLORS } from "./constants";
+import { DIFF_COLORS, EDITOR_CANVAS_SCROLLBAR_PX } from "./constants";
+import CustomScrollArea from "@/shared/ui/CustomScrollArea.vue";
 
 const { t } = useI18n();
 
@@ -20,7 +21,8 @@ defineProps<{
 </script>
 
 <template>
-  <div class="sidebar-content note-stats-panel">
+  <CustomScrollArea class="sidebar-content note-stats-panel" :scrollbar-width="EDITOR_CANVAS_SCROLLBAR_PX" :show-arrows="true">
+    <div class="sidebar-content-inner">
     <h4>{{ t('editor.noteStatsTitle') }}</h4>
 
     <div v-if="activeChart" class="note-stats-chart-pill">
@@ -72,5 +74,6 @@ defineProps<{
         </li>
       </ul>
     </template>
-  </div>
+    </div>
+  </CustomScrollArea>
 </template>

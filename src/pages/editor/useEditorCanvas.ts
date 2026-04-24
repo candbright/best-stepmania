@@ -77,6 +77,53 @@ export function useEditorCanvas(s: EditorState) {
     return Math.abs(q - Math.round(q)) < 1e-3;
   }
 
+  function gcdPositive(a: number, b: number): number {
+    let x = Math.abs(Math.trunc(a));
+    let y = Math.abs(Math.trunc(b));
+    while (y !== 0) {
+      const t = x % y;
+      x = y;
+      y = t;
+    }
+    return x || 1;
+  }
+
+  /** Returns reduced subdivision denominator for the current grid line (e.g. 8, 12, 16). */
+  function subdivisionFromGridIndex(gridIndex: number, quantize: number): number {
+    const q = Math.max(1, Math.trunc(quantize));
+    const g = gcdPositive(gridIndex, q);
+    return q / g;
+  }
+
+  function resolveBeatLineStyle(beat: number, gridIndex: number, quantize: number): { lineWidth: number; strokeStyle: string } {
+    if (nearMultipleOf(beat, 4)) {
+      return { lineWidth: 2.6, strokeStyle: "rgba(255,255,255,0.62)" };
+    }
+    if (nearMultipleOf(beat, 1)) {
+      return { lineWidth: 1.9, strokeStyle: "rgba(220,225,255,0.46)" };
+    }
+    const subdivision = subdivisionFromGridIndex(gridIndex, quantize);
+    const subdivisionColors: Record<number, string> = {
+      2: "rgba(255,112,67,0.42)",
+      3: "rgba(255,82,82,0.40)",
+      4: "rgba(129,199,132,0.38)",
+      6: "rgba(244,143,177,0.36)",
+      8: "rgba(79,195,247,0.34)",
+      12: "rgba(171,71,188,0.32)",
+      16: "rgba(102,187,106,0.30)",
+      24: "rgba(255,202,40,0.28)",
+      32: "rgba(255,241,118,0.26)",
+      48: "rgba(77,208,225,0.24)",
+      64: "rgba(206,147,216,0.22)",
+      96: "rgba(186,104,200,0.20)",
+      192: "rgba(189,189,189,0.18)",
+    };
+    const fallbackHue = (subdivision * 37) % 360;
+    const strokeStyle = subdivisionColors[subdivision] ?? `hsla(${fallbackHue}, 78%, 72%, 0.24)`;
+    const lineWidth = subdivision <= 8 ? 1.55 : subdivision <= 24 ? 1.35 : 1.2;
+    return { lineWidth, strokeStyle };
+  }
+
   // --- Coordinate helpers ---
   function beatToY(beat: number): number {
     return beatToYFromState(beat, s.scrollBeat.value, s.zoom.value);
@@ -255,7 +302,7 @@ export function useEditorCanvas(s: EditorState) {
       }
       // Column separators (all)
       ctx.strokeStyle = "rgba(255,255,255,0.10)";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
       for (let i = 0; i <= numTracks; i++) {
         ctx.beginPath();
         ctx.moveTo(fieldX + i * COLUMN_WIDTH, 0);
@@ -265,7 +312,7 @@ export function useEditorCanvas(s: EditorState) {
     } else {
       // Only draw outer boundary lines (left edge of first column, right edge of last column)
       ctx.strokeStyle = "rgba(255,255,255,0.10)";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.2;
       for (const i of [0, numTracks] as const) {
         ctx.beginPath();
         ctx.moveTo(fieldX + i * COLUMN_WIDTH, 0);
@@ -282,19 +329,6 @@ export function useEditorCanvas(s: EditorState) {
     // Quantize grid: every subdivision line shares the same styling tier; BPM "+" on each line without a change.
     if (s.showBeatLines.value) {
     const step = 4 / s.quantize.value;
-    const qColors: Record<number, string> = {
-      3: "rgba(255,100,100,0.18)",
-      4: "rgba(255,255,255,0.08)",
-      6: "rgba(171,71,188,0.16)",
-      8: "rgba(41,121,255,0.16)",
-      12: "rgba(171,71,188,0.14)",
-      16: "rgba(0,230,118,0.14)",
-      24: "rgba(255,145,0,0.12)",
-      32: "rgba(255,234,0,0.10)",
-      48: "rgba(64,196,255,0.10)",
-      64: "rgba(224,224,224,0.08)",
-      192: "rgba(158,158,158,0.06)",
-    };
 
     bpmAddButtons.length = 0;
     const { bpmBeatKeys } = getTimingCaches();
@@ -309,19 +343,7 @@ export function useEditorCanvas(s: EditorState) {
 
       const onMeasure = nearMultipleOf(b, 4);
       const onBeat = nearMultipleOf(b, 1);
-
-      let lineWidth: number;
-      let strokeStyle: string;
-      if (onMeasure) {
-        lineWidth = 2;
-        strokeStyle = "rgba(255,255,255,0.45)";
-      } else if (onBeat) {
-        lineWidth = 1;
-        strokeStyle = "rgba(255,255,255,0.15)";
-      } else {
-        lineWidth = 1;
-        strokeStyle = qColors[s.quantize.value] || "rgba(255,255,255,0.08)";
-      }
+      const { lineWidth, strokeStyle } = resolveBeatLineStyle(b, i, s.quantize.value);
       ctx.strokeStyle = strokeStyle;
       ctx.lineWidth = lineWidth;
       ctx.beginPath();

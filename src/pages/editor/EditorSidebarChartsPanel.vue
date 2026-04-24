@@ -2,9 +2,10 @@
 import { computed } from "vue";
 import { useI18n } from "@/shared/i18n";
 import type { ChartInfo } from "@/shared/api";
-import { DIFFICULTIES, DIFF_COLORS } from "./constants";
+import { DIFFICULTIES, DIFF_COLORS, EDITOR_CANVAS_SCROLLBAR_PX } from "./constants";
 import { BaseSelect } from "@/shared/ui";
 import { BaseNumberField } from "@/shared/ui";
+import CustomScrollArea from "@/shared/ui/CustomScrollArea.vue";
 
 const { t } = useI18n();
 
@@ -54,7 +55,8 @@ const chartDifficultySelectOptions = computed(() =>
 </script>
 
 <template>
-  <div class="sidebar-content">
+  <CustomScrollArea class="sidebar-content" :scrollbar-width="EDITOR_CANVAS_SCROLLBAR_PX" :show-arrows="true">
+    <div class="sidebar-content-inner">
     <h4 class="chart-list-heading">{{ t('editor.chartListTitle') }}</h4>
     <div class="chart-list-heading-divider" role="presentation" />
     <p v-if="!allCharts.length" class="chart-list-empty-hint">{{ t('editor.noChartsHint') }}</p>
@@ -191,5 +193,6 @@ const chartDifficultySelectOptions = computed(() =>
     <div v-if="holdStartRow" class="sidebar-hint">
       {{ t('editor.holdDragHint') }}
     </div>
-  </div>
+    </div>
+  </CustomScrollArea>
 </template>
