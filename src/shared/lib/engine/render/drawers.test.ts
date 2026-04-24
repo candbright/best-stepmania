@@ -105,11 +105,15 @@ describe("drawHoldDrawer", () => {
       endRow: 16,
       endSecond: 2,
       active: false,
+      headMissed: false,
       held: false,
       finished: false,
       letGo: false,
       isRoll: false,
       lastRollTick: 0,
+      nextCheckpointSecond: 0.1,
+      checkpointInterval: 0.1,
+      graceUntilSecond: null,
     };
     const panel: PanelConfig = {
       player: 1,
