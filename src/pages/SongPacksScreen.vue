@@ -15,6 +15,7 @@ import DeletePackModal from "./song-packs/DeletePackModal.vue";
 import DeleteSongModal from "./song-packs/DeleteSongModal.vue";
 import ImportSongModal from "./song-packs/ImportSongModal.vue";
 import CreateEmptyPackModal from "./song-packs/CreateEmptyPackModal.vue";
+import { useSongImportFlow } from "./song-packs/useSongImportFlow";
 
 const router = useRouter();
 const session = useSessionStore();
@@ -27,18 +28,9 @@ const { t } = useI18n();
 const loading = ref(false);
 const refreshing = ref(false);
 const importing = ref(false);
+const importingAction = ref<"pack" | "song" | "createPack" | null>(null);
 const statusMsg = ref("");
 const statusOk = ref(true);
-
-function normalizeSongName(name: string): string {
-  return name.trim().toLocaleLowerCase();
-}
-
-function hasDuplicateSongNameInPack(packName: string, songName: string): boolean {
-  const normalized = normalizeSongName(songName);
-  if (!normalized) return false;
-  return songsInPack(packName).some((song) => normalizeSongName(song.title || "") === normalized);
-}
 
 // packs from library store (cached)
 const packs = computed(() => library.packs);
@@ -79,7 +71,8 @@ async function refreshSongs(opts?: { preserveCurrentPlayback?: boolean; removedS
   if (opts?.preserveCurrentPlayback) {
     if (opts.removedSongPath && shouldSwitchNowPlayingAfterRemoval(opts.removedSongPath)) {
       const candidateIndex = Math.min(player.queueIndex, Math.max(library.songs.length - 1, 0));
-      player.setQueue(library.songs, candidateIndex);
+      // 删除当前播放曲目后仅同步队列，避免在系统设置页触发新的预览播放。
+      player.syncQueuePreserveCurrent(library.songs, null, candidateIndex);
       return;
     }
 
@@ -142,15 +135,21 @@ function onDeleteSongLoading(val: boolean) {
 }
 
 async function importPack() {
+  if (importing.value) return;
+  importingAction.value = "pack";
   const selected = await openDirectoryDialog(t("songPacks.selectDirectory"));
-  if (!selected || typeof selected !== "string") return;
+  if (!selected || typeof selected !== "string") {
+    importingAction.value = null;
+    return;
+  }
   if (!isTauri()) {
     showStatus(t("select.importWebNotSupported"), false);
+    importingAction.value = null;
     return;
   }
   importing.value = true;
   try {
-    const result = await api.importSongPack(selected, "");
+    const result = await api.importSongPack(selected);
     if (result.importedCount > 0) {
       showStatus(
         t("select.importSuccess")
@@ -168,121 +167,26 @@ async function importPack() {
     showStatus(t("songPacks.importFailed") + ": " + String(e), false);
   } finally {
     importing.value = false;
+    importingAction.value = null;
   }
 }
 
-// ─── import single song ──────────────────────────────────────────────────────
-const showImportSongModal = ref(false);
-const songSourcePath = ref("");
-const prepareResult = ref<api.PrepareImportResult | null>(null);
-
-async function startImportSong() {
-  const selected = await openDirectoryDialog(t("songPacks.selectSongDirectory"));
-  if (!selected || typeof selected !== "string") return;
-  if (!isTauri()) {
-    showStatus(t("select.importWebNotSupported"), false);
-    return;
-  }
-
-  importing.value = true;
-  try {
-    // First, prepare the import - this copies the folder
-    const prepResult = await api.prepareSongImport(selected, "");
-    prepareResult.value = prepResult;
-    songSourcePath.value = selected;
-
-    if (prepResult.hasChart) {
-      // Has chart file, just import normally
-      if (hasDuplicateSongNameInPack(ROOT_PACK_ID, prepResult.folderName)) {
-        showStatus(t("songPacks.duplicateSongName"), false);
-        return;
-      }
-      const result = await api.importSingleSong(selected, "");
-      if (result.importedCount > 0) {
-        showStatus(t("songPacks.songImported"));
-        await refreshSongs();
-        // Update target pack song count dynamically (pack is root or existing)
-        const targetPack = ROOT_PACK_ID;
-        const pack = packs.value.find((p) => p.name === targetPack);
-        if (pack) {
-          pack.songCount = songsInPack(pack.name).length;
-        }
-      } else if (result.skippedCount > 0) {
-        showStatus(t("songPacks.allExist").replace("{0}", String(result.skippedCount)), true);
-      } else {
-        showStatus(t("songPacks.noSongsFound"), false);
-      }
-    } else {
-      // No chart file, need to ask user for info
-      showImportSongModal.value = true;
-    }
-  } catch (e: unknown) {
-    showStatus(t("songPacks.songImportFailed") + ": " + String(e), false);
-  } finally {
-    importing.value = false;
-  }
-}
-
-async function handleImportSongConfirm(data: {
-  packName: string;
-  title: string;
-  artist: string;
-  subtitle: string;
-  genre: string;
-  bpm: number;
-  offset: number;
-  stepsType: string;
-  difficulty: string;
-  meter: number;
-  createChart: boolean;
-  musicSourcePath: string;
-  coverSourcePath: string;
-  backgroundSourcePath: string;
-}) {
-  if (!prepareResult.value) return;
-
-  importing.value = true;
-  try {
-    const targetPack = data.packName === "" ? ROOT_PACK_ID : (data.packName || ROOT_PACK_ID);
-    if (hasDuplicateSongNameInPack(targetPack, data.title)) {
-      showStatus(t("songPacks.duplicateSongName"), false);
-      return;
-    }
-
-    // Create the chart file with user-provided info
-    await api.createChartForImported(
-      prepareResult.value.songDir,
-      data.title,
-      data.artist,
-      data.subtitle,
-      data.genre,
-      data.bpm,
-      data.offset,
-      data.stepsType,
-      data.difficulty,
-      data.meter,
-      data.createChart,
-      data.musicSourcePath,
-      data.coverSourcePath,
-      data.backgroundSourcePath,
-    );
-    showImportSongModal.value = false;
-    showStatus(t("songPacks.songImported"));
-    // Dynamically update song list and target pack's count
-    // data.packName is "" for root (no pack subdirectory) or ".root" for .root folder or a real pack name
-    await refreshSongs();
-    const pack = packs.value.find((p) => p.name === targetPack);
-    if (pack) {
-      pack.songCount = songsInPack(pack.name).length;
-    }
-  } catch (e: unknown) {
-    showStatus(t("songPacks.songImportFailed") + ": " + String(e), false);
-  } finally {
-    importing.value = false;
-    songSourcePath.value = "";
-    prepareResult.value = null;
-  }
-}
+const {
+  showImportSongModal,
+  importSongError,
+  importSongDefaults,
+  startImportSong,
+  handleImportSongConfirm,
+  closeImportSongModal,
+} = useSongImportFlow({
+  packs,
+  importing,
+  importingAction,
+  songsInPack,
+  showStatus,
+  refreshSongs: () => refreshSongs(),
+  t,
+});
 
 // ─── delete pack ─────────────────────────────────────────────────────────────
 const confirmDeletePack = ref<SongPackInfo | null>(null);
@@ -350,10 +254,11 @@ function openCreateEmptyPackModal() {
 }
 
 async function handleCreateEmptyPackConfirm(packName: string) {
-  showCreateEmptyPackModal.value = false;
+  importingAction.value = "createPack";
   importing.value = true;
   try {
     await api.createEmptyPack(packName);
+    showCreateEmptyPackModal.value = false;
     showStatus(t('songPacks.packCreated').replace("{0}", packName));
     await refreshSongs();
     await library.loadPacks(); // refresh pack cache
@@ -361,6 +266,7 @@ async function handleCreateEmptyPackConfirm(packName: string) {
     showStatus(t('songPacks.packCreateFailed') + ": " + String(e), false);
   } finally {
     importing.value = false;
+    importingAction.value = null;
   }
 }
 </script>
@@ -369,21 +275,26 @@ async function handleCreateEmptyPackConfirm(packName: string) {
   <div class="song-packs-screen">
     <!-- Header -->
     <header class="top-bar">
-      <button class="back-btn" @click="router.push('/options')">&larr; {{ t('back') }}</button>
-      <h2>{{ t('songPacks.title') }}</h2>
-      <div class="header-actions">
+      <div class="top-bar-lead">
+        <button class="tb-btn" :aria-label="t('back')" @click="router.push('/options')">&larr;</button>
+      </div>
+      <h2 class="top-bar-title">{{ t('songPacks.title') }}</h2>
+      <div class="top-bar-trail header-actions">
         <button class="icon-btn refresh-btn" :title="t('songPacks.refresh')" @click="refreshPacks" :disabled="refreshing">
           <svg v-if="!refreshing" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
           <span v-else class="spinner">&#x27F3;</span>
         </button>
-        <button class="icon-btn import-btn secondary" :title="t('songPacks.importSong')" @click="startImportSong">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+        <button class="icon-btn import-btn secondary" :title="t('songPacks.importSong')" @click="startImportSong" :disabled="importing">
+          <span v-if="importingAction === 'song'" class="spinner">&#x27F3;</span>
+          <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
         </button>
-        <button class="icon-btn import-btn secondary" :title="t('songPacks.createEmptyPack')" @click="openCreateEmptyPackModal">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        <button class="icon-btn import-btn secondary" :title="t('songPacks.createEmptyPack')" @click="openCreateEmptyPackModal" :disabled="importing">
+          <span v-if="importingAction === 'createPack'" class="spinner">&#x27F3;</span>
+          <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
-        <button class="icon-btn import-btn" :title="t('songPacks.importPack')" @click="importPack">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+        <button class="icon-btn import-btn" :title="t('songPacks.importPack')" @click="importPack" :disabled="importing">
+          <span v-if="importingAction === 'pack'" class="spinner">&#x27F3;</span>
+          <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
         </button>
       </div>
     </header>
@@ -497,34 +408,34 @@ async function handleCreateEmptyPackConfirm(packName: string) {
     <ImportSongModal
       :show="showImportSongModal"
       :packs="packs"
-      :default-title="prepareResult?.folderName ?? ''"
-      @close="showImportSongModal = false"
+      :error-message="importSongError"
+      :default-title="importSongDefaults.title"
+      :default-artist="importSongDefaults.artist"
+      :default-subtitle="importSongDefaults.subtitle"
+      :default-genre="importSongDefaults.genre"
+      :default-bpm="importSongDefaults.bpm"
+      :default-offset="importSongDefaults.offset"
+      :default-music-source-path="importSongDefaults.musicSourcePath"
+      :default-cover-source-path="importSongDefaults.coverSourcePath"
+      :default-background-source-path="importSongDefaults.backgroundSourcePath"
+      :default-chart-source-path="importSongDefaults.chartSourcePath"
+      :force-create-chart="true"
+      :submitting="importing"
+      @close="closeImportSongModal"
       @confirm="handleImportSongConfirm"
     />
 
     <CreateEmptyPackModal
       :show="showCreateEmptyPackModal"
       :existing-packs="packs.map(p => p.name)"
+      :submitting="importingAction === 'createPack' && importing"
       @close="showCreateEmptyPackModal = false"
       @confirm="handleCreateEmptyPackConfirm"
     />
-
-    <!-- Import loading overlay -->
-    <transition name="fade">
-      <div v-if="importing" class="import-overlay" role="dialog" aria-modal="true">
-        <div class="import-overlay-box">
-          <div class="import-overlay-spinner">&#x27F3;</div>
-          <div class="import-overlay-msg">{{ t('loading') }}</div>
-          <button class="import-overlay-cancel" @click="importing = false">{{ t('cancel') }}</button>
-        </div>
-      </div>
-    </transition>
   </div>
 </template>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Orbitron:wght@700&display=swap');
-
 .song-packs-screen {
   width: 100%; height: 100%;
   display: flex; flex-direction: column;
@@ -536,30 +447,62 @@ async function handleCreateEmptyPackConfirm(packName: string) {
 }
 
 .top-bar {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
+  display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--primary-color) 15%, transparent);
-  background: color-mix(in srgb, var(--primary-color) 4%, transparent);
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-color) 82%, transparent);
+  backdrop-filter: blur(12px);
+  position: relative;
 }
-.top-bar > * { min-width: 0; }
-.top-bar h2 {
+.top-bar-lead,
+.top-bar-trail {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.top-bar-lead { justify-content: flex-start; }
+.top-bar-trail { justify-content: flex-end; }
+.top-bar-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
   text-align: center;
-  justify-self: center;
-  font-family: 'Orbitron', sans-serif;
-  font-size: 0.8rem; letter-spacing: 0.25em;
-  color: rgba(255,255,255,0.35);
+  font-family: "Orbitron", sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0.3em;
+  color: var(--text-muted);
+  text-transform: uppercase;
 }
-.back-btn {
-  background: none; border: none; color: rgba(255,255,255,0.45);
-  cursor: pointer; font-size: 0.85rem; font-family: 'Rajdhani', sans-serif;
-  padding: 0.3rem 0.6rem; border-radius: 6px;
+.tb-btn {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border-radius: 6px;
+  background: var(--section-bg);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: "Rajdhani", sans-serif;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
-.back-btn:hover { color: var(--text-color); background: rgba(255,255,255,0.06); }
+.tb-btn:hover {
+  background: var(--primary-color-bg);
+  border-color: color-mix(in srgb, var(--primary-color) 45%, transparent);
+  color: var(--text-color);
+}
 .header-actions {
-  display: flex; align-items: center; justify-self: end; gap: 0.5rem;
+  display: flex; align-items: center; gap: 0.5rem;
+  margin-left: auto;
+  flex-wrap: nowrap;
 }
 .icon-btn {
   width: 2rem;
@@ -620,7 +563,7 @@ async function handleCreateEmptyPackConfirm(packName: string) {
 
 .content {
   flex: 1; min-height: 0; overflow-y: auto;
-  padding: 0.75rem 1.25rem;
+  padding: 1rem 1rem 1.25rem;
   width: 100%; max-width: 760px; align-self: center;
   display: flex; flex-direction: column; gap: 0.5rem;
   position: relative;
@@ -747,9 +690,9 @@ async function handleCreateEmptyPackConfirm(packName: string) {
 
 .dir-footer {
   display: flex; align-items: center; gap: 0.75rem;
-  padding: 0.55rem 1.25rem;
-  border-top: 1px solid rgba(255,255,255,0.04);
-  background: rgba(0,0,0,0.2);
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--border-color);
+  background: color-mix(in srgb, var(--bg-color) 86%, transparent);
 }
 .dir-label {
   font-size: 0.66rem; color: rgba(255,255,255,0.2);
@@ -763,56 +706,22 @@ async function handleCreateEmptyPackConfirm(packName: string) {
 .spinner { display: inline-block; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Import loading overlay */
-.import-overlay {
-  position: absolute; inset: 0; z-index: 200;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--overlay-bg, rgba(13, 13, 26, 0.72));
-  backdrop-filter: blur(10px);
-}
-.import-overlay-box {
-  display: flex; flex-direction: column; align-items: center; gap: 1rem;
-  padding: 2.5rem 3rem;
-  background: var(--section-bg, rgba(20, 12, 40, 0.92));
-  border: 1px solid var(--border-color, color-mix(in srgb, var(--primary-color) 30%, transparent));
-  border-radius: 20px;
-  box-shadow: 0 24px 80px rgba(0,0,0,0.5);
-}
-.import-overlay-spinner {
-  font-size: 2.5rem; color: var(--primary-color);
-  animation: spin 1s linear infinite;
-}
-.import-overlay-msg {
-  font-family: 'Orbitron', sans-serif;
-  font-size: 0.78rem; letter-spacing: 0.2em;
-  color: var(--text-color, rgba(255,255,255,0.5));
-}
-.import-overlay-cancel {
-  margin-top: 0.5rem; padding: 0.45rem 1.6rem;
-  background: transparent;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.12));
-  border-radius: 8px; color: var(--text-color, rgba(255,255,255,0.35));
-  font-size: 0.8rem; cursor: pointer; transition: all 0.15s;
-  font-family: 'Rajdhani', sans-serif;
-}
-.import-overlay-cancel:hover {
-  border-color: var(--accent-red, rgba(255, 80, 80, 0.45));
-  color: var(--accent-red-hover, rgba(255, 110, 110, 0.85));
-  background: var(--accent-red-bg, rgba(255, 80, 80, 0.07));
-}
-
 @media (max-width: 760px) {
   .top-bar {
-    grid-template-columns: 1fr;
-    justify-items: stretch;
-    gap: 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
   }
-  .top-bar h2 {
+  .top-bar-title {
+    position: static;
+    transform: none;
     order: -1;
     width: 100%;
   }
+  .top-bar-lead,
+  .top-bar-trail {
+    flex: 1 1 auto;
+  }
   .header-actions {
-    justify-self: stretch;
     justify-content: flex-end;
   }
   .pack-header { align-items: flex-start; }
