@@ -6,6 +6,7 @@ import { BaseModal } from "@/shared/ui";
 const props = defineProps<{
   show: boolean;
   existingPacks: string[];
+  submitting?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -52,12 +53,14 @@ watch(() => props.show, async (isShowing) => {
 });
 
 function handleConfirm() {
+  if (props.submitting) return;
   if (isValid.value) {
     emit("confirm", packName.value.trim());
   }
 }
 
 function handleClose() {
+  if (props.submitting) return;
   packName.value = "";
   emit("close");
 }
@@ -77,6 +80,7 @@ function onEnterKey(e: KeyboardEvent) {
   <BaseModal
     :model-value="show"
     :title="t('songPacks.createEmptyPack')"
+    :close-disabled="props.submitting"
     width="min(440px, 92vw)"
     @update:model-value="onOpenChange"
   >
@@ -103,14 +107,15 @@ function onEnterKey(e: KeyboardEvent) {
 
     <template #footer>
       <div class="form-modal-footer-inner">
-        <button type="button" class="form-modal-btn" @click="handleClose">{{ t("cancel") }}</button>
+        <button type="button" class="form-modal-btn" :disabled="props.submitting" @click="handleClose">{{ t("cancel") }}</button>
         <button
           type="button"
           class="form-modal-btn form-modal-btn--primary"
-          :disabled="!isValid"
+          :disabled="!isValid || props.submitting"
           @click="handleConfirm"
         >
-          {{ t("songPacks.create") }}
+          <span v-if="props.submitting" class="form-modal-btn-spinner" aria-hidden="true" />
+          <span :class="{ 'form-modal-btn-label--hidden': props.submitting }">{{ t("songPacks.create") }}</span>
         </button>
       </div>
     </template>

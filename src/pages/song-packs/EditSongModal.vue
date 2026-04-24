@@ -59,6 +59,7 @@ function onOpenChange(open: boolean) {
   <BaseModal
     :model-value="song !== null"
     :title="t('songPacks.editSong')"
+    :close-disabled="savingMeta"
     width="min(440px, 92vw)"
     @update:model-value="onOpenChange"
   >

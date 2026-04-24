@@ -2,6 +2,7 @@
 import { ref, watch, computed } from "vue";
 import { useI18n } from "@/shared/i18n";
 import { openFileDialog } from "@/shared/lib/platform";
+import { useLibraryStore } from "@/shared/stores/library";
 import type { SongPackInfo } from "@/shared/api";
 import { BaseModal } from "@/shared/ui";
 import { BaseSelect } from "@/shared/ui";
@@ -10,8 +11,21 @@ import { BaseNumberField } from "@/shared/ui";
 const props = defineProps<{
   show: boolean;
   packs: SongPackInfo[];
+  errorMessage?: string;
   /** Default values for chart info fields */
   defaultTitle?: string;
+  /** Hide toggle and always create chart when importing */
+  forceCreateChart?: boolean;
+  defaultArtist?: string;
+  defaultSubtitle?: string;
+  defaultGenre?: string;
+  defaultBpm?: number;
+  defaultOffset?: number;
+  defaultMusicSourcePath?: string;
+  defaultCoverSourcePath?: string;
+  defaultBackgroundSourcePath?: string;
+  defaultChartSourcePath?: string;
+  submitting?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -31,10 +45,12 @@ const emit = defineEmits<{
     musicSourcePath: string;
     coverSourcePath: string;
     backgroundSourcePath: string;
+    chartSourcePath: string;
   }): void;
 }>();
 
 const { t } = useI18n();
+const library = useLibraryStore();
 
 const ROOT_PACK_ID = ".root";
 const selectedPack = ref(ROOT_PACK_ID);
@@ -53,6 +69,7 @@ const createChart = ref(false);
 const musicSourcePath = ref("");
 const coverSourcePath = ref("");
 const backgroundSourcePath = ref("");
+const chartSourcePath = ref("");
 
 // File picker helpers
 async function pickMusic() {
@@ -79,15 +96,22 @@ async function pickBackground() {
   if (selected && typeof selected === "string") backgroundSourcePath.value = selected;
 }
 
+async function pickChart() {
+  const selected = await openFileDialog({
+    title: t("songPacks.chartSource"),
+    filters: [{ name: t("songPacks.chartFile"), extensions: ["ssc", "sm"] }],
+  });
+  if (selected && typeof selected === "string") chartSourcePath.value = selected;
+}
+
 function clearMusic() { musicSourcePath.value = ""; }
 function clearCover() { coverSourcePath.value = ""; }
 function clearBackground() { backgroundSourcePath.value = ""; }
+function clearChart() { chartSourcePath.value = ""; }
 
 // Watch for defaultTitle changes and update songTitle
 watch(() => props.defaultTitle, (newVal) => {
-  if (newVal) {
-    songTitle.value = newVal;
-  }
+  if (newVal) songTitle.value = newVal;
 }, { immediate: true });
 
 // Reset form when modal opens
@@ -95,20 +119,30 @@ watch(() => props.show, (isShowing) => {
   if (isShowing) {
     selectedPack.value = ROOT_PACK_ID;
     songTitle.value = props.defaultTitle || "";
-    songArtist.value = "";
-    songSubtitle.value = "";
-    songGenre.value = "";
-    songBpm.value = 120;
-    songOffset.value = 0;
+    songArtist.value = props.defaultArtist || "";
+    songSubtitle.value = props.defaultSubtitle || "";
+    songGenre.value = props.defaultGenre || "";
+    songBpm.value = props.defaultBpm ?? 120;
+    songOffset.value = props.defaultOffset ?? 0;
     songStepsType.value = "pump-single";
     songDifficulty.value = "Easy";
     songMeter.value = 5;
-    createChart.value = false;
-    musicSourcePath.value = "";
-    coverSourcePath.value = "";
-    backgroundSourcePath.value = "";
+    createChart.value = props.forceCreateChart ? true : false;
+    musicSourcePath.value = props.defaultMusicSourcePath || "";
+    coverSourcePath.value = props.defaultCoverSourcePath || "";
+    backgroundSourcePath.value = props.defaultBackgroundSourcePath || "";
+    chartSourcePath.value = props.defaultChartSourcePath || "";
   }
 });
+
+watch(
+  () => props.forceCreateChart,
+  (forceCreate) => {
+    if (forceCreate) {
+      createChart.value = true;
+    }
+  },
+);
 
 const packOptions = computed(() => [
   { name: ROOT_PACK_ID, label: t("songPacks.packRoot") },
@@ -117,6 +151,23 @@ const packOptions = computed(() => [
 
 const packSelectDropdownOptions = computed(() =>
   packOptions.value.map((o) => ({ value: o.name, label: o.label })),
+);
+
+function normalizeSongName(name: string): string {
+  return name.trim().toLocaleLowerCase();
+}
+
+const hasDuplicateSongName = computed(() => {
+  const normalized = normalizeSongName(songTitle.value);
+  if (!normalized) return false;
+  return library.songs.some((song) => {
+    if (song.pack !== selectedPack.value) return false;
+    return normalizeSongName(song.title || "") === normalized;
+  });
+});
+
+const duplicateSongNameError = computed(() =>
+  hasDuplicateSongName.value ? t("songPacks.duplicateSongName") : "",
 );
 
 const difficultyOptions = [
@@ -136,6 +187,7 @@ const stepsTypeOptions = [
 ];
 
 function handleConfirm() {
+  if (props.submitting) return;
   emit("confirm", {
     packName: selectedPack.value,
     title: songTitle.value,
@@ -151,10 +203,12 @@ function handleConfirm() {
     musicSourcePath: musicSourcePath.value,
     coverSourcePath: coverSourcePath.value,
     backgroundSourcePath: backgroundSourcePath.value,
+    chartSourcePath: chartSourcePath.value,
   });
 }
 
 function handleClose() {
+  if (props.submitting) return;
   selectedPack.value = ROOT_PACK_ID;
   emit("close");
 }
@@ -168,11 +222,19 @@ function onOpenChange(open: boolean) {
   <BaseModal
     :model-value="show"
     :title="t('songPacks.fillSongInfo')"
+    :close-disabled="submitting"
     width="min(520px, 92vw)"
     :body-scrollable="true"
     @update:model-value="onOpenChange"
   >
     <div class="form-modal-fields">
+      <p v-if="errorMessage" class="form-modal-error">
+        {{ errorMessage }}
+      </p>
+      <p v-else-if="duplicateSongNameError" class="form-modal-error">
+        {{ duplicateSongNameError }}
+      </p>
+
       <label class="form-modal-label">{{ t('songPacks.targetPack') }}</label>
       <BaseSelect v-model="selectedPack" variant="form" :options="packSelectDropdownOptions" />
 
@@ -234,22 +296,19 @@ function onOpenChange(open: boolean) {
         <button type="button" class="form-modal-path-btn" @click="clearBackground">{{ t('common.clear') }}</button>
       </div>
 
-      <p class="form-modal-hint">{{ t('select.timingDefaultsHint') }}</p>
+      <label class="form-modal-label">{{ t('songPacks.chartSource') }}</label>
+      <div class="form-modal-path-row">
+        <input
+          v-model="chartSourcePath"
+          type="text"
+          class="form-modal-input form-modal-path-input"
+          :placeholder="t('songPacks.chartSourcePlaceholder')"
+        />
+        <button type="button" class="form-modal-path-btn" @click="pickChart">{{ t('common.browse') }}</button>
+        <button type="button" class="form-modal-path-btn" @click="clearChart">{{ t('common.clear') }}</button>
+      </div>
 
-      <label class="form-modal-label">{{ t('select.createInitialBpm') }}</label>
-      <BaseNumberField
-        v-model="songBpm"
-        input-class="form-modal-input"
-        :min="20"
-        :max="999"
-        step="0.001"
-        placeholder="120"
-      />
-
-      <label class="form-modal-label">{{ t('editor.metaOffset') }}</label>
-      <BaseNumberField v-model="songOffset" input-class="form-modal-input" step="0.001" placeholder="0" />
-
-      <div class="form-modal-check">
+      <div v-if="!forceCreateChart" class="form-modal-check">
         <span>{{ t('songPacks.createInitialChart') }}</span>
         <label class="toggle-switch">
           <input type="checkbox" v-model="createChart" />
@@ -257,7 +316,7 @@ function onOpenChange(open: boolean) {
         </label>
       </div>
 
-      <template v-if="createChart">
+      <template v-if="createChart && !forceCreateChart">
         <label class="form-modal-label">{{ t('editor.stepsType') }}</label>
         <BaseSelect v-model="songStepsType" variant="form" :options="stepsTypeOptions" />
 
@@ -271,14 +330,15 @@ function onOpenChange(open: boolean) {
 
     <template #footer>
       <div class="form-modal-footer-inner">
-        <button type="button" class="form-modal-btn" @click="handleClose">{{ t('cancel') }}</button>
+        <button type="button" class="form-modal-btn" :disabled="submitting" @click="handleClose">{{ t('cancel') }}</button>
         <button
           type="button"
           class="form-modal-btn form-modal-btn--primary"
-          :disabled="!songTitle.trim()"
+          :disabled="!songTitle.trim() || !!duplicateSongNameError || submitting"
           @click="handleConfirm"
         >
-          {{ t('songPacks.import') }}
+          <span v-if="submitting" class="form-modal-btn-spinner" aria-hidden="true" />
+          <span :class="{ 'form-modal-btn-label--hidden': submitting }">{{ t('songPacks.import') }}</span>
         </button>
       </div>
     </template>
@@ -299,4 +359,5 @@ function onOpenChange(open: boolean) {
 .toggle-slider::before { content: ""; position: absolute; width: 14px; height: 14px; left: 3px; bottom: 3px; background: rgba(255,255,255,0.5); border-radius: 50%; transition: 0.2s; }
 .toggle-switch input:checked + .toggle-slider { background: var(--primary-color); }
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--text-on-primary); }
+
 </style>

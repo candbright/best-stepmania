@@ -3,7 +3,7 @@ import { ref } from "vue";
 import { useI18n } from "@/shared/i18n";
 import * as api from "@/shared/api";
 import type { SongListItem } from "@/shared/api";
-import BaseDangerModal from "@/shared/ui/BaseDangerModal.vue";
+import { BaseModal } from "@/shared/ui";
 
 const props = defineProps<{
   song: SongListItem | null;
@@ -33,32 +33,63 @@ async function doDeleteSong() {
     emit("loading", false);
   }
 }
+
+function onOpenChange(open: boolean) {
+  if (!open && !deletingSong.value) emit("close");
+}
 </script>
 
 <template>
-  <BaseDangerModal
+  <BaseModal
     :model-value="song !== null"
     :title="t('songPacks.confirmDeleteSong')"
-    :description="song ? `<strong>${song.title || song.path.split('/').pop()}</strong><br/><span class='modal-path'>${song.path}</span>` : ''"
-    :warning="t('songPacks.confirmDeleteSongDetail')"
-    :confirm-label="t('songPacks.deleteSong')"
-    :loading="deletingSong"
-    @update:model-value="(v) => !v && emit('close')"
-    @confirm="doDeleteSong"
+    :close-disabled="deletingSong"
+    width="min(440px, 92vw)"
+    @update:model-value="onOpenChange"
   >
-    <template #description>
-      <strong>{{ song?.title || song?.path.split('/').pop() }}</strong>
-      <br />
-      <span class="modal-path">{{ song?.path }}</span>
+    <div class="form-modal-fields">
+      <p class="delete-song-title">{{ song?.title || song?.path.split('/').pop() }}</p>
+      <p class="modal-path">{{ song?.path }}</p>
+      <p class="delete-song-warning">{{ t('songPacks.confirmDeleteSongDetail') }}</p>
+    </div>
+
+    <template #footer>
+      <div class="form-modal-footer-inner">
+        <button type="button" class="form-modal-btn" :disabled="deletingSong" @click="emit('close')">{{ t('cancel') }}</button>
+        <button
+          type="button"
+          class="form-modal-btn form-modal-btn--primary"
+          :disabled="deletingSong"
+          @click="doDeleteSong"
+        >
+          <span v-if="deletingSong" class="form-modal-btn-spinner" aria-hidden="true" />
+          <span :class="{ 'form-modal-btn-label--hidden': deletingSong }">{{ t('songPacks.deleteSong') }}</span>
+        </button>
+      </div>
     </template>
-  </BaseDangerModal>
+  </BaseModal>
 </template>
 
 <style scoped>
+.delete-song-title {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
 .modal-path {
+  margin: 0.15rem 0 0;
   font-family: monospace;
   font-size: 0.72rem;
   color: rgba(255, 255, 255, 0.3);
   word-break: break-all;
 }
+
+.delete-song-warning {
+  margin: 0.55rem 0 0;
+  font-size: 0.74rem;
+  color: rgba(255, 180, 140, 0.8);
+}
+
 </style>
