@@ -117,6 +117,55 @@ pub struct PrepareImportResult {
     pub pack_name: String,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InspectImportSourceResult {
+    pub folder_name: String,
+    pub has_audio: bool,
+    pub has_cover: bool,
+    pub has_chart: bool,
+    pub title: String,
+    pub artist: String,
+    pub subtitle: String,
+    pub genre: String,
+    pub bpm: f64,
+    pub offset: f64,
+    pub music_source_path: String,
+    pub cover_source_path: String,
+    pub background_source_path: String,
+    pub chart_source_path: String,
+}
+
+#[derive(Debug, Default)]
+struct ImportedSongMeta {
+    title: String,
+    artist: String,
+    subtitle: String,
+    genre: String,
+    bpm: Option<f64>,
+    offset: Option<f64>,
+    music: String,
+    banner: String,
+    background: String,
+}
+
+#[tauri::command]
+pub async fn inspect_song_import_source(source_path: String) -> Result<InspectImportSourceResult, String> {
+    let source = Path::new(&source_path);
+    if !source.exists() {
+        return Err(format!("Source path does not exist: {}", source_path));
+    }
+    if !source.is_dir() {
+        return Err("Source must be a directory".to_string());
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        let source = Path::new(&source_path);
+        inspect_song_source_dir(source)
+    })
+        .await
+        .map_err(|e| format!("Inspect source failed: {e}"))?
+}
+
 /// 导入单首歌曲：将源目录复制到指定的 pack 目录（或根目录），然后触发后台重新扫描。
 /// pack_name 为空字符串时表示导入到根目录。
 #[tauri::command]
@@ -257,6 +306,7 @@ pub async fn create_chart_for_imported(
     music_source_path: String,
     cover_source_path: String,
     background_source_path: String,
+    chart_source_path: String,
 ) -> Result<String, String> {
     let dir = Path::new(&song_dir);
     if !dir.exists() || !dir.is_dir() {
@@ -336,10 +386,35 @@ pub async fn create_chart_for_imported(
         banner_file_name.clone()
     };
 
+    let chart_path = dir.join("song.ssc");
+
+    if !chart_source_path.trim().is_empty() {
+        let src_path = Path::new(&chart_source_path);
+        if src_path.exists() && src_path.is_file() {
+            std::fs::copy(src_path, &chart_path).map_err(|e| e.to_string())?;
+            let original = std::fs::read_to_string(&chart_path).map_err(|e| e.to_string())?;
+            let rewritten = rewrite_chart_header(
+                &original,
+                &ChartHeaderMeta {
+                    title: &title,
+                    subtitle: &subtitle,
+                    artist: &artist,
+                    genre: &genre,
+                    music: &audio_file_name,
+                    banner: &banner_file_name,
+                    background: &background_file_name,
+                    offset,
+                    bpm,
+                },
+            );
+            std::fs::write(&chart_path, rewritten).map_err(|e| e.to_string())?;
+            rescan_songs(&state).await?;
+            return Ok(chart_path.to_string_lossy().to_string());
+        }
+    }
+
     // 如果不创建图表，只更新歌曲信息并重新扫描
     if !create_chart {
-        let chart_path = dir.join("song.ssc");
-
         let escaped_title = escape_sm_value(&title);
         let escaped_artist = escape_sm_value(&artist);
         let escaped_subtitle = escape_sm_value(&subtitle);
@@ -363,8 +438,6 @@ pub async fn create_chart_for_imported(
         rescan_songs(&state).await?;
         return Ok(chart_path.to_string_lossy().to_string());
     }
-
-    let chart_path = dir.join("song.ssc");
 
     let escaped_title = escape_sm_value(&title);
     let escaped_artist = escape_sm_value(&artist);
@@ -396,12 +469,10 @@ pub async fn create_chart_for_imported(
 }
 
 /// 导入歌曲包：将源目录复制到 app songs 目录，然后触发后台重新扫描。
-/// target_base 参数保留但忽略，始终写入 app 内置 songs 目录。
 #[tauri::command]
 pub async fn import_song_pack(
     state: State<'_, AppState>,
     source_path: String,
-    _target_base: String,
 ) -> Result<ImportResult, String> {
     let source = Path::new(&source_path);
     if !source.exists() {
@@ -980,6 +1051,31 @@ fn has_chart_file(dir: &Path) -> bool {
     false
 }
 
+fn find_chart_file(dir: &Path) -> Option<std::path::PathBuf> {
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+                if ext.eq_ignore_ascii_case("ssc") {
+                    return Some(p);
+                }
+            }
+        }
+    }
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+                match ext.to_lowercase().as_str() {
+                    "sm" => return Some(p),
+                    _ => {}
+                }
+            }
+        }
+    }
+    None
+}
+
 fn find_audio_file(dir: &Path) -> Option<std::path::PathBuf> {
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {
@@ -1137,6 +1233,238 @@ fn unique_dir_under(base: &std::path::Path, preferred: &str) -> std::path::PathB
 
 fn escape_sm_value(v: &str) -> String {
     v.replace(';', "_").replace('\n', " ").replace('\r', " ")
+}
+
+struct ChartHeaderMeta<'a> {
+    title: &'a str,
+    subtitle: &'a str,
+    artist: &'a str,
+    genre: &'a str,
+    music: &'a str,
+    banner: &'a str,
+    background: &'a str,
+    offset: f64,
+    bpm: f64,
+}
+
+fn rewrite_chart_header(content: &str, meta: &ChartHeaderMeta<'_>) -> String {
+    let mut seen_title = false;
+    let mut seen_subtitle = false;
+    let mut seen_artist = false;
+    let mut seen_genre = false;
+    let mut seen_music = false;
+    let mut seen_banner = false;
+    let mut seen_background = false;
+    let mut seen_offset = false;
+    let mut seen_bpms = false;
+
+    let mut output_lines: Vec<String> = Vec::new();
+    for line in content.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("#TITLE:") && !seen_title {
+            output_lines.push(format!("#TITLE:{};", escape_sm_value(meta.title)));
+            seen_title = true;
+            continue;
+        }
+        if trimmed.starts_with("#SUBTITLE:") && !seen_subtitle {
+            output_lines.push(format!("#SUBTITLE:{};", escape_sm_value(meta.subtitle)));
+            seen_subtitle = true;
+            continue;
+        }
+        if trimmed.starts_with("#ARTIST:") && !seen_artist {
+            output_lines.push(format!("#ARTIST:{};", escape_sm_value(meta.artist)));
+            seen_artist = true;
+            continue;
+        }
+        if trimmed.starts_with("#GENRE:") && !seen_genre {
+            output_lines.push(format!("#GENRE:{};", escape_sm_value(meta.genre)));
+            seen_genre = true;
+            continue;
+        }
+        if trimmed.starts_with("#MUSIC:") && !seen_music {
+            output_lines.push(format!("#MUSIC:{};", escape_sm_value(meta.music)));
+            seen_music = true;
+            continue;
+        }
+        if trimmed.starts_with("#BANNER:") && !seen_banner {
+            output_lines.push(format!("#BANNER:{};", escape_sm_value(meta.banner)));
+            seen_banner = true;
+            continue;
+        }
+        if trimmed.starts_with("#BACKGROUND:") && !seen_background {
+            output_lines.push(format!("#BACKGROUND:{};", escape_sm_value(meta.background)));
+            seen_background = true;
+            continue;
+        }
+        if trimmed.starts_with("#OFFSET:") && !seen_offset {
+            output_lines.push(format!("#OFFSET:{:.3};", meta.offset));
+            seen_offset = true;
+            continue;
+        }
+        if trimmed.starts_with("#BPMS:") && !seen_bpms {
+            output_lines.push(format!("#BPMS:0.000={:.3};", meta.bpm));
+            seen_bpms = true;
+            continue;
+        }
+        output_lines.push(line.to_string());
+    }
+
+    let mut prepend: Vec<String> = Vec::new();
+    if !seen_title {
+        prepend.push(format!("#TITLE:{};", escape_sm_value(meta.title)));
+    }
+    if !seen_subtitle {
+        prepend.push(format!("#SUBTITLE:{};", escape_sm_value(meta.subtitle)));
+    }
+    if !seen_artist {
+        prepend.push(format!("#ARTIST:{};", escape_sm_value(meta.artist)));
+    }
+    if !seen_genre {
+        prepend.push(format!("#GENRE:{};", escape_sm_value(meta.genre)));
+    }
+    if !seen_music {
+        prepend.push(format!("#MUSIC:{};", escape_sm_value(meta.music)));
+    }
+    if !seen_banner {
+        prepend.push(format!("#BANNER:{};", escape_sm_value(meta.banner)));
+    }
+    if !seen_background {
+        prepend.push(format!("#BACKGROUND:{};", escape_sm_value(meta.background)));
+    }
+    if !seen_offset {
+        prepend.push(format!("#OFFSET:{:.3};", meta.offset));
+    }
+    if !seen_bpms {
+        prepend.push(format!("#BPMS:0.000={:.3};", meta.bpm));
+    }
+    if prepend.is_empty() {
+        return output_lines.join("\n");
+    }
+    format!("{}\n{}", prepend.join("\n"), output_lines.join("\n"))
+}
+
+fn inspect_song_source_dir(source: &Path) -> Result<InspectImportSourceResult, String> {
+    let folder_name = source
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("imported-song")
+        .to_string();
+    let has_audio = find_audio_file(source).is_some();
+    let has_cover = find_cover_file(source).is_some();
+    let has_chart = has_chart_file(source);
+    let mut parsed = ImportedSongMeta::default();
+    let detected_chart_path = find_chart_file(source);
+    if let Some(chart_path) = detected_chart_path.as_ref() {
+        parsed = parse_chart_metadata(&chart_path).unwrap_or_default();
+    }
+    let fallback_title = folder_name.clone();
+    let title = if parsed.title.trim().is_empty() {
+        fallback_title
+    } else {
+        parsed.title
+    };
+    let bpm = parsed.bpm.unwrap_or(120.0);
+    let offset = parsed.offset.unwrap_or(0.0);
+
+    let music_source_path = resolve_asset_path(source, &parsed.music)
+        .or_else(|| find_audio_file(source))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let cover_source_path = resolve_asset_path(source, &parsed.banner)
+        .or_else(|| find_cover_file(source))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let background_source_path = resolve_asset_path(source, &parsed.background)
+        .or_else(|| resolve_asset_path(source, &parsed.banner))
+        .or_else(|| find_cover_file(source))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let chart_source_path = detected_chart_path
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    Ok(InspectImportSourceResult {
+        folder_name,
+        has_audio,
+        has_cover,
+        has_chart,
+        title,
+        artist: parsed.artist,
+        subtitle: parsed.subtitle,
+        genre: parsed.genre,
+        bpm,
+        offset,
+        music_source_path,
+        cover_source_path,
+        background_source_path,
+        chart_source_path,
+    })
+}
+
+fn parse_chart_metadata(path: &Path) -> Result<ImportedSongMeta, String> {
+    let content = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
+    let title = extract_sm_tag(&content, "TITLE");
+    let artist = extract_sm_tag(&content, "ARTIST");
+    let subtitle = extract_sm_tag(&content, "SUBTITLE");
+    let genre = extract_sm_tag(&content, "GENRE");
+    let music = extract_sm_tag(&content, "MUSIC");
+    let banner = extract_sm_tag(&content, "BANNER");
+    let background = extract_sm_tag(&content, "BACKGROUND");
+    let bpm = extract_first_bpm(&content);
+    let offset = extract_f64_tag(&content, "OFFSET");
+    Ok(ImportedSongMeta {
+        title,
+        artist,
+        subtitle,
+        genre,
+        bpm,
+        offset,
+        music,
+        banner,
+        background,
+    })
+}
+
+fn extract_sm_tag(content: &str, tag: &str) -> String {
+    let needle = format!("#{tag}:");
+    if let Some(start) = content.find(&needle) {
+        let rest = &content[start + needle.len()..];
+        if let Some(end) = rest.find(';') {
+            return rest[..end].trim().to_string();
+        }
+    }
+    String::new()
+}
+
+fn extract_f64_tag(content: &str, tag: &str) -> Option<f64> {
+    let raw = extract_sm_tag(content, tag);
+    raw.parse::<f64>().ok()
+}
+
+fn extract_first_bpm(content: &str) -> Option<f64> {
+    let raw = extract_sm_tag(content, "BPMS");
+    if raw.is_empty() {
+        return None;
+    }
+    let first_pair = raw.split(',').next()?.trim();
+    let bpm_str = first_pair.split('=').nth(1)?.trim();
+    bpm_str.parse::<f64>().ok()
+}
+
+fn resolve_asset_path(base_dir: &Path, rel_or_name: &str) -> Option<std::path::PathBuf> {
+    let rel = rel_or_name.trim();
+    if rel.is_empty() {
+        return None;
+    }
+    let direct = std::path::PathBuf::from(rel);
+    if direct.is_absolute() && direct.exists() {
+        return Some(direct);
+    }
+    let joined = base_dir.join(rel);
+    if joined.exists() {
+        return Some(joined);
+    }
+    None
 }
 
 fn write_default_wav(path: &std::path::Path) -> Result<(), String> {

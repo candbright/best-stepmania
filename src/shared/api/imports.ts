@@ -67,11 +67,25 @@ export interface PrepareImportResult {
   packName: string;
 }
 
-export async function importSongPack(
-  sourcePath: string,
-  targetBase: string,
-): Promise<ImportResult> {
-  return invoke<ImportResult>("import_song_pack", { sourcePath, targetBase });
+export interface InspectImportSourceResult {
+  folderName: string;
+  hasAudio: boolean;
+  hasCover: boolean;
+  hasChart: boolean;
+  title: string;
+  artist: string;
+  subtitle: string;
+  genre: string;
+  bpm: number;
+  offset: number;
+  musicSourcePath: string;
+  coverSourcePath: string;
+  backgroundSourcePath: string;
+  chartSourcePath: string;
+}
+
+export async function importSongPack(sourcePath: string): Promise<ImportResult> {
+  return invoke<ImportResult>("import_song_pack", { sourcePath });
 }
 
 export async function importSingleSong(
@@ -86,6 +100,12 @@ export async function prepareSongImport(
   packName: string,
 ): Promise<PrepareImportResult> {
   return invoke<PrepareImportResult>("prepare_song_import", { sourcePath, packName });
+}
+
+export async function inspectSongImportSource(
+  sourcePath: string,
+): Promise<InspectImportSourceResult> {
+  return invoke<InspectImportSourceResult>("inspect_song_import_source", { sourcePath });
 }
 
 export async function createChartForImported(
@@ -103,6 +123,7 @@ export async function createChartForImported(
   musicSourcePath: string,
   coverSourcePath: string,
   backgroundSourcePath: string,
+  chartSourcePath: string,
 ): Promise<string> {
   return invoke<string>("create_chart_for_imported", {
     songDir,
@@ -119,6 +140,7 @@ export async function createChartForImported(
     musicSourcePath,
     coverSourcePath,
     backgroundSourcePath,
+    chartSourcePath,
   });
 }
 

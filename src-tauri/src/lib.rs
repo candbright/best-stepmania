@@ -413,6 +413,7 @@ pub fn run() {
             chart::import_sm_as_new_chart,
             import::import_song_pack,
             import::import_single_song,
+            import::inspect_song_import_source,
             import::prepare_song_import,
             import::create_chart_for_imported,
             import::create_song,
