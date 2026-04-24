@@ -1,6 +1,6 @@
 # Best-StepMania User Guide (Simplified)
 
-This guide aligns with **v1.3.6**. Release notes: [changelog/bsm-v1.3.6.md](../changelog/bsm-v1.3.6.md).
+This guide aligns with **v1.4.0**. Release notes: [changelog/bsm-v1.4.0.md](../changelog/bsm-v1.4.0.md).
 
 ## 1. What You Need
 
@@ -77,4 +77,4 @@ Note: do not launch `target/debug/best-stepmania.exe` directly. It expects the `
 
 - Chinese guide: `docs/zh/USER_GUIDE.md`
 - English guide: `docs/en/USER_GUIDE.md`
-- Release notes: `docs/changelog/bsm-v1.3.6.md`
+- Release notes: `docs/changelog/bsm-v1.4.0.md`
